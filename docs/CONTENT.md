@@ -503,7 +503,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - steam excavator (s_excavator)
    - P3e: pollution, overlays, alerts (s_smoke, flags poll_overlay / pipe_overlay / alerts)
    - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
-3. **LV:**
+3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine)
    - lodestone magnet
    - first motor
    - hand-made basic circuit

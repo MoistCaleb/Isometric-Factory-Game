@@ -5,9 +5,10 @@ import type { TierId } from './tiers';
  * Run modes: `fuel` burns fuel items for heat · `self` burns its own charge (no fuel) · `crank` advances only when the
  * player cranks/strikes it (P2d) · `boiler` burns fuel to turn piped water into steam · `steam` draws steam from pipes ·
  * `pump` fills its tank from adjacent water (P3a) · `store` chest (item slots) · `tank` barrel (one fluid) (P3b) ·
- * `thump` steam thumper (surveys deep veins once) · `dig` steam excavator (mines ore below it) (P3c). Electric arrives P4.
+ * `thump` steam thumper (surveys deep veins once) · `dig` steam excavator (mines ore below it) (P3c) · `elec` draws power from its
+ * buffer, filled by cables · `gen` generator feeding cables (P4a).
  */
-export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig';
+export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig' | 'elec' | 'gen';
 export interface MachineDef {
   id: string; name: string; tier: TierId; maxHeatK?: number;
   run?: RunMode;
@@ -30,6 +31,8 @@ export interface MachineDef {
   fuelUse?: number; waterTank?: number; solar?: boolean;
   /** Pollution per second while burning (P3e). */
   smoke?: number;
+  /** Generator (P4a): W at full output. */
+  gen?: number;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
@@ -63,19 +66,22 @@ const ROWS: Row[] = [
   ['steam_pump', 'Steam Pump', 'S', undefined, { run: 'pump', rate: 40, tank: 16000, water: true, steam: 4 }],
   ['steam_thumper', 'Steam Thumper', 'S', undefined, { run: 'thump', steam: 16 }],
   ['steam_excavator', 'Steam Excavator', 'S', undefined, { run: 'dig', steam: 16 }],
-  ['electric_furnace', 'Electric Furnace', 'LV', 1750],
+  // P4a: electric (run 'elec' unless noted).
+  ['steam_turbine', 'Steam Turbine', 'LV', undefined, { run: 'gen', gen: 32, steam: 16 }],
+  ['electric_furnace', 'Electric Furnace', 'LV', 1750, { run: 'elec' }],
   ['ebf', 'Electric Blast Furnace', 'LV', 4200],
-  ['macerator', 'Macerator', 'LV'],
-  ['ore_washer', 'Ore Washer', 'LV'],
-  ['thermal_centrifuge', 'Thermal Centrifuge', 'LV'],
-  ['centrifuge', 'Centrifuge', 'LV'],
-  ['bender', 'Bender', 'LV'],
-  ['wiremill', 'Wiremill', 'LV'],
-  ['lathe', 'Lathe', 'LV'],
-  ['cutter', 'Cutter', 'LV'],
-  ['assembler', 'Assembler', 'LV'],
-  ['fluid_extractor', 'Fluid Extractor', 'LV'],
-  ['fluid_solidifier', 'Fluid Solidifier', 'LV'],
+  ['macerator', 'Macerator', 'LV', undefined, { run: 'elec' }],
+  ['ore_washer', 'Ore Washer', 'LV', undefined, { run: 'elec', tank: 8000 }],
+  ['thermal_centrifuge', 'Thermal Centrifuge', 'LV', undefined, { run: 'elec', tank: 4000 }],
+  ['centrifuge', 'Centrifuge', 'LV', undefined, { run: 'elec' }],
+  ['bender', 'Bender', 'LV', undefined, { run: 'elec' }],
+  ['wiremill', 'Wiremill', 'LV', undefined, { run: 'elec' }],
+  ['lathe', 'Lathe', 'LV', undefined, { run: 'elec' }],
+  ['cutter', 'Cutter', 'LV', undefined, { run: 'elec' }],
+  ['assembler', 'Assembler', 'LV', undefined, { run: 'elec' }],
+  ['fluid_extractor', 'Fluid Extractor', 'LV', undefined, { run: 'elec', tank: 8000 }],
+  ['fluid_solidifier', 'Fluid Solidifier', 'LV', undefined, { run: 'elec', tank: 8000 }],
+  ['polarizer', 'Polarizer', 'LV', undefined, { run: 'elec' }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
 ];
 export const MACHINES: MachineDef[] = ROWS.map(([id, name, tier, maxHeatK, x]) => ({ id, name, tier, maxHeatK, ...x }));
@@ -103,3 +109,5 @@ export const THUMP_TICKS = 400, THUMP_R = 48, THUMP_DEPTH = 16;
 /** Steam excavator (P3c): square radius below it, deepest layer, max ore hardness, ticks per block × (1 + hardness),
  * positions scanned per tick while looking for ore. */
 export const DIG_R = 4, DIG_DEPTH = 16, DIG_H = 1, DIG_TICKS = 40, DIG_SCAN = 128;
+/** Electricity (DESIGN §6, P4a): machine input = tier voltage × AMP_IN, buffer = BUF_S seconds of input. */
+export const AMP_IN = 1, BUF_S = 1;

@@ -14,6 +14,19 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'hull:steel', name: 'Steel Hull', color: 0x707478 },
   { id: 'piston:bronze', name: 'Bronze Piston', color: 0xb07a30 },
   { id: 'grinder_head:steel', name: 'Steel Grinder Head', color: 0x707478 },
+  // LV parts + circuit chain (CONTENT §11c LV, §11d, P4a).
+  { id: 'magnetic_rod:iron', name: 'Magnetic Iron Rod', color: 0x9a9aa8 },
+  { id: 'hull:lv', name: 'LV Hull', color: 0x8a8e94 },
+  { id: 'motor:lv', name: 'LV Motor', color: 0x9a7050 },
+  { id: 'pump:lv', name: 'LV Pump', color: 0x5070a0 },
+  { id: 'piston:lv', name: 'LV Piston', color: 0x8a8e94 },
+  { id: 'conveyor:lv', name: 'LV Conveyor Module', color: 0x303030 },
+  { id: 'robot_arm:lv', name: 'LV Robot Arm', color: 0xa08a50 },
+  { id: 'board:resin', name: 'Resin Board', color: 0xb08040 },
+  { id: 'circuit_board:basic', name: 'Basic Circuit Board', color: 0x6a8a40 },
+  { id: 'vacuum_tube', name: 'Vacuum Tube', color: 0xc8d8e0 },
+  { id: 'resistor:carbon', name: 'Carbon Resistor', color: 0x5a4a3a },
+  { id: 'circuit:basic', name: 'Basic Circuit', color: 0x40a040 },
 ];
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */

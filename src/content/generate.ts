@@ -214,6 +214,11 @@ export function generate(): Generated {
   addTool('mortar', 'stone', 'Mortar', 0x8a8a8a, 0, 60);
   hand([s('cobble:stone'), s('shard:flint')], [s('tool:mortar:stone')]);
   addTool('treetap', 'wood', 'Treetap', 0x8b6a3e, 0, 100);
+  // P4a: lodestone magnet (magnetises iron rods until the Polarizer), soldering iron (basic circuits by hand).
+  addTool('magnet', 'lodestone', 'Lodestone Magnet', 0x303034, 0, 32);
+  hand([s('lodestone')], [s('tool:magnet:lodestone')], ['file']);
+  addTool('soldering_iron', 'copper', 'Soldering Iron', 0xd87a3c, 0, 64);
+  hand([s('rod:copper'), s('rod:iron'), s('stick:wood')], [s('tool:soldering_iron:copper')], ['file']);
   hand([s('plank:wood'), s('stick:wood')], [s('tool:treetap:wood')]);
   // Wood (§11c hand recipes).
   hand([s('log:wood')], [s('plank:wood', 2)]);
@@ -223,6 +228,7 @@ export function generate(): Generated {
 
   primitive(hand, mach);
   steam(hand, mach);
+  lv(hand, mach);
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -372,4 +378,43 @@ function steam(hand: Ctx['hand'], mach: Ctx['mach']) {
   // Compressor: dusts back into fuel lumps, rubber sheets into plates (double plates per material, see templates).
   for (const f of ['coal', 'charcoal', 'coke']) mach('steam_compressor', [s(`dust:${f}`)], [s(`lump:${f}`)], { power: 2 });
   mach('steam_compressor', [s('sheet:rubber', 2)], [s('plate:rubber')], { power: 2 });
+}
+
+/** LV (CONTENT §11c LV, §11d, P4a): alloys, parts, basic circuit chain. Machine/structure costs live in data/structures. */
+function lv(hand: Ctx['hand'], mach: Ctx['mach']) {
+  const P = { power: 4 }, W = ['wrench', 'screwdriver'] as ToolType[];
+  // Alloys: solder (tin + lead), cupronickel; nickel from pentlandite by matte smelting.
+  for (const f of ['ingot', 'dust']) {
+    mach('steam_alloy_smelter', [s(`${f}:tin`, 2), s(`${f}:lead`)], [s('ingot:solder', 3)], { ticks: 200, ...P });
+    mach('steam_alloy_smelter', [s(`${f}:copper`), s(`${f}:nickel`)], [s('ingot:cupronickel', 2)], { ticks: 200, ...P });
+  }
+  mach('electric_furnace', [s('mdust:pentlandite', 2)], [s('ingot:nickel'), s('slag')], { ticks: 200, power: 32 });
+  mach('steam_alloy_smelter', [s('pane:glass')], [s('tube:glass', 2)], { ticks: 100, ...P });
+  // Magnetisation: lodestone by hand, the Polarizer by power.
+  hand([s('rod:iron')], [s('magnetic_rod:iron')], ['magnet']);
+  mach('polarizer', [s('rod:iron')], [s('magnetic_rod:iron')], { ticks: 60, power: 8 });
+  // Wood pulp → resin board (pressed with sticky resin).
+  hand([s('log:wood')], [s('pulp:wood')], ['mortar']);
+  mach('steam_macerator', [s('log:wood')], [s('pulp:wood', 4)], P);
+  mach('macerator', [s('log:wood')], [s('pulp:wood', 6)]);
+  mach('steam_compressor', [s('pulp:wood', 2), s('sticky_resin')], [s('board:resin')], P);
+  // Basic circuit: board, tubes, resistors, solder; by hand with a soldering iron, cheaper in the assembler.
+  hand([s('board:resin'), s('foil:copper', 2)], [s('circuit_board:basic')], ['knife']);
+  hand([s('tube:glass'), s('fine_wire:copper', 2), s('bolt:steel')], [s('vacuum_tube')]);
+  mach('assembler', [s('tube:glass'), s('fine_wire:copper', 2), s('bolt:steel')], [s('vacuum_tube', 2)]);
+  hand([s('dust:coal'), s('fine_wire:copper', 2), s('sticky_resin')], [s('resistor:carbon', 2)]);
+  mach('assembler', [s('dust:coal'), s('fine_wire:copper', 2), s('sticky_resin')], [s('resistor:carbon', 4)]);
+  const circ = [s('circuit_board:basic'), s('vacuum_tube', 2), s('resistor:carbon', 2), s('wire:solder')];
+  hand(circ, [s('circuit:basic')], ['soldering_iron']);
+  mach('assembler', circ, [s('circuit:basic', 2)], { ticks: 200 });
+  // Parts.
+  const part = (inputs: Stack[], out: string) => { hand(inputs, [s(out)], W); mach('assembler', inputs, [s(out)], { ticks: 200 }); };
+  part([s('cable:tin', 2), s('fine_wire:copper', 4), s('rod:iron', 2), s('magnetic_rod:iron')], 'motor:lv');
+  part([s('motor:lv'), s('rotor:steel'), s('ring:rubber', 2), s('pipe_small:bronze'), s('screw:steel')], 'pump:lv');
+  part([s('motor:lv'), s('rod:steel', 2), s('gear:steel'), s('plate:steel', 2)], 'piston:lv');
+  part([s('motor:lv', 2), s('plate:rubber', 6), s('cable:tin')], 'conveyor:lv');
+  part([s('motor:lv', 2), s('piston:lv'), s('circuit:basic'), s('cable:tin', 2), s('rod:steel', 2)], 'robot_arm:lv');
+  hand([s('plate:steel', 8), s('cable:tin', 2)], [s('hull:lv')], ['wrench']);
+  // Rubber rings for pumps.
+  hand([s('plate:rubber')], [s('ring:rubber', 2)], ['knife']);
 }

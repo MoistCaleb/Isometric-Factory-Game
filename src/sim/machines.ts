@@ -14,7 +14,7 @@ import { accepts, topoChanged } from './pipes';
 import type { ActResult } from './player';
 import { STACK, bestTool, blockAt, count, give, take, wear } from './player';
 import { next } from './rng';
-import { KNOW, STOREY, type GameState } from './state';
+import { KNOW, STOREY, TPS, type GameState } from './state';
 import { know, survey } from './veins';
 import { sunlight } from './weather';
 import { smoggy } from './pollution';
@@ -38,13 +38,15 @@ export interface Mach {
   faces?: number[];
   /** Excavator: scan position (layer-major over its square) · thumper: 1 once its survey is done (P3c). */
   cur?: number;
+  /** Electric (P4a): energy buffer (J) · power in (consumers) or out (generators) last tick (W). */
+  e?: number; pw?: number;
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
-  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine'];
+  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -202,6 +204,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       if (m.st === MS.working) m.tank = { id: 'water', n: (m.tank?.n ?? 0) + Math.min(room, def.rate ?? 0) };
       continue;
     }
+    if (def.run === 'gen') { m.st = def.steam && (m.steam ?? 0) < 1 ? MS.noSteam : m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'thump') { stepThumper(s, gen, key, m, def); continue; }
     if (def.run === 'dig') { stepDig(s, gen, key, m, def); continue; }
     const b = blocker(s, gen, key, m, def, r);
@@ -224,6 +227,12 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       const need = r!.power * STEAM_PER_POWER;
       if ((m.steam ?? 0) < need) { m.st = MS.noSteam; continue; }
       m.steam! -= need;
+    }
+    if (def.run === 'elec') {
+      const need = r!.power / TPS;
+      if ((m.e ?? 0) < need - 1e-9) { m.st = MS.noPower; continue; }
+      m.e! -= need;
+      s.flags.powered = (s.flags.powered ?? 0) + 1;
     }
     m.st = MS.working;
     if (s.tick % 4 === 0 && smoggy(s, key)) continue; // smog: −25 % speed

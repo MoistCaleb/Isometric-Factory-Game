@@ -19,6 +19,8 @@ export interface StructDef {
   /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
    * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
   pipe?: { rate: number; cap: number; item?: boolean };
+  /** Cable (DESIGN §6, P4a): joins any cable on all 6 sides. Max volts, amps, volt drop per tile (loss W = I × drop × tiles). A fuse burns before anything else on overcurrent. */
+  cable?: { v: number; a: number; drop: number; fuse?: boolean };
 }
 
 /** Multiblock cell offset from the controller at rotation 0: [dx, dy, db, part?] (db = block levels up; 3 blocks = 1
@@ -60,6 +62,7 @@ export function rotCell([dx, dy, db]: Cell, r: number): [number, number, number]
 
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
 const LEAD = 0x5c5a78, TIN = 0xc8ccd0, HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
+const LVC = 0x8a8e94, VOLT = 0xf0d040, CABLE = 0x3a3a40, CABLE_CU = 0x4a3a34, COPPER = 0xd87a3c, GLASS = 0xb8d8e0;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
 export const STRUCTURES: StructDef[] = [
@@ -167,12 +170,61 @@ export const STRUCTURES: StructDef[] = [
     model: [[0, 0, 0, 16, 16, 16, BRONZE], [3, 3, 0, 13, 13, 16, 0xe07020], [5, 5, 0, 11, 11, 16, HULL_D]] },
   { id: 'input_bus', name: 'Bronze Input Bus', color: WOOD, hatch: 'item_in', cost: [['plate:bronze', 4], ['struct:chest', 1]], tools: ['wrench'],
     model: [[0, 0, 0, 16, 16, 16, BRONZE], [3, 3, 0, 13, 13, 16, WOOD], [5, 5, 0, 11, 11, 16, DARK]] },
+  // ---- LV (P4a): cables, fuse, steam turbine, machines (template: LV hull + 2 circuits + 2 tin cables + parts). ----
+  { id: 'tin_wire', name: 'Tin Wire', color: TIN, cost: [['wire:tin', 1]], cable: { v: 32, a: 2, drop: 0.8 }, model: [[7, 7, 7, 9, 9, 9, TIN]] },
+  { id: 'tin_cable', name: 'Tin Cable', color: CABLE, cost: [['cable:tin', 1]], cable: { v: 32, a: 2, drop: 0.4 }, model: [[6, 6, 6, 10, 10, 10, CABLE]] },
+  { id: 'copper_wire', name: 'Copper Wire', color: COPPER, cost: [['wire:copper', 1]], cable: { v: 128, a: 4, drop: 0.4 }, model: [[7, 7, 7, 9, 9, 9, COPPER]] },
+  { id: 'copper_cable', name: 'Copper Cable', color: CABLE_CU, cost: [['cable:copper', 1]], cable: { v: 128, a: 4, drop: 0.2 }, model: [[6, 6, 6, 10, 10, 10, CABLE_CU]] },
+  { id: 'fuse', name: 'Fuse (2 A)', color: 0xcfe8ee, cost: [['wire:tin', 1], ['tube:glass', 1]], cable: { v: 32, a: 2, drop: 0.4, fuse: true },
+    model: [[5, 5, 4, 11, 11, 12, 0xcfe8ee], [7, 7, 3, 9, 9, 13, TIN], [4, 4, 3, 12, 12, 4, TIN], [4, 4, 12, 12, 12, 13, TIN]] },
+  { id: 'steam_turbine', name: 'Steam Turbine', color: LVC, machine: 'steam_turbine', tools: ['wrench'],
+    cost: [['hull:lv', 1], ['motor:lv', 2], ['rotor:steel', 2], ['pipe:bronze', 2], ['cable:tin', 2]],
+    model: [[1, 0, 1, 15, 10, 15, LVC], [0, 3, 4, 16, 9, 12, STEEL], [3, 10, 3, 13, 13, 13, BRONZE], [5, 13, 5, 11, 16, 11, 0xd0d0d0], [6, 2, 15, 10, 6, 16, VOLT]] },
+  ...lvMachines(),
   { id: 'stone_anvil', name: 'Stone Anvil', color: STONE, machine: 'anvil', cost: [['cobble:stone', 8]], tools: ['hammer'],
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
 ];
 
+/** LV machines (P4a): hull box + a machine-specific top, a yellow power socket on the back. */
+function lvMachines(): StructDef[] {
+  const C = (n = 2): [string, number][] => [['hull:lv', 1], ['circuit:basic', 2], ['cable:tin', n]];
+  const base: Box[] = [[1, 0, 1, 15, 11, 15, LVC], [1, 11, 1, 15, 12, 15, 0x5a5e64], [6, 3, 0, 10, 7, 1, VOLT]];
+  const row = (id: string, name: string, parts: [string, number][], top: Box[]): StructDef =>
+    ({ id, name, color: LVC, machine: id, tools: ['wrench'], cost: [...C(), ...parts], model: [...base, ...top] });
+  return [
+    row('macerator', 'Macerator', [['piston:lv', 1], ['motor:lv', 1], ['grinder_head:steel', 1]],
+      [[3, 12, 3, 13, 15, 13, STEEL], [5, 15, 5, 11, 16, 11, SOOT], [4, 4, 15, 12, 8, 16, SOOT]]),
+    row('electric_furnace', 'Electric Furnace', [['cable:copper', 4]],
+      [[4, 3, 15, 12, 9, 16, SOOT], [5, 4, 15, 11, 7, 16, GLOW], [3, 12, 3, 13, 14, 13, COPPER]]),
+    row('bender', 'Bender', [['piston:lv', 2], ['motor:lv', 2]],
+      [[3, 12, 4, 6, 16, 12, STEEL], [10, 12, 4, 13, 16, 12, STEEL], [6, 12, 6, 10, 13, 10, 0x5a5e64]]),
+    row('wiremill', 'Wiremill', [['motor:lv', 4]],
+      [[3, 12, 3, 13, 14, 13, STEEL], [6, 14, 6, 10, 16, 10, COPPER], [7, 4, 15, 9, 8, 16, COPPER]]),
+    row('lathe', 'Lathe', [['piston:lv', 1], ['motor:lv', 1], ['head_knife:steel', 1]],
+      [[2, 12, 6, 14, 14, 10, STEEL], [2, 14, 7, 5, 16, 9, 0x5a5e64], [11, 14, 7, 14, 16, 9, 0x5a5e64]]),
+    row('cutter', 'Cutter', [['motor:lv', 1], ['conveyor:lv', 1], ['head_saw:steel', 1]],
+      [[2, 12, 4, 14, 13, 12, 0x303030], [7, 12, 2, 9, 16, 14, STEEL]]),
+    row('assembler', 'Assembler', [['robot_arm:lv', 2], ['conveyor:lv', 2]],
+      [[2, 12, 2, 14, 13, 14, 0x303030], [3, 13, 3, 5, 16, 5, 0xa08a50], [11, 13, 11, 13, 16, 13, 0xa08a50]]),
+    row('ore_washer', 'Ore Washer', [['motor:lv', 1], ['rotor:steel', 1], ['pane:glass', 1]],
+      [[3, 12, 3, 13, 15, 13, GLASS], [4, 12, 4, 12, 14, 12, WATER]]),
+    row('centrifuge', 'Centrifuge', [['motor:lv', 2]],
+      [[4, 12, 4, 12, 15, 12, STEEL], [6, 15, 6, 10, 16, 10, 0x5a5e64]]),
+    row('thermal_centrifuge', 'Thermal Centrifuge', [['motor:lv', 2], ['wire:cupronickel', 4]],
+      [[4, 12, 4, 12, 15, 12, 0xc49a6c], [6, 15, 6, 10, 16, 10, GLOW]]),
+    row('fluid_extractor', 'Fluid Extractor', [['pump:lv', 1], ['piston:lv', 1], ['pane:glass', 1]],
+      [[4, 12, 4, 12, 16, 12, GLASS], [5, 12, 5, 11, 14, 11, 0xe07020]]),
+    row('fluid_solidifier', 'Fluid Solidifier', [['pump:lv', 1], ['piston:lv', 1], ['pane:glass', 1]],
+      [[4, 12, 4, 12, 14, 12, GLASS], [3, 14, 3, 13, 16, 13, STEEL]]),
+    row('polarizer', 'Polarizer', [['rod:iron', 4]],
+      [[4, 12, 4, 12, 16, 12, COPPER], [6, 12, 6, 10, 16, 10, 0x5a5e64]]),
+  ];
+}
+
 /** Pipe structures (fluid + item) by id. */
 export const PIPES = new Map(STRUCTURES.filter((s) => s.pipe).map((s) => [s.id, s.pipe!]));
+/** Cable structures by id (P4a). */
+export const CABLES = new Map(STRUCTURES.filter((s) => s.cable).map((s) => [s.id, s.cable!]));
 for (const s of STRUCTURES) if (s.multi) for (const id of [s.id, s.multi.casing, ...s.multi.parts ?? [], ...s.multi.hatches ?? []]) MULTI_PARTS.add(id);
 
 export interface MultiCell { c: [number, number, number]; id: string; /** A hatch may stand here instead (outer casing). */ hatch: boolean }

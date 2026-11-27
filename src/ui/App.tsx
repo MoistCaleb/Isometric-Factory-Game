@@ -38,7 +38,7 @@ let lastView: View | null = null, lastPaused: boolean | null = null;
 
 /** Alerts (DESIGN §8): machines stuck in a bad status for ALERT_MS, plus explosions. Tap one to fly there. */
 export interface Alert { key: string; st: number; msg: string; t: number; boom?: boolean }
-const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun];
+const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower];
 const ALERT_MS = 3000;
 /** First time each machine was seen in its current bad status (`key` → [status, ms]). */
 const badSince = new Map<string, [number, number]>();
@@ -251,7 +251,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           {ovOpen && (
             <div class="pop">
               <label><input type="checkbox" checked={view.veins} onChange={() => renderer.toggleVeins()} /> Veins (O)</label>
-              <label><input type="checkbox" checked={!!view.pipes} onChange={() => renderer.togglePipes()} /> Pipes (H)</label>
+              <label><input type="checkbox" checked={!!view.pipes} onChange={() => renderer.togglePipes()} /> Pipes + cables (H)</label>
               <label><input type="checkbox" checked={!!view.poll} onChange={() => renderer.togglePoll()} /> Pollution (K)</label>
             </div>
           )}

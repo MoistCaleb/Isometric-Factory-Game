@@ -6,12 +6,12 @@ import { MINERALS } from './minerals';
 import type { TierId } from './tiers';
 
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
- * mdump open claim mface cput tap thump lboiler. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
+ * mdump open claim mface cput tap thump lboiler powered. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
   'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
-  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler'] as const;
+  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -33,6 +33,7 @@ const build = (id: string, n = 1): QuestTask => ({ k: 'build', id, n });
 const flag = (id: string, label: string): QuestTask => ({ k: 'flag', id, label });
 const P1: QuestDef['reward'] = { crates: [['P', 1]] }, P2: QuestDef['reward'] = { crates: [['P', 2]] };
 const S1: QuestDef['reward'] = { crates: [['S', 1]] }, S2: QuestDef['reward'] = { crates: [['S', 2]] };
+const L1: QuestDef['reward'] = { crates: [['LV', 1]] }, L2: QuestDef['reward'] = { crates: [['LV', 2]] };
 const ores = (form: string) => MINERALS.map((m) => `${form}:${m.id}`);
 
 export const QUESTS: QuestDef[] = [
@@ -395,5 +396,65 @@ export const QUESTS: QuestDef[] = [
       '**Hatches:** big multiblocks don\'t take pipes on just any casing. Any **outer** casing can be swapped for a hatch: a **Bronze Input Hatch** (water in), a **Bronze Output Hatch** (steam out) and, if you like, a **Bronze Input Bus** (fuel by item pipe). It needs at least one input and one output hatch. Place the hatches first, then **Auto-fill** the rest.',
     ],
     tasks: [build('large_boiler'), flag('lboiler', 'Run a complete Large Boiler')] },
+  // ---- LV (P4a): electricity ----
+  { id: 'l_magnet', chapter: 'LV', title: 'Lodestone', req: ['s_steel_hull'], reward: L1,
+    text: [
+      'Electricity starts with a magnet. Mine **magnetite** ore by hand and it sometimes drops a **lodestone** — a natural magnet. File it into a **Lodestone Magnet** (a tool, it wears out).',
+      'Stroke an **iron rod** with it to make a **Magnetic Iron Rod**: the heart of every motor. Later the **Polarizer** does this with power.',
+    ],
+    tasks: [have('tool:magnet:lodestone'), have('magnetic_rod:iron')] },
+  { id: 'l_motor', chapter: 'LV', title: 'Electric Motor', req: ['l_magnet', 's_rubber'], reward: L1,
+    text: [
+      'An **LV Motor** = 2 tin cables + 4 fine copper wires + 2 iron rods + 1 magnetic iron rod (wrench + screwdriver). Every LV part and machine is built from motors.',
+      '**Wire** is cut from a plate with a **wire cutter**; cut a wire again for **fine wire**. A **cable** is a wire wrapped in a rubber sheet — insulation.',
+    ],
+    tasks: [have('motor:lv')] },
+  { id: 'l_turbine', chapter: 'LV', title: 'Spinning Up', req: ['l_motor', 's_boiler'], reward: L2,
+    text: [
+      'Real units: **voltage** (V) pushes, **current** (A) flows, **power** (W = V × A) is energy per second, energy is counted in **joules** (J). LV is **32 V**.',
+      'The **Steam Turbine** (LV hull + 2 motors + 2 steel rotors + 2 bronze pipes + 2 tin cables) turns steam from a pipe into up to **32 W** (1 A at 32 V), using 16 L/tick at full output. It only spins as fast as the cables draw, so idle machines cost no steam.',
+      'An **LV Hull** is 8 steel plates + 2 tin cables (wrench).',
+    ],
+    tasks: [have('hull:lv'), build('steam_turbine')] },
+  { id: 'l_circuit', chapter: 'LV', title: 'Basic Circuit', req: ['l_motor'], reward: L2,
+    text: [
+      'LV machines need **Basic Circuits**, soldered by hand with a **Soldering Iron** (copper rod + iron rod + stick, file):',
+      '**Board:** macerate logs into **wood pulp** (or grind with the mortar), press 2 pulp + sticky resin in the steam compressor → **resin board**; add 2 **copper foil** (knife) → circuit board.',
+      '**Vacuum tube:** the alloy smelter blows a glass pane into 2 **glass tubes**; + 2 fine copper wire + steel bolt. **Carbon resistors:** coal dust + 2 fine copper wire + sticky resin. **Solder:** 2 tin + 1 lead in the alloy smelter → 3 solder; cut a wire.',
+      'Circuit = board + 2 tubes + 2 resistors + 1 solder wire. The **Assembler** makes two at once.',
+    ],
+    tasks: [have('circuit:basic', 2)] },
+  { id: 'l_cables', chapter: 'LV', title: 'Live Wire', req: ['l_turbine', 'l_circuit'], reward: L2,
+    text: [
+      'LV machines follow a template: **LV hull + 2 basic circuits + 2 tin cables** + their own parts. Each has a small **energy buffer** (1 s of input, 32 W max at LV) and draws its recipe\'s power every tick — "No power" when the buffer runs dry.',
+      '**Cables** join every cable they touch on all 6 sides, any material, into one network; machines and generators touching it connect (set a side **Off** in the machine\'s Sides to cut it). Bare **wire** works too but loses twice as much.',
+      '**Loss:** every tile of cable between a machine and the nearest generator costs a little (tin cable 0.4 V per tile of 32 V). Keep generators close. The machine panel shows the network: volts, watts, amps and loss. The pipe overlay (**H**) shows cables in yellow.',
+    ],
+    tasks: [build('tin_cable', 4), flag('powered', 'Power an LV machine')] },
+  { id: 'l_fuse', chapter: 'LV', title: 'Blow a Fuse', req: ['l_cables'], reward: L1,
+    text: [
+      '**Current** on a network = watts delivered ÷ volts. **Tin** cable carries **2 A** (64 W at LV), **copper** 4 A. More than that and the weakest block **burns out** — two turbines are the most one tin line can take.',
+      'A **Fuse** (tin wire in a glass tube) is a 2 A cable block that always burns first: a cheap, deliberate weak spot. When it blows, the line is cut until you place a new one.',
+      'Voltage matters too: anything rated below its network\'s voltage burns (cables) or **explodes** (machines). Nothing at LV goes higher — until transformers.',
+    ],
+    tasks: [build('fuse')] },
+  ...([
+    ['macerator', 'Macerator', 'LV crushing: ore → 2 crushed, then purified → dust with better byproduct odds than steam. Also logs → 6 wood pulp.'],
+    ['electric_furnace', 'Electric Furnace', 'Smelts dusts up to 1750 K — steel included, no fuel, no smoke. Iron (1811 K) still needs a blast furnace. Also smelts pentlandite into nickel (matte smelting).'],
+    ['bender', 'Bender', 'Ingot → plate 1:1 (no waste), plates → foil ×4, rods → springs. The programmed circuit number picks plate vs double plate.'],
+    ['wiremill', 'Wiremill', 'Ingot → 2 wires, wire → 4 fine wires: far cheaper than the wire cutter.'],
+    ['lathe', 'Lathe', 'Ingot → 2 rods, bolts → screws, rods → 2 rings.'],
+    ['cutter', 'Cutter', 'Rod → 4 bolts (the saw gives 2).'],
+    ['assembler', 'Assembler', 'Builds parts, gears, cables and circuits from components — 2 circuits per set, 2 vacuum tubes, 4 resistors.'],
+    ['ore_washer', 'Ore Washer', 'Crushed ore + 1000 L water → purified ore with its first byproduct guaranteed.'],
+    ['centrifuge', 'Centrifuge', 'Impure dust → clean dust, half the time with a byproduct.'],
+    ['thermal_centrifuge', 'Thermal Centrifuge', 'Purified → refined ore (+ the second byproduct); refined ore macerates to dust plus extra. Its coil is cupronickel wire: nickel from pentlandite (electric furnace) + copper in the alloy smelter.'],
+    ['fluid_extractor', 'Fluid Extractor', 'Melts ingots into 144 L of molten metal; the Fluid Solidifier casts it back into ingots and plates with clay molds.'],
+    ['polarizer', 'Polarizer', 'Magnetises iron rods with power — retire the lodestone.'],
+  ] as const).map(([id, name, what]): QuestDef => ({
+    id: `l_${id}`, chapter: 'LV', title: name, req: ['l_cables'], reward: L1,
+    text: [`**${name}:** ${what}`, 'Build it (LV template + its parts, see its recipe) and cable it to a generator.'],
+    tasks: [build(id)],
+  })),
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

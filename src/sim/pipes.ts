@@ -20,6 +20,7 @@ export interface Net { keys: string[]; item: boolean; rate: number; cap: number;
 /** Bumped whenever structures are placed/removed: networks are rebuilt lazily. */
 let topo = 0;
 export const topoChanged = () => { topo++; };
+export const topoVersion = () => topo;
 const cache = new WeakMap<object, { v: number; w: number; nets: Net[] }>();
 /** Face order (data/machines SIDES): east, west, south, north, up, down. Opposite side = index ^ 1. */
 const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];

@@ -27,3 +27,12 @@ export function weatherText(s: { tick: number; wind: number; rain: number }): st
   const sky = s.rain > 0.5 ? '🌧' : s.rain > 0.05 ? '🌦' : day ? '☀' : '☾';
   return `${sky} ${Math.round(s.wind * 25)} m/s`;
 }
+
+/** SI auto-scale (DESIGN §6: kJ, MJ, GJ). */
+function si(n: number, unit: string): string {
+  const a = Math.abs(n);
+  for (const [k, p] of [[1e9, 'G'], [1e6, 'M'], [1e3, 'k']] as const) if (a >= k) return `${+(n / k).toFixed(a >= k * 100 ? 0 : 1)} ${p}${unit}`;
+  return `${a >= 100 ? Math.round(n) : +n.toFixed(1)} ${unit}`;
+}
+export const fmtW = (n: number) => si(n, 'W');
+export const fmtJ = (n: number) => si(n, 'J');

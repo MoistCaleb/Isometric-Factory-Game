@@ -1,11 +1,12 @@
 // Main-thread handle to the sim worker.
+import type { PowerInfo } from './power';
 import type { FromSim, ToSim } from './protocol';
 import type { ActResult, Cmd } from './player';
 import type { Mach } from './machines';
 import type { GameState, Slot } from './state';
 
 export interface SimStats { tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number; ms?: Record<string, number>; pl?: Record<string, number>; q?: Record<string, number>; fl?: Record<string, number> }
-export interface MachView { key: string; m: Mach | null; miss: [string, string][]; blocked: string[]; need: string[] }
+export interface MachView { key: string; m: Mach | null; miss: [string, string][]; blocked: string[]; need: string[]; pw?: PowerInfo }
 
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });

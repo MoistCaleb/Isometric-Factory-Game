@@ -4,9 +4,12 @@ import { SMOG } from '../sim/pollution';
 import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
-import { BOIL_K, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
+import { AMP_IN, BOIL_K, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
   THUMP_TICKS } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
+import { TIER_VOLTAGE } from '../data/tiers';
+import { bufJ, inputW } from '../sim/power';
+import { fmtJ, fmtW } from './format';
 import type { MachView } from '../sim/client';
 import { MS, MS_TEXT, type MachCmd } from '../sim/machines';
 import { slotsUsed } from '../sim/pipes';
@@ -47,7 +50,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower].includes(m.st as 2);
   const meter = (label: string, n: number, cap: number, col: string) => (
     <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
       <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
@@ -92,6 +95,16 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
           <h3>Steam</h3>
           {meter('Buffer', m.steam ?? 0, STEAM_BUF, '#d0d0d0')}
           <div class="dim">{r ? `Uses ${r.power * STEAM_PER_POWER} L/tick while working. ` : def.steam ? `Uses ${def.steam} L/tick while working. ` : ''}Connect a bronze pipe from a boiler.</div>
+        </>
+      )}
+      {(def.run === 'elec' || def.run === 'gen') && (
+        <>
+          <h3>Power</h3>
+          {def.run === 'elec' && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / bufJ(def)) * 100)}%`, background: '#f0d040' }} /></div>
+            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def))} = {TIER_VOLTAGE[def.tier]} V × {AMP_IN} A){r ? ` · recipe uses ${fmtW(r.power)}` : ''}</div></>}
+          {def.run === 'gen' && <div class="dim">Out {fmtW(m.pw ?? 0)} of {fmtW(def.gen ?? 0)} at {TIER_VOLTAGE[def.tier]} V{def.steam ? ` · uses up to ${def.steam} L/tick of steam, only as much as the cables draw` : ''}</div>}
+          {view!.pw ? <div class="dim">Network: {view!.pw.v} V · {fmtW(view!.pw.w)} delivered of {fmtW(view!.pw.cap)} available · {view!.pw.a.toFixed(2)} A / {view!.pw.maxA} A max · cable loss {fmtW(view!.pw.loss)} · {view!.pw.cables} cable blocks</div>
+            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} Place tin cable touching it.</div>}
         </>
       )}
       {def.run === 'thump' && (
@@ -217,7 +230,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
           <button onClick={() => cmd({ k: 'mdump' })} title="Pour it away (or connect a pipe)">Dump</button></div>
       )}
 
-      <div class="row"><button onClick={() => setSides(!sides)}>{sides ? '▾' : '▸'} Sides (pipes)</button>
+      <div class="row"><button onClick={() => setSides(!sides)}>{sides ? '▾' : '▸'} Sides (pipes, cables)</button>
         {!sides && faces.some(Boolean) && <span class="dim">{faces.filter(Boolean).length} set</span>}</div>
       {sides && (
         <>
@@ -226,7 +239,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
               <button key={n} class={faces[i] ? 'on' : ''} onClick={() => cmd({ k: 'mface', face: i, mode: (faces[i] + 1) % 4 })}>{n}: {FACE_NAMES[faces[i]]}</button>
             ))}
           </div>
-          <div class="dim">Tap to cycle. <b>Auto</b>: {chest ? 'takes items in' : 'takes what it needs, sends out what it makes'} · <b>In</b> only · <b>Out</b> only · <b>Off</b>: ignores pipes on that side. Compass sides (north = up on the map).</div>
+          <div class="dim">Tap to cycle. <b>Auto</b>: {chest ? 'takes items in' : 'takes what it needs, sends out what it makes'} · <b>In</b> only · <b>Out</b> only · <b>Off</b>: ignores pipes and cables on that side. Compass sides (north = up on the map).</div>
         </>
       )}
     </div>

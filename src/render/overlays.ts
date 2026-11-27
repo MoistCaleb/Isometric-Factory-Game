@@ -1,7 +1,7 @@
 // Overlays (DESIGN §8, P3e): pollution (one tinted quad per 32×32 chunk, iso + map) and pipes (every pipe block near the
 // camera on all storeys, drawn through everything: fluid blue, item orange). Built in camera-relative world coords.
 import * as THREE from 'three';
-import { PIPES } from '../data/structures';
+import { CABLES, PIPES } from '../data/structures';
 import { HAZE, POLL_CH, SMOG } from '../sim/pollution';
 import type { Ent } from '../sim/state';
 
@@ -31,17 +31,17 @@ export function pollGeometry(pl: Record<string, number>, w: number, cx: number, 
 }
 
 const BOX = new THREE.BoxGeometry(0.42, 0.42, 0.42);
-const FLUID = new THREE.Color(0x40a8ff), ITEM = new THREE.Color(0xffa040);
+const FLUID = new THREE.Color(0x40a8ff), ITEM = new THREE.Color(0xffa040), POWER = new THREE.Color(0xf0e040);
 
-/** Pipe blocks within `R` tiles of the camera, as one merged geometry of small boxes. */
+/** Pipe and cable (yellow, P4a) blocks within `R` tiles of the camera, as one merged geometry of small boxes. */
 export function pipeGeometry(ents: Record<string, Ent>, w: number, cx: number, cy: number, R: number): THREE.BufferGeometry {
   const bp = BOX.getAttribute('position'), idx = BOX.getIndex()!, pos: number[] = [], col: number[] = [];
   for (const [k, e] of Object.entries(ents)) {
-    const pd = PIPES.get(e.s);
-    if (!pd) continue;
+    const pd = PIPES.get(e.s), cab = CABLES.has(e.s);
+    if (!pd && !cab) continue;
     const [x, y, b] = k.split(',').map(Number), wx = cx + mod(x - cx + w / 2, w) - w / 2;
     if (Math.abs(wx - cx) > R || Math.abs(y - cy) > R) continue;
-    const c = pd.item ? ITEM : FLUID;
+    const c = cab ? POWER : pd!.item ? ITEM : FLUID;
     for (let i = 0; i < idx.count; i++) {
       const j = idx.getX(i);
       pos.push(Math.floor(wx) + 0.5 + bp.getX(j), b + 0.5 + bp.getY(j), y + 0.5 + bp.getZ(j));

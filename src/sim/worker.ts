@@ -1,4 +1,5 @@
 /// <reference lib="webworker" />
+import { powerInfo } from './power';
 import { planet } from '../data/planets';
 import { worldGen, type WorldGen } from '../world/gen';
 import { advance, createLoop } from './loop';
@@ -42,7 +43,7 @@ function frame() {
 
 function postWatch() {
   if (!state || !gen || !watch) return;
-  post({ t: 'mach', key: watch, m: state.ents[watch] ? state.mach[watch] ?? newMach() : null, ...multiCheck(state.ents, gen.w, watch) });
+  post({ t: 'mach', key: watch, m: state.ents[watch] ? state.mach[watch] ?? newMach() : null, ...multiCheck(state.ents, gen.w, watch), pw: powerInfo.get(watch) });
 }
 
 self.onmessage = (e: MessageEvent<ToSim>) => {
