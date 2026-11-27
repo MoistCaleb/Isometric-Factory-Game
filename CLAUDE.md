@@ -48,7 +48,7 @@
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
-| src/render/chunks.ts | 32×32 chunk mesh for one layer slice + instanced trees |
+| src/render/chunks.ts | 32×32 chunk mesh for one layer slice + instanced trees; renderer builds only chunks overlapping the viewport ground quad (`rectInQuad`), frees off-screen ones after ~1.5 s |
 | src/ui/ | Preact App (top bar, menu), style.css, format |
 | tests/ | vitest: content, sim, save, world |
 | tools/mapdump.ts | `npm run map -- <seed> <out.png>`: planet PNG with spawn marker |
@@ -67,4 +67,5 @@
 - **P0 done**. **P1 done** (planet gen, chunk render, camera, Z-slider, day/night, weather, map + globe).
 - Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
 - X-ray ore view is a dev toggle; real reveal = scanning (P2+).
+- TODO: chunk loader design (keep chunks loaded off-screen for automation); sim will tick loaded chunks only.
 - Next: **P2 Primitive**.

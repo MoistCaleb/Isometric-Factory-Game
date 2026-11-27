@@ -17,11 +17,27 @@ const ISO_ZOOM: [number, number] = [5, 110];
 const GLOBE_DIST: [number, number] = [1.6, 6];
 const GLOBE_ENTER = 3.8; // whole planet in view when zooming out of the map
 const ELEV = Math.atan(1 / Math.SQRT2);
-const MAX_CACHE = 400;
+const MAX_CACHE = 400; // hard cap on chunk meshes
+const KEEP_FRAMES = 90; // off-screen chunks are freed after ~1.5 s (short grace avoids rebuild thrash while panning)
+const CULL_PAD = 3; // tiles: side faces and trees poke slightly past a chunk's ground footprint
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
 interface ChunkEntry { g: THREE.Group; used: number }
+
+/** Axis-aligned rect vs convex quad overlap (separating axes: the quad's edge normals; rect axes handled by the caller's bounds). */
+export function rectInQuad(rx0: number, rz0: number, rx1: number, rz1: number, q: readonly { x: number; z: number }[]): boolean {
+  let area = 0;
+  for (let i = 0; i < q.length; i++) { const a = q[i], b = q[(i + 1) % q.length]; area += a.x * b.z - b.x * a.z; }
+  const sgn = Math.sign(area) || 1;
+  const cs = [[rx0, rz0], [rx1, rz0], [rx1, rz1], [rx0, rz1]];
+  for (let i = 0; i < q.length; i++) {
+    const a = q[i], b = q[(i + 1) % q.length];
+    // Every rect corner strictly outside this edge → separated.
+    if (cs.every(([x, z]) => sgn * ((b.x - a.x) * (z - a.z) - (b.z - a.z) * (x - a.x)) < 0)) return false;
+  }
+  return true;
+}
 
 export class Renderer {
   view: View = { mode: 'iso', x: 0, y: 0, zoom: 24, rot: 0, level: 0, xray: false, mapZoom: 400, globeDist: 2.6 };
@@ -138,24 +154,32 @@ export class Renderer {
     this.chunks.clear();
   }
 
+  /** Free chunk meshes not on screen for KEEP_FRAMES (also runs in map/globe, so leaving iso releases them). */
+  private evictChunks() {
+    for (const [k, e] of this.chunks) if (this.frameNo - e.used > KEEP_FRAMES) { disposeChunk(e.g); this.terrain.remove(e.g); this.chunks.delete(k); }
+  }
+
   private updateChunks() {
     const gen = this.gen!, v = this.view;
     const lvl = Math.min(v.level, 0);
     const sig = `${lvl}|${v.xray}`;
     if (sig !== this.chunkSig) { this.clearChunks(); this.chunkSig = sig; }
     const ys = Math.min(v.level, 0) as number;
-    let x0 = Infinity, x1 = -Infinity, z0 = Infinity, z1 = -Infinity;
+    // Viewport footprint on the ground plane: a quad (a rhombus-ish shape in iso). Only chunks overlapping it are built.
+    const quad: { x: number; z: number }[] = [];
     for (const [a, b] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]) {
       const g = this.groundAt(a, b, ys);
-      if (!g) continue;
-      x0 = Math.min(x0, g.x); x1 = Math.max(x1, g.x); z0 = Math.min(z0, g.z); z1 = Math.max(z1, g.z);
+      if (g) quad.push({ x: g.x, z: g.z });
     }
-    if (!isFinite(x0)) return;
+    if (quad.length < 4) return;
+    const x0 = Math.min(...quad.map((q) => q.x)), x1 = Math.max(...quad.map((q) => q.x));
+    const z0 = Math.min(...quad.map((q) => q.z)), z1 = Math.max(...quad.map((q) => q.z));
     const ncx = Math.ceil(gen.w / CH), ncy = Math.ceil(gen.h / CH);
     const want: { cx: number; cy: number; d: number }[] = [];
-    for (let cy = Math.max(0, Math.floor(z0 / CH) - 1); cy <= Math.min(ncy - 1, Math.floor(z1 / CH) + 1); cy++)
-      for (let cx = Math.floor(x0 / CH) - 1; cx <= Math.floor(x1 / CH) + 1; cx++)
-        want.push({ cx, cy, d: Math.hypot((cx + 0.5) * CH - v.x, (cy + 0.5) * CH - v.y) });
+    for (let cy = Math.max(0, Math.floor(z0 / CH)); cy <= Math.min(ncy - 1, Math.floor(z1 / CH)); cy++)
+      for (let cx = Math.floor(x0 / CH); cx <= Math.floor(x1 / CH); cx++)
+        if (rectInQuad(cx * CH - CULL_PAD, cy * CH - CULL_PAD, (cx + 1) * CH + CULL_PAD, (cy + 1) * CH + CULL_PAD, quad))
+          want.push({ cx, cy, d: Math.hypot((cx + 0.5) * CH - v.x, (cy + 0.5) * CH - v.y) });
     want.sort((a, b) => a.d - b.d);
     for (const e of this.chunks.values()) e.g.visible = false;
     const t0 = performance.now();
@@ -280,6 +304,7 @@ export class Renderer {
     this.last = now;
     this.frameNo++;
     if (!this.gen) return;
+    this.evictChunks();
     this.keyPan(dt);
     const v = this.view;
     v.x = mod(v.x, this.p.w);
