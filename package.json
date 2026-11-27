@@ -1,0 +1,29 @@
+{
+  "name": "isometric-factory-game",
+  "private": true,
+  "version": "0.0.1",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && npm run validate && vite build",
+    "preview": "vite preview",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit",
+    "validate": "tsx tools/validate.ts"
+  },
+  "dependencies": {
+    "preact": "^11.2.0",
+    "three": "^0.187.0"
+  },
+  "devDependencies": {
+    "@preact/preset-vite": "^2.10.6",
+    "@types/node": "^26.6.11",
+    "@types/three": "^0.187.0",
+    "fake-indexeddb": "^6.2.8",
+    "tsx": "^4.23.15",
+    "typescript": "^7.0.2",
+    "vite": "^8.4.0",
+    "vite-plugin-pwa": "^2.0.0",
+    "vitest": "^5.1.2"
+  }
+}

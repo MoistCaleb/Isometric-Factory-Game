@@ -36,8 +36,29 @@
 - Overvoltage explodes machines; dry-boiler refill explodes.
 - No GTNH-specific names (tiers/materials).
 
-## Code layout (planned)
-`src/{data,content,sim,world,render,ui,save}`, `tools/` (validator).
+## Code map
+| Path | What |
+|---|---|
+| src/data/ | raw content tables: tiers, forms (flags→forms, tool types), materials, chemicals, minerals, veins, machines (ids only), misc + world sources |
+| src/content/generate.ts | items/fluids/templated recipes from data; ore chain; tools |
+| src/content/validate.ts | errors (fail build) + coverage warnings; `reachable()` from world sources |
+| src/content/registry.ts | `registry()` lookup: item/fluid/recipesFor/usesOf |
+| src/sim/ | state (GameState, TPS=20, DAY_TICKS=20 min), step (systems go here), loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
+| src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
+| src/render/scene.ts | P0 placeholder iso scene |
+| src/ui/ | Preact App (top bar, menu), style.css, format |
+| tests/ | vitest: content, sim, save |
+| .github/workflows/deploy.yml | test+build every push; Pages deploy on `main` |
+
+## Conventions
+- Item id `form:material` (e.g. `plate:copper`), ore chain `ore|crushed_ore|purified_ore|refined_ore|impure_mdust|mdust|small_mdust:<mineral>`; pure minerals (coal, salt, graphite) yield `dust:<product>`.
+- Tools `tool:<type>:<material>`. Fluids: chemical id or `molten:<material>` (144 L/ingot).
+- Hand recipes: machine `hand`, ticks 0, `tools` worn. Machine conflicts need `circuit`. Hand conflicts resolved by grid shape (P2).
+- Mineral refs: material id, chemical id, `m:<mineral>`, `later:<x>`.
+- Scripts: `npm run dev | test | validate | build`.
 
 ## Status
-- Planning complete. Next: **P0 Foundation**.
+- **P0 done** (scaffold, PWA, worker loop, saves/backups, content pipeline + validator).
+- Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
+- Next: **P1 World**.

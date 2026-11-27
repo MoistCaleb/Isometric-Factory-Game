@@ -1,0 +1,24 @@
+:root { --bg: #1b1f24; --panel: rgba(24, 28, 34, 0.92); --line: #3a4350; --fg: #e6e8eb; --dim: #9aa3ad; --acc: #c98b3a; }
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); color: var(--fg);
+  font: 14px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; touch-action: none; user-select: none; }
+#scene { position: fixed; inset: 0; width: 100%; height: 100%; display: block; }
+#ui { position: fixed; inset: 0; pointer-events: none; }
+#ui > * { pointer-events: auto; }
+.top { position: absolute; top: env(safe-area-inset-top, 0); left: 0; right: 0; display: flex; gap: 12px; align-items: center;
+  padding: 6px 12px; background: var(--panel); border-bottom: 1px solid var(--line); font-variant-numeric: tabular-nums; }
+.top .grow { flex: 1; }
+.dim { color: var(--dim); }
+button { background: #2a3038; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; min-height: 32px; }
+button:hover { border-color: var(--acc); }
+button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f24; }
+.panel { position: absolute; top: 52px; right: 12px; width: min(360px, calc(100% - 24px)); max-height: calc(100% - 64px); overflow: auto;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
+.panel h3 { margin: 12px 0 6px; font-size: 13px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+.panel h3:first-child { margin-top: 0; }
+.row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.saves { list-style: none; margin: 0; padding: 0; }
+.saves li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
+.toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
+  padding: 8px 14px; border-radius: 6px; }
+.toast.err { border-color: #c04040; }
