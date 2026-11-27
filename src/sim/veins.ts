@@ -36,13 +36,19 @@ export function prospect(s: GameState, gen: WorldGen, xIn: number, y: number): A
   const x = gen.wrapX(xIn), tool = bestTool(s, 'prospector');
   if (!tool) return { ok: false, msg: "Need a prospector's hammer" };
   const broke = wear(s, tool.i);
+  const { veins, msg } = survey(s, gen, x, y, PROSPECT_R, PROSPECT_DEPTH, 'Prospected');
+  return { ok: true, veins, msg: [msg, broke].filter(Boolean).join(' · ') };
+}
+
+/** Survey every vein whose top is at most `depth` and that reaches within `r` tiles of (x, y). */
+export function survey(s: GameState, gen: WorldGen, x: number, y: number, r: number, depth: number, what: string) {
   const veins: Record<string, number> = {}, found: string[] = [];
-  for (const v of gen.veinsAround(x, y, 1)) {
-    if (v.z0 > PROSPECT_DEPTH) continue;
-    if (Math.hypot(gen.dx(x, v.x), y - v.y) - Math.max(v.a, v.b) > PROSPECT_R) continue;
+  for (const v of gen.veinsAround(x, y, Math.ceil((r + 30) / 64))) {
+    if (v.z0 > depth) continue;
+    if (Math.hypot(gen.dx(x, v.x), y - v.y) - Math.max(v.a, v.b) > r) continue;
     found.push(v.def.name);
     Object.assign(veins, know(s, v.id, KNOW.surveyed));
   }
-  const msg = found.length ? `Prospected: ${found.join(', ')}` : `No veins within ${PROSPECT_R} tiles down to layer ${PROSPECT_DEPTH}`;
-  return { ok: true, veins, msg: [msg, broke].filter(Boolean).join(' · ') };
+  const msg = found.length ? `${what}: ${found.join(', ')}` : `No veins within ${r} tiles down to layer ${depth}`;
+  return { veins, msg };
 }

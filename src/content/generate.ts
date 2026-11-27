@@ -115,6 +115,7 @@ export function generate(): Generated {
     mach('steam_forge_hammer', [s(id('ingot'), 3)], [s(id('plate'), 2)], { power: 4 });
     mach('bender', [s(id('ingot'))], [s(id('plate'))], { circuit: 1 });
     hand([s(id('plate'), 3)], [s(id('double_plate'))], ['hammer']);
+    mach('steam_compressor', [s(id('plate'), 2)], [s(id('double_plate'))], { power: 4 });
     mach('bender', [s(id('plate'), 2)], [s(id('double_plate'))], { circuit: 2 });
     // Rods, bolts, screws, rings.
     hand([s(id('plate'))], [s(id('rod'))], ['file']);
@@ -282,13 +283,16 @@ function generateOre(mn: MineralDef, c: Ctx) {
   c.mach('macerator', [s(o('ore'))], [s(o('crushed_ore'), 2)]);
   // Crushed → impure dust → dust.
   c.mach('quern', [s(o('crushed_ore'))], [s(o('impure_mdust'))], { ticks: 200 });
+  c.mach('steam_macerator', [s(o('crushed_ore'))], [s(o('impure_mdust')), ...bpItem(0, 0.1)], { power: 4 });
   c.mach('macerator', [s(o('crushed_ore'))], [s(o('impure_mdust')), ...bpItem(0, 0.1)]);
   c.hand([s(o('impure_mdust'))], [s(dust)]); // sifting by hand (slow in-game; free in data)
+  c.mach('steam_ore_washer', [s(o('impure_mdust'))], [s(dust)], { fluidsIn: [s('water', 100)], ticks: 40, power: 2 });
   c.mach('centrifuge', [s(o('impure_mdust'))], [s(dust), ...bpItem(0, 0.5)]);
   // Wash route.
   c.mach('sluice', [s(o('crushed_ore'))], [s(o('purified_ore'))], { fluidsIn: [s('water', 1000)], ticks: 200 });
   c.mach('steam_ore_washer', [s(o('crushed_ore'))], [s(o('purified_ore')), ...bpItem(0, 0.5)], { fluidsIn: [s('water', 1000)], power: 4 });
   c.mach('ore_washer', [s(o('crushed_ore'))], [s(o('purified_ore')), ...bpItem(0)], { fluidsIn: [s('water', 1000)] });
+  c.mach('steam_macerator', [s(o('purified_ore'))], [s(dust), ...bpItem(1, 0.2)], { power: 4 });
   c.mach('macerator', [s(o('purified_ore'))], [s(dust), ...bpItem(1, 0.3)]);
   c.mach('thermal_centrifuge', [s(o('purified_ore'))], [s(o('refined_ore')), ...bpItem(1)], bpFluid(1));
   c.mach('macerator', [s(o('refined_ore'))], [s(dust), { ...s(mineralDust(mn, true)), chance: 0.6 }, ...bpItem(2, 0.5)]);
@@ -302,6 +306,8 @@ function generateOre(mn: MineralDef, c: Ctx) {
       c.mach('clay_furnace', [s(dust)], [ingot], { ticks: 400, minHeatK: prod.meltK });
     }
     c.mach('steam_furnace', [s(dust)], [ingot], { power: 4 });
+    // Crushed / purified ore smelts too (1 ingot each: the 2× comes from crushing).
+    if ((prod.meltK ?? 0) <= 1400) for (const f of ['ore', 'crushed_ore', 'purified_ore']) c.mach('steam_furnace', [s(o(f))], [ingot], { power: 4, ticks: 150 });
     c.mach('electric_furnace', [s(dust)], [ingot], { ticks: 80 });
   }
 }
@@ -359,4 +365,10 @@ function steam(hand: Ctx['hand'], mach: Ctx['mach']) {
   // Alloy smelter: bronze straight to ingots (no crucible + mold).
   for (const f of ['ingot', 'dust']) mach('steam_alloy_smelter', [s(`${f}:copper`, 3), s(`${f}:tin`)], [s('ingot:bronze', 4)], { ticks: 200, power: 4 });
   mach('steam_alloy_smelter', [s('dust:sand', 2), s('dust:ash')], [s('pane:glass', 2)], { ticks: 200, power: 4 });
+  // P3c rubber: extractor squeezes resin into raw rubber, the alloy smelter vulcanises it with sulfur (3× the clay furnace yield).
+  mach('steam_extractor', [s('sticky_resin')], [s('raw:rubber')], { power: 2 });
+  mach('steam_alloy_smelter', [s('raw:rubber', 2), s('small_dust:sulfur')], [s('sheet:rubber', 2)], { ticks: 200, power: 4 });
+  // Compressor: dusts back into fuel lumps, rubber sheets into plates (double plates per material, see templates).
+  for (const f of ['coal', 'charcoal', 'coke']) mach('steam_compressor', [s(`dust:${f}`)], [s(`lump:${f}`)], { power: 2 });
+  mach('steam_compressor', [s('sheet:rubber', 2)], [s('plate:rubber')], { power: 2 });
 }

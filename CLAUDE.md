@@ -48,7 +48,7 @@
 | src/sim/machines.ts | P2d machines: `Mach` per controller ent (recipe, inp/fuel/out bags, tank, heat, prog, status `MS`), `stepMachines`, `machCmd` (mrec/mload/mfuel/mtake/munload/mdump/crank/mfill), multiblock `controllerAt`/`missingCasings`, `refund` on demolish |
 | src/sim/pipes.ts | pipes: `networks` (same-kind pipe ents joined on 6 sides → links {ctl, face, via}, cached per topology via `topoChanged`), `stepPipes`: fluid (pool → producers push → users pull → storage tops up / soaks leftovers → spread back; a network keeps its fluid once set; boiler dry + water > 400 K → `explode`), items every `ITEM_EVERY` ticks (sources → nearest sinks by pipe distance, `accepts`); face modes `Mach.faces` (FACE, SIDES order E W S N up down) |
 | src/sim/quests.ts | P2e quest book: `checkQuests` (unlocked + tasks met → 1 done; 2 claimed), `taskProgress`, `questCmd` (qclaim, open crate); data in data/quests (QUESTS, action FLAGS) + data/loot (tables, `crate:<tier>`) |
-| src/sim/veins.ts | discovery: `pickSample` (hint), `know`, `prospect` (survey); mining ore → exposed |
+| src/sim/veins.ts | discovery: `pickSample` (hint), `know`, `prospect` (hammer) → `survey(r, depth)` (also thumper); mining ore → exposed |
 | src/sim/build.ts | place/addBase/demolish, `edgeKey` (s/e edges stored as neighbour n/w), `nearSide` |
 | src/sim/ | state (GameState v10: inv/tools, ents `x,y,b` (block level), base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), quests, flags (tutorial actions), pipes (fluid per pipe block), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
@@ -71,7 +71,7 @@
 - Water: `Surface.depth` = water layers (seabed at z = depth); ocean ≤8, trenches ≤22; no ore in water; under-water blocks unminable (offshore rigs later).
 - World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`, picked samples `x,y,s`). Vein id `cx.cy.slot`.
 - Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
-- Machines: `StructDef.machine` → `MachineDef.run` fuel|self|crank|boiler|steam|pump|store (chest: items in `out`)|tank (barrel); steam machines use `power × STEAM_PER_POWER` L/tick from `Mach.steam`; sim-made changes (explosions) go out via `simEvents` as `act` messages; recipe `minHeatK` (else machine `heatK`). Multiblock = `StructDef.multi {casing, pattern}`. Worker streams statuses in `stats.ms` and the watched machine as `{t:'mach'}`. `player.ts` ↔ `machines.ts` import each other: no top-level use of imports.
+- Machines: `StructDef.machine` → `MachineDef.run` fuel|self|crank|boiler|steam|pump (`steam` L/tick if set)|store (chest: items in `out`)|tank (barrel)|thump|dig (P3c; sim-made world changes/veins go out as `simEvents` with `sim: true`); steam machines use `power × STEAM_PER_POWER` L/tick from `Mach.steam`; sim-made changes (explosions) go out via `simEvents` as `act` messages; recipe `minHeatK` (else machine `heatK`). Multiblock = `StructDef.multi {casing, pattern}`. Worker streams statuses in `stats.ms` and the watched machine as `{t:'mach'}`. `player.ts` ↔ `machines.ts` import each other: no top-level use of imports.
 - Scripts: `npm run dev | test | validate | build | map`. Dev: `?seed=N` starts a fresh game on that seed when there's no save.
 
 ## Status
@@ -92,7 +92,7 @@
 - **P3 Steam** in progress:
   - [x] P3a steam core: bronze hull/piston/grinder head, water pump, bronze fluid pipes (single-fluid networks), small bronze boiler (heat → steam, dry-boiler explosion), steam furnace/macerator/forge hammer/ore washer/alloy smelter drawing steam from pipes; Steam quest chapter start
   - [x] P3b tin item pipes (nearest-sink routing), 6-face config (auto/in/out/off, fluid + item), chest (27 slots) / barrel (16 kL buffer) as machines, lead fluid pipes; quests s_items, s_barrel
-  - [ ] P3c compressor, extractor, steam pump, thumper, excavator; full ore ladder; rubber (sulfur)
+  - [x] P3c steam compressor / extractor / pump (40 L/t), thumper (survey r48 to layer 16, once), excavator (ore only, 9×9 below, layers 1–16, H≤1, → out bag); steam ore ladder (crushed/purified → dust, impure wash, furnace smelts crushed/purified); rubber trees (jungle + some swamp) + treetap tapping, extractor + alloy vulcanising; quests s_ladder s_compressor s_rubber s_extractor s_pump s_thumper s_excavator
   - [ ] P3d multiblock framework (rotation, hatches), Large Boiler, high-pressure steel boiler + steel hull, solar boiler
   - [ ] P3e pollution v1, alerts (fly to source), overlays (pipes, pollution)
 - New mechanic ⇒ add/extend the quest that teaches it (data/quests.ts); UI-only actions go in `UI_FLAGS`.

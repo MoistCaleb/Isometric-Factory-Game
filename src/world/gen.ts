@@ -129,7 +129,7 @@ export class WorldGen {
     switch (sf.biome) {
       case 'forest': return r < 0.3 ? (r < 0.08 ? Tree.Conifer : Tree.Broadleaf) : Tree.None;
       case 'jungle': return r < 0.45 ? Tree.Jungle : Tree.None;
-      case 'swamp': return r < 0.12 ? Tree.Broadleaf : Tree.None;
+      case 'swamp': return r < 0.12 ? (r < 0.05 ? Tree.Jungle : Tree.Broadleaf) : Tree.None; // jungle = rubber tree
       case 'tundra': return r < 0.04 ? Tree.Conifer : Tree.None;
       case 'plains': return r < 0.025 ? Tree.Broadleaf : Tree.None;
       case 'desert': return r < 0.006 ? Tree.Cactus : Tree.None;

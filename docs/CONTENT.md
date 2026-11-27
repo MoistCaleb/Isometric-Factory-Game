@@ -306,6 +306,14 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - Bronze Fluid Pipe block (P3a) = 1 small bronze pipe; 120 L/tick per link, 1000 L per block.
 - Lead Fluid Pipe block (P3b) = 1 small lead pipe; 80 L/tick, 800 L per block. Tin Item Pipe block = 1 tin item pipe (3 tin plates + tin ring); 4 items per 10 ticks per source.
 - Wooden Chest (8 planks): 27 slots. Wooden Barrel (7 planks): 16000 L, cold fluids only.
+- **P3c:**
+  - Steam Compressor (hull + 2 pistons): 2 plates → double plate, 2 rubber sheets → rubber plate, coal/charcoal/coke dust → lump.
+  - Steam Extractor (hull + piston + glass): sticky resin → raw rubber; Steam Alloy Smelter: 2 raw rubber + small sulfur → 2 rubber sheets (3× the clay furnace).
+  - Steam Pump (hull + 2 bronze pipes + bronze rotor): next to water, 40 L/tick for 4 L/tick steam.
+  - Steam Thumper (hull + 2 pistons + steel rod): 16 L/tick steam for 20 s, then surveys veins within 48 tiles down to layer 16; once per placement.
+  - Steam Excavator (hull + steel drill head + 2 bronze gears): 16 L/tick steam; mines only ore blocks (H ≤ 1, not under water) in the 9×9 below it, layer 1 → 16, 2 s per block × (1 + H); ore (× richness) into its output for item pipes; exposes veins.
+  - Steam ore ladder: macerator crushed → impure dust (+bp1 10%), purified → dust (+bp2 20%); ore washer impure dust + 100 L water → dust; steam furnace smelts ore/crushed/purified (≤ 1400 K) → 1 ingot.
+  - Rubber trees = jungle trees (+ 5% of swamp tiles). Treetap in tool slots: 3 taps → 1–2 resin, tree stays. Felling one: +50% resin. Sulfur: wash crushed coal / pyrite.
 - **Mechanical parts:** piston = bronze plate + rod + small gear. Steel grinder head = 3 steel plates + steel ingot. Bronze/steel gears via file + hammer, or a forge hammer.
 
 ### LV
@@ -486,13 +494,13 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - quern & sluice
    - glass
 2. **Steam** (P3a implemented: hull → pump + pipes → boiler (explosion warning) → steam furnace / alloy smelter / forge hammer / macerator → ore washer):
-   - rubber (needs sulfur: not reachable in Primitive)
    - first boiler (explosion warning quest)
    - bronze/lead pipes; P3b: item pipes + chest + sides (s_items), barrel + lead pipes (s_barrel)
    - each steam machine
    - ore washing & 2× processing
-   - steam thumper
-   - steam excavator
+   - P3c: ore ladder (s_ladder), compressor, rubber (treetap + sulfur), extractor, steam pump
+   - steam thumper (s_thumper)
+   - steam excavator (s_excavator)
    - high-pressure boilers
    - Large Boiler
    - steel hull

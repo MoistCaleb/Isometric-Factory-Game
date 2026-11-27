@@ -101,7 +101,7 @@ export const tooHot = (def: MachineDef, id: string) => !!def.cold && (id === 'st
 /** Room a machine has for fluid `id` → [current, cap, setter]. */
 function want(m: Mach, def: MachineDef, id: string): [number, number, (n: number) => void] | null {
   if (def.run === 'boiler') return id === 'water' ? [m.water ?? 0, BOILER_WATER, (n) => { m.water = n; }] : null;
-  if (def.run === 'steam' && id === 'steam') return [m.steam ?? 0, STEAM_BUF, (n) => { m.steam = n; }];
+  if ((def.run === 'steam' || def.steam) && id === 'steam') return [m.steam ?? 0, STEAM_BUF, (n) => { m.steam = n; }];
   const setTank = (n: number) => { m.tank = n > 0 ? { id, n } : undefined; };
   if (def.run === 'tank') return (m.tank && m.tank.id !== id) || tooHot(def, id) ? null : [m.tank?.n ?? 0, def.tank ?? 0, setTank];
   const r = m.rec ? registry().recipe(m.rec) : undefined;

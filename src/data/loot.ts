@@ -17,6 +17,7 @@ export const LOOT: Partial<Record<TierId, LootEntry[]>> = {
     { id: 'fire_brick:fireclay', n: [4, 8], w: 6 }, { id: 'lump:coke', n: [4, 8], w: 6 }, { id: 'sheet:rubber', n: [2, 4], w: 4 },
     { id: 'pane:glass', n: [2, 4], w: 4 }, { id: 'tool:pickaxe:bronze', n: [1, 1], w: 2 },
     { id: 'plate:bronze', n: [2, 6], w: 6 }, { id: 'struct:bronze_pipe', n: [4, 8], w: 5 }, { id: 'struct:tin_item_pipe', n: [4, 8], w: 4 }, { id: 'piston:bronze', n: [1, 1], w: 2 },
+    { id: 'sticky_resin', n: [4, 8], w: 4 }, { id: 'small_dust:sulfur', n: [2, 4], w: 3 },
   ],
 };
 /** Tiers that have crates (an item `crate:<tier>`). */

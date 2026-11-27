@@ -6,12 +6,12 @@ import { MINERALS } from './minerals';
 import type { TierId } from './tiers';
 
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
- * mdump open claim mface cput. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
+ * mdump open claim mface cput tap thump. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
   'bookmark', 'journal', 'overlay', 'machine'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
-  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput'] as const;
+  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -317,5 +317,49 @@ export const QUESTS: QuestDef[] = [
       '**Lead Fluid Pipes** carry less (80 L per tick) but resist acids, which the chemistry of later ages needs. Different pipe kinds never join, so you can run a lead line right beside a bronze one.',
     ],
     tasks: [build('barrel'), build('lead_pipe', 4)] },
+  // ---- P3c ----
+  { id: 's_ladder', chapter: 'S', title: 'The Ore Ladder', req: ['s_washer'], reward: S2,
+    text: [
+      'Each step up the **ore ladder** gets more out of an ore:',
+      '**Smelt it raw**: 1 ingot. **Macerate** it: 2 crushed ores, so 2 ingots. **Wash** the crushed ore: purified ore plus a chance of a byproduct. **Macerate** the purified ore into dust, with another byproduct chance. Then smelt the dust.',
+      'The Steam Macerator now also grinds crushed and purified ore, and the Steam Ore Washer rinses **impure dust** clean (100 L of water). The Steam Furnace smelts crushed and purified ore directly too.',
+      'Chain it with item pipes: macerator → washer → macerator → furnace → chest.',
+    ],
+    tasks: [any([...ores('mdust').filter((id) => !/:(coal|rock_salt|graphite)$/.test(id)), 'dust:copper', 'dust:gold', 'dust:silver'], 16, 'Any ore dust')] },
+  { id: 's_compressor', chapter: 'S', title: 'Compressor', req: ['s_boiler'], reward: S1,
+    text: [
+      'The **Steam Compressor** (hull + 2 pistons) presses 2 plates into a **double plate**, rubber sheets into **rubber plates**, and coal, charcoal or coke dust back into burnable lumps.',
+    ],
+    tasks: [build('steam_compressor')] },
+  { id: 's_rubber', chapter: 'S', title: 'Rubber', req: ['s_washer', 's_alloy'], reward: S2,
+    text: [
+      '**Rubber trees** grow in jungles, and a few in swamps. With a **Treetap** (a plank and a stick) in your tool slots, tapping a rubber tree gives **sticky resin** and leaves the tree standing. Felling one with an axe gives some resin too.',
+      'Rubber also needs **sulfur**. Washing crushed **coal** or **pyrite** in the ore washer often leaves small piles of sulfur dust as a byproduct.',
+      'Vulcanise it: the clay furnace turns 3 resin + a small pile of sulfur into 1 rubber sheet. Electric cables will need lots of it.',
+    ],
+    tasks: [flag('tap', 'Tap a rubber tree'), have('sheet:rubber', 8)] },
+  { id: 's_extractor', chapter: 'S', title: 'Extractor', req: ['s_rubber'], reward: S1,
+    text: [
+      'The **Steam Extractor** (hull + piston + glass) squeezes each sticky resin into a **raw rubber**. The alloy smelter vulcanises 2 raw rubber + a small pile of sulfur into 2 sheets: **three times** the clay furnace\'s yield.',
+    ],
+    tasks: [build('steam_extractor'), have('raw:rubber', 8)] },
+  { id: 's_pump', chapter: 'S', title: 'Steam Pump', req: ['s_boiler'], reward: S1,
+    text: [
+      'The **Steam Pump** draws 40 L of water per tick, four times the water pump, for 4 L of steam per tick. Like the water pump it must stand next to water. Connect a steam pipe and a water pipe to different sides.',
+    ],
+    tasks: [build('steam_pump')] },
+  { id: 's_thumper', chapter: 'S', title: 'Deep Survey', req: ['s_boiler'], reward: S2,
+    text: [
+      'The prospector\'s hammer only hears veins down to layer 8. The **Steam Thumper** (hull + 2 pistons + steel rod) pounds the ground for 20 seconds on 16 L of steam per tick, then surveys every vein within **48 tiles** down to **layer 16** — the deep slot.',
+      'It surveys once. Demolish it and build it somewhere else to survey there.',
+    ],
+    tasks: [build('steam_thumper'), flag('thump', 'Finish a thumper survey')] },
+  { id: 's_excavator', chapter: 'S', title: 'Steam Excavator', req: ['s_thumper', 's_items'], reward: S2,
+    text: [
+      'The **Steam Excavator** (hull + steel drill head + 2 bronze gears) mines **ore** in the 9×9 square below it, layer by layer from layer 1 down to layer 16. It takes only the ore and leaves the rock, which exposes any vein it reaches.',
+      'It mines hardness ≤ 1 (2 s per block, 4 s for hardness 1) on 16 L of steam per tick, but nothing under water. Ore collects inside it: connect an item pipe to carry it away. When nothing is left in reach, move it.',
+      'Build it over a surveyed vein (the overlay, **O**, shows where).',
+    ],
+    tasks: [build('steam_excavator'), any(ores('ore'), 64, 'Any ore')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

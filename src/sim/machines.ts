@@ -3,15 +3,19 @@
 // Run modes: fuel (burn items for heat, recipe needs minHeatK) · self (burns its own charge) · crank (player-driven).
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
-import { AMBIENT_K, BOIL_K, BOILER_RATE, CRANK_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER, type MachineDef } from '../data/machines';
+import { AMBIENT_K, BOIL_K, BOILER_RATE, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
+  THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
+import { MINERALS } from '../data/minerals';
+import { B, BLOCKS } from '../world/blocks';
 import { PATTERNS, STRUCTURES, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
 import { placeAt } from './build';
 import { accepts, topoChanged } from './pipes';
 import type { ActResult } from './player';
-import { STACK, bestTool, count, give, take, wear } from './player';
+import { STACK, bestTool, blockAt, count, give, take, wear } from './player';
 import { next } from './rng';
-import { STOREY, type GameState } from './state';
+import { KNOW, STOREY, type GameState } from './state';
+import { know, survey } from './veins';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -30,12 +34,15 @@ export interface Mach {
   water?: number; steam?: number; dry?: boolean;
   /** Face mode per side (FACE; index = SIDES: E W S N up down), default auto (P3b). */
   faces?: number[];
+  /** Excavator: scan position (layer-major over its square) · thumper: 1 once its survey is done (P3c). */
+  cur?: number;
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
-  'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in'];
+  'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
+  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -44,7 +51,7 @@ export const simEvents: ActResult[] = [];
 export function explode(s: GameState, key: string) {
   delete s.ents[key]; delete s.mach[key];
   topoChanged();
-  simEvents.push({ ok: false, msg: '💥 A boiler exploded — water hit it while dry and hot!', ents: { [key]: null } });
+  simEvents.push({ ok: false, sim: true, msg: '💥 A boiler exploded — water hit it while dry and hot!', ents: { [key]: null } });
 }
 /** Input bag cap per item. */
 export const BAG = 256; // 4 stacks (literal: player.ts ↔ machines.ts import cycle)
@@ -164,10 +171,12 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     if (def.run === 'store' || def.run === 'tank') continue;
     if (def.run === 'pump') {
       const room = (def.tank ?? 0) - (m.tank?.n ?? 0);
-      m.st = !nearWater(gen, key) ? MS.noWater : room <= 0 ? MS.full : MS.working;
+      m.st = !nearWater(gen, key) ? MS.noWater : room <= 0 ? MS.full : !useSteam(m, def) ? MS.noSteam : MS.working;
       if (m.st === MS.working) m.tank = { id: 'water', n: (m.tank?.n ?? 0) + Math.min(room, def.rate ?? 0) };
       continue;
     }
+    if (def.run === 'thump') { stepThumper(s, gen, key, m, def); continue; }
+    if (def.run === 'dig') { stepDig(s, gen, key, m, def); continue; }
     const b = blocker(s, gen, key, m, def, r);
     if (def.run === 'fuel') {
       if (b === null && m.burn <= 0) {
@@ -192,6 +201,63 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     m.st = MS.working;
     if (++m.prog >= r!.ticks) finish(s, m, r!);
   }
+}
+
+/** Draw a recipe-less machine's steam for this tick (true if it had enough, or needs none). */
+function useSteam(m: Mach, def: MachineDef): boolean {
+  if (!def.steam) return true;
+  if ((m.steam ?? 0) < def.steam) return false;
+  m.steam! -= def.steam;
+  return true;
+}
+
+/** Steam thumper (DESIGN §3 scan): thumps the ground for THUMP_TICKS, then surveys veins deeper and wider than the hammer. */
+function stepThumper(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef) {
+  if (m.cur) { m.st = MS.surveyed; return; }
+  if (!useSteam(m, def)) { m.st = MS.noSteam; return; }
+  m.st = MS.working;
+  if (++m.prog < THUMP_TICKS) return;
+  const [x, y] = parse(key), { veins, msg } = survey(s, gen, x, y, THUMP_R, THUMP_DEPTH, 'Thumper found');
+  m.prog = 0; m.cur = 1;
+  s.flags.thump = (s.flags.thump ?? 0) + 1;
+  simEvents.push({ ok: true, sim: true, veins, msg });
+}
+
+const MINERAL = new Map(MINERALS.map((mn) => [mn.id, mn]));
+const DIG_SIDE = 2 * DIG_R + 1, DIG_AREA = DIG_SIDE * DIG_SIDE, DIG_END = DIG_AREA * DIG_DEPTH;
+/** Excavator scan position → block (layer 1 down, row by row over the square below it). */
+function digAt(gen: WorldGen, key: string, t: number): [number, number, number] {
+  const [x, y] = parse(key), r = t % DIG_AREA;
+  return [gen.wrapX(x - DIG_R + (r % DIG_SIDE)), y - DIG_R + Math.floor(r / DIG_SIDE), 1 + Math.floor(t / DIG_AREA)];
+}
+/** Mineable ore at a scan position (hardness ≤ DIG_H, not under water). */
+function digOre(s: GameState, gen: WorldGen, key: string, t: number) {
+  const [x, y, z] = digAt(gen, key, t);
+  if (!gen.inBounds(y)) return null;
+  const mn = MINERAL.get(BLOCKS[blockAt(s, gen, x, y, z)].mineral ?? '');
+  if (!mn || mn.hardness > DIG_H || BLOCKS[blockAt(s, gen, x, y, z - 1)].liquid) return null;
+  return mn;
+}
+
+/** Steam excavator (DESIGN §3 excavate): mines the ore blocks (not the rock) under a 9×9 square, layer by layer. */
+function stepDig(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef) {
+  let t = m.cur ?? 0;
+  for (let n = 0; t < DIG_END && n < DIG_SCAN && !digOre(s, gen, key, t); n++) t++;
+  if (t !== m.cur) m.prog = 0;
+  m.cur = t;
+  if (t >= DIG_END) { m.st = MS.minedOut; return; }
+  const mn = digOre(s, gen, key, t);
+  if (!mn) { m.st = MS.working; return; } // still scanning
+  const [x, y, z] = digAt(gen, key, t), hit = gen.ore(x, y, z), n = hit?.richness ?? 1, id = `ore:${mn.id}`;
+  if ((m.out[id] ?? 0) + n > BAG || (!m.out[id] && Object.keys(m.out).length >= OUT_KINDS)) { m.st = MS.full; return; }
+  if (!useSteam(m, def)) { m.st = MS.noSteam; return; }
+  m.st = MS.working;
+  if (++m.prog < DIG_TICKS * (1 + mn.hardness)) return;
+  const k = `${x},${y},${z}`, veins = hit && s.diffs[k] === undefined ? know(s, hit.vein.id, KNOW.exposed) : undefined;
+  s.diffs[k] = B.air;
+  m.out[id] = (m.out[id] ?? 0) + n;
+  m.prog = 0; m.cur = t + 1;
+  simEvents.push({ ok: true, sim: true, changes: { [k]: B.air }, veins, msg: veins ? `Excavator exposed: ${hit!.vein.def.name}` : undefined });
 }
 
 /** Boiler (DESIGN §6): fuel heats it (slowly) toward the flame, capped; above boiling it turns water into steam in its tank. */

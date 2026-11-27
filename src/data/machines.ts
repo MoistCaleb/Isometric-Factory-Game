@@ -4,9 +4,10 @@ import type { TierId } from './tiers';
 /**
  * Run modes: `fuel` burns fuel items for heat · `self` burns its own charge (no fuel) · `crank` advances only when the
  * player cranks/strikes it (P2d) · `boiler` burns fuel to turn piped water into steam · `steam` draws steam from pipes ·
- * `pump` fills its tank from adjacent water (P3a) · `store` chest (item slots) · `tank` barrel (one fluid) (P3b). Electric arrives P4.
+ * `pump` fills its tank from adjacent water (P3a) · `store` chest (item slots) · `tank` barrel (one fluid) (P3b) ·
+ * `thump` steam thumper (surveys deep veins once) · `dig` steam excavator (mines ore below it) (P3c). Electric arrives P4.
  */
-export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank';
+export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig';
 export interface MachineDef {
   id: string; name: string; tier: TierId; maxHeatK?: number;
   run?: RunMode;
@@ -22,6 +23,8 @@ export interface MachineDef {
   slots?: number;
   /** Wooden storage: no steam or molten metal (≤ 350 K). */
   cold?: boolean;
+  /** Steam L/tick for machines without recipes (steam pump, thumper, excavator). */
+  steam?: number;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
@@ -47,6 +50,11 @@ const ROWS: Row[] = [
   ['steam_forge_hammer', 'Steam Forge Hammer', 'S', undefined, { run: 'steam' }],
   ['steam_ore_washer', 'Steam Ore Washer', 'S', undefined, { run: 'steam', tank: 8000 }],
   ['steam_alloy_smelter', 'Steam Alloy Smelter', 'S', undefined, { run: 'steam' }],
+  ['steam_compressor', 'Steam Compressor', 'S', undefined, { run: 'steam' }],
+  ['steam_extractor', 'Steam Extractor', 'S', undefined, { run: 'steam' }],
+  ['steam_pump', 'Steam Pump', 'S', undefined, { run: 'pump', rate: 40, tank: 16000, water: true, steam: 4 }],
+  ['steam_thumper', 'Steam Thumper', 'S', undefined, { run: 'thump', steam: 16 }],
+  ['steam_excavator', 'Steam Excavator', 'S', undefined, { run: 'dig', steam: 16 }],
   ['electric_furnace', 'Electric Furnace', 'LV', 1750],
   ['ebf', 'Electric Blast Furnace', 'LV', 4200],
   ['macerator', 'Macerator', 'LV'],
@@ -82,3 +90,8 @@ export const FACE = { auto: 0, in: 1, out: 2, off: 3 } as const;
 export const FACE_NAMES = ['Auto', 'In', 'Out', 'Off'];
 /** Face index = side: east (+x), west, south (+y), north, up, down. */
 export const SIDES = ['East', 'West', 'South', 'North', 'Up', 'Down'];
+/** Steam thumper (P3c): ticks per survey, reach (tiles) and depth (layer) — deeper than the prospector's hammer. */
+export const THUMP_TICKS = 400, THUMP_R = 48, THUMP_DEPTH = 16;
+/** Steam excavator (P3c): square radius below it, deepest layer, max ore hardness, ticks per block × (1 + hardness),
+ * positions scanned per tick while looking for ore. */
+export const DIG_R = 4, DIG_DEPTH = 16, DIG_H = 1, DIG_TICKS = 40, DIG_SCAN = 128;

@@ -699,7 +699,7 @@ export class Renderer {
     if (z === 0 && this.diffs[`${x},${y},s`] === undefined) { const smp = gen.sample(x, y, sf); if (smp) extra += ` · ${mineralName(smp.mineral)} sample`; }
     for (const k of veinsAtTile(gen, this.knownList, x, y)) extra += k.level === 1 ? ` · ${k.v.def.name} hint` : ` · ${k.v.def.name} vein (layers ${k.v.z0}–${k.v.z1})`;
     const tree = z === 0 ? gen.tree(x, y, sf) : Tree.None;
-    const treeName = ['', ' · Tree', ' · Conifer', ' · Jungle tree', ' · Cactus'][tree];
+    const treeName = ['', ' · Tree', ' · Conifer', ' · Rubber tree', ' · Cactus'][tree];
     return `${head}\nLayer ${z}: ${BLOCKS[b].name}${isOre(b) ? '' : ''}${treeName}${extra}`;
   }
 }

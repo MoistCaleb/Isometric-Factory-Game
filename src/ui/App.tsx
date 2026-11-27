@@ -92,7 +92,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (r.ents || r.base) renderer.applyBuild(r.ents, r.base);
       if (r.veins && Object.keys(r.veins).length) { renderer.applyVeins(r.veins); setTimeout(() => setVeinTick((t) => t + 1), 50); }
       setInv({ inv: game.sim.inv, tools: game.sim.tools });
-      setDig(r.progress && r.target ? `${r.target} ${r.progress[0]}/${r.progress[1]}` : null);
+      if (!r.sim) setDig(r.progress && r.target ? `${r.target} ${r.progress[0]}/${r.progress[1]}` : null);
       const reg = registry();
       for (const g of r.gained ?? []) push(`+${g.n} ${reg.item(g.id)?.name ?? g.id}`);
       if (r.msg) push(r.msg, !r.ok);
