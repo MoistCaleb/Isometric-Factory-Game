@@ -16,7 +16,7 @@ export default defineConfig({
         theme_color: '#1b1f24',
         background_color: '#1b1f24',
         display: 'standalone',
-        orientation: 'any',
+        orientation: 'landscape',
         icons: [{ src: 'icon.svg', sizes: 'any', type: 'image/svg+xml', purpose: 'any maskable' }],
       },
       workbox: { globPatterns: ['**/*.{js,css,html,svg,png,woff2}'] },

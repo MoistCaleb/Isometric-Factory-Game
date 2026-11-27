@@ -14,7 +14,8 @@ export interface View { mode: Mode; x: number; y: number; zoom: number; rot: num
 
 export const LEVEL_MIN = -LAYERS.bedrock, LEVEL_MAX = 8;
 const ISO_ZOOM: [number, number] = [5, 110];
-const GLOBE_DIST: [number, number] = [1.6, 4.5];
+const GLOBE_DIST: [number, number] = [1.6, 6];
+const GLOBE_ENTER = 3.8; // whole planet in view when zooming out of the map
 const ELEV = Math.atan(1 / Math.SQRT2);
 const MAX_CACHE = 400;
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -212,7 +213,7 @@ export class Renderer {
   }
 
   private updateGlobeCam() {
-    const v = this.view, phi = (v.x / this.p.w) * Math.PI * 2, th = (v.y / this.p.h) * Math.PI;
+    const v = this.view, phi = (v.x / this.p.w) * Math.PI * 2, th = clamp((v.y / this.p.h) * Math.PI, 0.05, Math.PI - 0.05); // keep off the pole: lookAt degenerates there
     const d = new THREE.Vector3(-Math.cos(phi) * Math.sin(th), Math.cos(th), Math.sin(phi) * Math.sin(th));
     this.globeCam.position.copy(d.multiplyScalar(v.globeDist));
     this.globeCam.up.set(0, 1, 0);
@@ -250,7 +251,15 @@ export class Renderer {
       const geo = new THREE.PlaneGeometry(gen.w, gen.h).rotateX(-Math.PI / 2);
       const mat = new THREE.MeshBasicMaterial({ map: tex });
       this.mapMeshes = [0, 1, 2].map(() => { const m = new THREE.Mesh(geo, mat); this.mapScene.add(m); return m; });
-      this.globe = new THREE.Mesh(new THREE.SphereGeometry(1, 128, 64), new THREE.MeshLambertMaterial({ map: tex }));
+      // Globe gets its own mipmapped, linearly filtered copy: nearest sampling shimmers where texels crowd near the poles.
+      const gt = new THREE.DataTexture(px, pw, ph, THREE.RGBAFormat);
+      gt.wrapS = THREE.RepeatWrapping; gt.flipY = false;
+      gt.colorSpace = THREE.SRGBColorSpace;
+      gt.magFilter = THREE.LinearFilter; gt.minFilter = THREE.LinearMipmapLinearFilter; gt.generateMipmaps = true;
+      gt.anisotropy = this.r.capabilities.getMaxAnisotropy();
+      gt.repeat.set(1, -1); gt.offset.set(0, 1);
+      gt.needsUpdate = true;
+      this.globe = new THREE.Mesh(new THREE.SphereGeometry(1, 256, 128), new THREE.MeshLambertMaterial({ map: gt }));
       this.globeScene.add(this.globe);
     });
   }
@@ -259,7 +268,7 @@ export class Renderer {
     for (const m of this.mapMeshes) this.mapScene.remove(m);
     if (this.mapMeshes[0]) { this.mapMeshes[0].geometry.dispose(); (this.mapMeshes[0].material as THREE.Material).dispose(); }
     this.mapMeshes = [];
-    if (this.globe) { this.globeScene.remove(this.globe); this.globe.geometry.dispose(); (this.globe.material as THREE.Material).dispose(); this.globe = undefined; }
+    if (this.globe) { const gm = this.globe.material as THREE.MeshLambertMaterial; this.globeScene.remove(this.globe); this.globe.geometry.dispose(); gm.map?.dispose(); gm.dispose(); this.globe = undefined; }
     this.mapTex?.dispose();
     this.mapTex = undefined;
   }
@@ -440,7 +449,7 @@ export class Renderer {
       if (before && after) { v.x += before.x - after.x; v.y = clamp(v.y + before.z - after.z, 0, this.p.h); }
     } else if (v.mode === 'map') {
       if (f < 1 && v.mapZoom <= 220) { this.setMode('iso'); v.zoom = ISO_ZOOM[1]; return; }
-      if (f > 1 && v.mapZoom >= this.mapMax) { this.setMode('globe'); v.globeDist = GLOBE_DIST[0]; return; }
+      if (f > 1 && v.mapZoom >= this.mapMax) { this.setMode('globe'); v.globeDist = GLOBE_ENTER; return; }
       v.mapZoom = clamp(v.mapZoom * f, 220, this.mapMax);
     } else {
       if (f < 1 && v.globeDist <= GLOBE_DIST[0]) { this.setMode('map'); v.mapZoom = this.mapMax; return; }

@@ -31,6 +31,10 @@ button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f2
 button.on { border-color: var(--acc); color: var(--acc); }
 .hover { position: absolute; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0)); max-width: calc(100% - 260px); white-space: pre-line;
   background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; pointer-events: none; }
-@media (max-width: 600px) { .hover { bottom: 60px; max-width: calc(100% - 24px); } }
 .top span { white-space: nowrap; }
-@media (max-width: 600px) { .top .tps { display: none; } .top { gap: 8px; } }
+/* Landscape/desktop only: portrait touch screens get a rotate prompt instead of a layout. */
+.rotate { display: none; }
+@media (orientation: portrait) and (pointer: coarse) {
+  .rotate { display: flex; position: fixed; inset: 0; z-index: 10; align-items: center; justify-content: center; text-align: center;
+    background: var(--bg); font-size: 18px; padding: 24px; }
+}

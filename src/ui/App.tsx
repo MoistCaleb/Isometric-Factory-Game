@@ -44,6 +44,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
 
   return (
     <>
+      <div class="rotate">⟲ Rotate your device to landscape</div>
       <div class="top">
         <button onClick={() => game.togglePause()} title="Space">{stats.paused ? '▶' : '❚❚'}</button>
         <span>{gameClock(stats.tick)}</span>
