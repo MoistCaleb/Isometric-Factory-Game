@@ -87,7 +87,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           <div class="dim">{reg.items.length} items · {reg.fluids.length} fluids · {reg.recipes.length} recipes</div>
         </div>
       )}
-      {view.mode === 'iso' && (
+      {view.mode === 'iso' && !menu && (
         <div class="zbar">
           <span class="zlabel">{levelName(view.level)}</span>
           <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>
