@@ -80,7 +80,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Machine **parts** per tier: motor, pump, piston, conveyor module, robot arm, (MV+) sensor/emitter, (HV+) field generator.
 - **Multiblocks:** pattern of casings + hatches; controller shows ghost; player chooses **auto-fill or manual placing**.
 - **Primitive machines (P2d):** tap a machine in View mode to open its panel: pick a recipe, load inputs/fuel from the global inventory, collect outputs. Run modes: **fuel** (burns items; heat eases toward the flame temperature, capped by the machine's max; a recipe runs only at ≥ its min heat), **self** (charcoal pile, coke oven burn their own charge), **crank** (quern, sluice, anvil advance only when the player cranks/strikes; anvil wears the hammer). Liquid byproducts fill the machine's tank (dump it until pipes/barrels arrive); gases vent. Sluice needs water on an adjacent tile. Until chunk loaders exist, every machine ticks.
-- **Primitive multiblocks:** controller + casing structures on a fixed pattern around it on the same storey (ring = 8 neighbours, plus = 4). Missing casings show as ghosts while the panel is open; **Auto-fill** places them from the inventory. Tapping a casing opens its controller.
+- **Primitive multiblocks:** controller + casing structures on a fixed pattern around it on the same storey (ring = 8 neighbours, plus = 4). Missing casings show as ghosts while the panel is open; **Auto-fill** places them from the inventory. Tapping a casing opens its controller. **Planned:** multiblocks span several storeys (3D patterns, e.g. 3×3×3), and machine models get an art pass.
 - **Maintenance hatch** on multiblocks (random issues fixed with tools); **auto-maintenance hatch** later (consumes duct tape/lubricant).
 
 ## 6. Power

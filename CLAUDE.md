@@ -77,6 +77,8 @@
 - Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
 - X-ray ore view is a dev toggle; real reveal = samples/outcrops/digging/prospecting (P2f).
 - TODO: offshore mining rig (tier + recipe) to reach seabed/trench ores.
+- TODO: machine art pass — current P2d voxel models look poor; redo models (detail, per-state visuals e.g. fire/smoke when working).
+- TODO: multi-storey multiblocks — patterns span storeys (e.g. 3×3×3 coke oven/PBF), casings on upper storeys without needing floors; rotation.
 - TODO: chunk loader design (keep chunks loaded off-screen for automation); sim will tick loaded chunks only.
 - **P2 Primitive** in progress:
   - [x] P2a mining mode, inventory, tool slots/wear, pits render
