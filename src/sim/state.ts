@@ -2,7 +2,9 @@
 import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 
-export const STATE_VERSION = 3;
+export const STATE_VERSION = 4;
+export const INV_SIZE = 27;
+export const TOOL_SLOTS = 9;
 export const TPS = 20;
 /** Ticks per in-game day (20 min real time). Tick 0 = 06:00. */
 export const DAY_TICKS = TPS * 60 * 20;
@@ -16,6 +18,9 @@ export interface Weather {
   tWind: number; tRain: number; next: number;
 }
 
+/** Inventory stack. `dur` = remaining uses (tools only). */
+export interface Slot { id: string; n: number; dur?: number }
+
 export interface GameState {
   version: number;
   seed: number;
@@ -28,13 +33,20 @@ export interface GameState {
   weather: Weather;
   /** World diffs vs generated: `x,y,z` → block id (DESIGN §3 seed + diffs). */
   diffs: Record<string, number>;
+  /** Global inventory (DESIGN §8): 27 slots + 9 tool slots. */
+  inv: (Slot | null)[];
+  tools: (Slot | null)[];
+  /** Block currently being dug (hits so far). */
+  dig?: { key: string; hits: number };
 }
+
+export const emptyInv = () => ({ inv: Array<Slot | null>(INV_SIZE).fill(null), tools: Array<Slot | null>(TOOL_SLOTS).fill(null) });
 
 export const newWeather = (): Weather => ({ wind: 0.3, rain: 0, tWind: 0.3, tRain: 0, next: TPS * 60 * 5 });
 
 export function newGame(seed: number = (Math.random() * 2 ** 32) >>> 0): GameState {
   return {
     version: STATE_VERSION, seed, planet: 'earth', tick: 0, rng: seed, playSeconds: 0,
-    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {},
+    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(),
   };
 }

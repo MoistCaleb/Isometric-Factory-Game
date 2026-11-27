@@ -1,0 +1,206 @@
+// Player actions (DESIGN §3/§8): global inventory, tool slots + wear, click-gather mining.
+// Pure functions on GameState so they run in the worker and in tests.
+import { registry } from '../content/registry';
+import type { Stack } from '../content/types';
+import type { ToolType } from '../data/forms';
+import { MINERALS } from '../data/minerals';
+import { B, BLOCKS } from '../world/blocks';
+import { LAYERS, Tree, type WorldGen } from '../world/gen';
+import { next } from './rng';
+import type { GameState, Slot } from './state';
+
+export const STACK = 64;
+export type SlotRef = { box: 'inv' | 'tools'; i: number };
+
+export type Cmd =
+  | { k: 'mine'; x: number; y: number; z: number }
+  | { k: 'move'; a: SlotRef; b: SlotRef }
+  | { k: 'trash'; a: SlotRef };
+
+export interface ActResult {
+  ok: boolean;
+  msg?: string;
+  /** Diff changes to apply to the rendered world. */
+  changes?: Record<string, number>;
+  gained?: Stack[];
+  /** Dig progress [hits, needed] while a block is not yet broken. */
+  progress?: [number, number];
+  target?: string;
+}
+
+// ---------- inventory ----------
+const box = (s: GameState, r: SlotRef) => (r.box === 'inv' ? s.inv : s.tools);
+
+/** Add items; tools go to free tool slots first. Returns the count that did not fit. */
+export function give(s: GameState, id: string, n: number): number {
+  const def = registry().item(id);
+  if (!def) throw new Error(`unknown item ${id}`);
+  if (def.tool) {
+    while (n > 0) {
+      const t = s.tools.indexOf(null), i = t < 0 ? s.inv.indexOf(null) : -1;
+      if (t < 0 && i < 0) break;
+      (t >= 0 ? s.tools : s.inv)[t >= 0 ? t : i] = { id, n: 1, dur: def.tool.durability };
+      n--;
+    }
+    return n;
+  }
+  for (const sl of s.inv) if (n > 0 && sl?.id === id && sl.n < STACK) { const k = Math.min(n, STACK - sl.n); sl.n += k; n -= k; }
+  for (let i = 0; i < s.inv.length && n > 0; i++) if (!s.inv[i]) { const k = Math.min(n, STACK); s.inv[i] = { id, n: k }; n -= k; }
+  return n;
+}
+
+export function count(s: GameState, id: string): number {
+  return s.inv.reduce((a, sl) => a + (sl?.id === id ? sl.n : 0), 0);
+}
+
+/** Move/swap/merge a stack. Tool slots only hold tools. */
+export function move(s: GameState, a: SlotRef, b: SlotRef): ActResult {
+  const A = box(s, a), Bx = box(s, b), sa = A[a.i], sb = Bx[b.i];
+  if (!sa || (a.box === b.box && a.i === b.i)) return { ok: false };
+  const isTool = (sl: Slot | null) => !sl || !!registry().item(sl.id)?.tool;
+  if ((b.box === 'tools' && !isTool(sa)) || (a.box === 'tools' && !isTool(sb))) return { ok: false, msg: 'Tool slots hold tools only' };
+  if (sb && sb.id === sa.id && sa.dur === undefined) {
+    const k = Math.min(sa.n, STACK - sb.n);
+    sb.n += k; sa.n -= k;
+    if (!sa.n) A[a.i] = null;
+  } else { A[a.i] = sb; Bx[b.i] = sa; }
+  return { ok: true };
+}
+
+/** Best tool of a type in the tool slots (highest level). */
+export function bestTool(s: GameState, type: ToolType): { i: number; level: number } | null {
+  let best: { i: number; level: number } | null = null;
+  s.tools.forEach((sl, i) => {
+    const t = sl && registry().item(sl.id)?.tool;
+    if (t?.type === type && (!best || t.level > best.level)) best = { i, level: t.level };
+  });
+  return best;
+}
+
+/** Wear a tool by one use; returns a message if it broke. */
+export function wear(s: GameState, i: number): string | undefined {
+  const sl = s.tools[i];
+  if (!sl || sl.dur === undefined) return;
+  if (--sl.dur <= 0) { s.tools[i] = null; return `${registry().item(sl.id)?.name ?? sl.id} broke`; }
+}
+
+// ---------- mining ----------
+interface BlockRule { tool: 'shovel' | 'pickaxe'; hits: number; hardness: number; drop: (s: GameState) => Stack[] }
+const chance = (s: GameState, p: number, id: string, n = 1): Stack[] => (next(s) < p ? [{ id, n }] : []);
+const soil = (hits: number, drop: BlockRule['drop']): BlockRule => ({ tool: 'shovel', hits, hardness: 0, drop });
+const rock = (hits: number, hardness: number): BlockRule => ({ tool: 'pickaxe', hits, hardness, drop: () => [{ id: 'cobble:stone', n: 1 }] });
+const turf = (straw: number) => soil(2, (s) => [{ id: 'dirt', n: 1 }, ...chance(s, 0.35, 'fiber'), ...chance(s, straw, 'straw')]);
+
+const RULES: Record<string, BlockRule> = {
+  grass: turf(0.2), forest_floor: turf(0), jungle_floor: turf(0), tundra: turf(0.1),
+  snow: soil(1, () => []),
+  mud: soil(2, (s) => [{ id: 'dirt', n: 1 }, ...chance(s, 0.15, 'fiber')]),
+  dirt: soil(2, (s) => [{ id: 'dirt', n: 1 }, ...chance(s, 0.06, 'shard:flint')]),
+  silt: soil(2, (s) => [{ id: 'dirt', n: 1 }, ...chance(s, 0.1, 'shard:flint')]),
+  permafrost: soil(4, () => [{ id: 'dirt', n: 1 }]),
+  clay: soil(2, () => [{ id: 'ball:clay', n: 2 }]),
+  sand: soil(2, (s) => [{ id: 'dust:sand', n: 1 }, ...chance(s, 0.05, 'shard:flint')]),
+  gravel: soil(2, (s) => [{ id: 'gravel:stone', n: 1 }, ...chance(s, 0.3, 'shard:flint')]),
+  basalt: rock(3, 0), stone: rock(3, 0), deepstone: rock(4, 1), abyssal: rock(5, 2),
+};
+const MINERAL = new Map(MINERALS.map((m) => [m.id, m]));
+const HAND_SOIL = 3; // hand digging is 3× slower than a shovel
+const HAND_DROP = 0.03;
+
+export const blockAt = (s: GameState, gen: WorldGen, x: number, y: number, z: number) =>
+  s.diffs[`${gen.wrapX(x)},${y},${z}`] ?? gen.block(x, y, z);
+
+/** A block can be dug from the surface, from an open block above, or from an open neighbour on its layer. */
+function exposed(s: GameState, gen: WorldGen, x: number, y: number, z: number): boolean {
+  if (z === 0) return true;
+  const air = (xx: number, yy: number, zz: number) => gen.inBounds(yy) && blockAt(s, gen, xx, yy, zz) === B.air;
+  return air(x, y, z - 1) || air(x - 1, y, z) || air(x + 1, y, z) || air(x, y - 1, z) || air(x, y + 1, z);
+}
+
+const speed = (level: number) => 1 + 0.5 * level;
+
+function hit(s: GameState, key: string, need: number): ActResult | null {
+  if (s.dig?.key !== key) s.dig = { key, hits: 0 };
+  if (++s.dig.hits < need) return { ok: true, progress: [s.dig.hits, need] };
+  s.dig = undefined;
+  return null;
+}
+
+function collect(s: GameState, drops: Stack[], res: ActResult): ActResult {
+  const gained: Stack[] = [];
+  let lost = 0;
+  for (const d of drops) { const left = give(s, d.id, d.n); lost += left; if (d.n - left) gained.push({ id: d.id, n: d.n - left }); }
+  if (lost) res.msg = [res.msg, 'Inventory full'].filter(Boolean).join(' · ');
+  return { ...res, gained };
+}
+
+const TREE_LOGS: Record<number, number> = { [Tree.Broadleaf]: 3, [Tree.Conifer]: 3, [Tree.Jungle]: 4, [Tree.Cactus]: 0 };
+
+function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
+  const key = `${x},${y},t`, target = tree === Tree.Cactus ? 'Cactus' : 'Tree';
+  const axe = bestTool(s, 'axe');
+  if (!axe) {
+    // Bare hands: snap twigs, strip fibre. Slow and random.
+    const drops = [...chance(s, 0.4, 'stick:wood'), ...chance(s, 0.15, 'fiber')];
+    return collect(s, drops, { ok: true, target, msg: drops.length ? undefined : 'Nothing — an axe fells trees' });
+  }
+  const p = hit(s, key, Math.ceil(5 / speed(axe.level)));
+  if (p) return { ...p, target };
+  const broke = wear(s, axe.i);
+  s.diffs[key] = 0;
+  const drops: Stack[] = tree === Tree.Cactus ? [{ id: 'fiber', n: 2 }] : [{ id: 'log:wood', n: TREE_LOGS[tree] }, ...chance(s, 0.5, 'stick:wood', 2)];
+  return collect(s, drops, { ok: true, target, msg: broke, changes: { [key]: 0 } });
+}
+
+/** One click/tap of mining at (x, y, z). Digging a hole continues downward through open blocks. */
+export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: number): ActResult {
+  const x = gen.wrapX(xIn);
+  if (!gen.inBounds(y)) return { ok: false };
+  if (zIn === 0 && s.diffs[`${x},${y},t`] === undefined) {
+    const tree = gen.tree(x, y);
+    if (tree && blockAt(s, gen, x, y, 0) !== B.air) return chop(s, x, y, tree);
+  }
+  let z = zIn, b = blockAt(s, gen, x, y, z);
+  while (b === B.air && z < LAYERS.bedrock) b = blockAt(s, gen, x, y, ++z);
+  const def = BLOCKS[b];
+  if (def.liquid) return { ok: false, msg: `Can't dig ${def.name.toLowerCase()}` };
+  if (def.unbuildable) return { ok: false, msg: `${def.name} is too hard` };
+  if (!exposed(s, gen, x, y, z)) return { ok: false, msg: 'Dig down from above or beside it first' };
+
+  const mineral = def.mineral ? MINERAL.get(def.mineral) : undefined;
+  const rule: BlockRule = mineral ? { tool: 'pickaxe', hits: 3 + mineral.hardness, hardness: mineral.hardness, drop: () => [] } : RULES[def.key] ?? rock(3, 0);
+  const tool = bestTool(s, rule.tool);
+  let need: number;
+  if (rule.tool === 'pickaxe') {
+    if (!tool) return { ok: false, msg: `Need a pickaxe for ${def.name}` };
+    // Hand-pick reach: a tier-T pick mines hardness ≤ T+1 (CONTENT §11c).
+    if (rule.hardness > tool.level + 1) return { ok: false, msg: `${def.name} needs a better pickaxe (hardness ${rule.hardness})` };
+    need = Math.ceil(rule.hits / speed(tool.level));
+  } else need = tool ? Math.ceil(rule.hits / speed(tool.level)) : rule.hits * HAND_SOIL;
+
+  const key = `${x},${y},${z}`;
+  const p = hit(s, key, need);
+  if (p) return { ...p, target: def.name };
+
+  let drops: Stack[];
+  if (mineral) {
+    const n = gen.ore(x, y, z)?.richness ?? 1;
+    drops = [{ id: `ore:${mineral.id}`, n }];
+    if (mineral.handDrop) drops.push(...chance(s, HAND_DROP, mineral.handDrop));
+  } else drops = rule.drop(s);
+  s.diffs[key] = B.air;
+  const changes: Record<string, number> = { [key]: B.air };
+  // Felling the surface takes its tree with it.
+  if (z === 0 && gen.tree(x, y) && s.diffs[`${x},${y},t`] === undefined) { s.diffs[`${x},${y},t`] = 0; changes[`${x},${y},t`] = 0; }
+  const broke = tool ? wear(s, tool.i) : undefined;
+  return collect(s, drops, { ok: true, target: def.name, msg: broke, changes });
+}
+
+export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
+  switch (c.k) {
+    case 'mine': return mine(s, gen, c.x, c.y, c.z);
+    case 'move': return move(s, c.a, c.b);
+    case 'trash': box(s, c.a)[c.a.i] = null; return { ok: true };
+  }
+}
+

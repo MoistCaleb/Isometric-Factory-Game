@@ -11,9 +11,10 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: var(--bg); c
 .dim { color: var(--dim); }
 button { background: #2a3038; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font: inherit; cursor: pointer; min-height: 32px; }
 button:hover { border-color: var(--acc); }
-.top, .zbar, .viewbar { opacity: .45; transition: opacity .15s; }
+.top, .zbar, .modebar, .hotbar { opacity: .45; transition: opacity .15s; }
 .top:hover, .top:focus-within, .top:active, .zbar:hover, .zbar:focus-within, .zbar:active,
-.viewbar:hover, .viewbar:focus-within, .viewbar:active { opacity: 1; }
+.modebar:hover, .modebar:focus-within, .modebar:active, .hotbar:hover, .hotbar:focus-within, .hotbar:active { opacity: 1; }
+button:disabled { opacity: .35; cursor: default; border-color: var(--line); }
 button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f24; }
 .panel { position: absolute; top: 52px; right: 12px; width: min(360px, calc(100% - 24px)); max-height: calc(100% - 64px); overflow: auto;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 12px; }
@@ -22,7 +23,7 @@ button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f2
 .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
 .saves { list-style: none; margin: 0; padding: 0; }
 .saves li { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding: 4px 0; border-bottom: 1px solid var(--line); }
-.toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
+.toast { position: absolute; top: 40%; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 6px; }
 .toast.err { border-color: #c04040; }
 .zbar { position: absolute; right: 12px; top: 56px; bottom: calc(60px + env(safe-area-inset-bottom, 0)); height: fit-content; max-height: calc(100% - 116px); margin: auto 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px;
@@ -30,9 +31,8 @@ button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f2
 .zbar input[type=range] { writing-mode: vertical-lr; direction: rtl; flex: 0 1 200px; min-height: 24px; height: auto; width: 28px; accent-color: var(--acc); }
 .zlabel { position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--panel);
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
-.viewbar { position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0)); display: flex; gap: 6px; }
 button.on { border-color: var(--acc); color: var(--acc); }
-.hover { position: absolute; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0)); max-width: calc(100% - 260px); white-space: pre-line;
+.hover { position: absolute; left: 64px; top: 56px; max-width: calc(100% - 140px); white-space: pre-line;
   background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; pointer-events: none; }
 .top span { white-space: nowrap; }
 /* Landscape/desktop only: portrait touch screens get a rotate prompt instead of a layout. */
@@ -41,3 +41,25 @@ button.on { border-color: var(--acc); color: var(--acc); }
   .rotate { display: flex; position: fixed; inset: 0; z-index: 10; align-items: center; justify-content: center; text-align: center;
     background: var(--bg); font-size: 18px; padding: 24px; }
 }
+.modebar { position: absolute; left: 12px; top: 56px; bottom: calc(60px + env(safe-area-inset-bottom, 0)); height: fit-content; margin: auto 0;
+  display: flex; flex-direction: column; gap: 6px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 6px; }
+.modebar button { width: 36px; height: 36px; padding: 0; font-size: 17px; }
+.hotbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(8px + env(safe-area-inset-bottom, 0)); display: flex; gap: 4px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px; }
+.slot { position: relative; width: 44px; height: 44px; padding: 0; overflow: hidden; border-radius: 5px; background: #20252c; }
+.slot.sel { border-color: var(--acc); box-shadow: 0 0 0 2px var(--acc) inset; }
+.slot .sw { position: absolute; left: 5px; top: 5px; width: 12px; height: 12px; border-radius: 3px; border: 1px solid #0006; }
+.slot .lb { position: absolute; left: 2px; right: 2px; bottom: 3px; font-size: 9px; line-height: 10px; text-align: left; color: var(--dim); overflow: hidden; max-height: 20px; }
+.slot .n { position: absolute; right: 3px; top: 2px; font-size: 11px; font-weight: 600; }
+.slot .dur { position: absolute; left: 0; bottom: 0; height: 3px; background: #6c6; }
+.bagbtn { font-size: 20px; }
+.bag { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(64px + env(safe-area-inset-bottom, 0)); background: var(--panel);
+  border: 1px solid var(--line); border-radius: 8px; padding: 6px; max-height: calc(100% - 130px); overflow: auto; }
+.bag .grid { display: grid; grid-template-columns: repeat(9, 44px); gap: 4px; }
+.bagbar { margin-top: 6px; font-size: 12px; min-height: 32px; }
+.bagbar .grow { flex: 1; }
+.feed { position: absolute; left: 50%; transform: translateX(-50%); top: 52px; display: flex; flex-direction: column; align-items: center; gap: 2px;
+  font-size: 12px; pointer-events: none; }
+.feed > div { background: var(--panel); border-radius: 4px; padding: 2px 8px; white-space: nowrap; }
+.feed .err { color: #f08080; }
+.feed .dig { color: var(--acc); }

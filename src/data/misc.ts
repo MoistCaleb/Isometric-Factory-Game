@@ -2,6 +2,7 @@
 export interface MiscItemDef { id: string; name: string; color: number }
 
 export const MISC_ITEMS: MiscItemDef[] = [
+  { id: 'dirt', name: 'Dirt', color: 0x7a5a3a },
   { id: 'fiber', name: 'Plant Fiber', color: 0x6a9a40 },
   { id: 'straw', name: 'Straw', color: 0xd8c060 },
   { id: 'sticky_resin', name: 'Sticky Resin', color: 0xd09030 },
@@ -12,7 +13,7 @@ export const MISC_ITEMS: MiscItemDef[] = [
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */
 export const WORLD_ITEMS = [
-  'log:wood', 'shard:flint', 'cobble:stone', 'gravel:stone', 'ball:clay', 'dust:sand',
+  'log:wood', 'stick:wood', 'shard:flint', 'dirt', 'cobble:stone', 'gravel:stone', 'ball:clay', 'dust:sand',
   'fiber', 'straw', 'sticky_resin', 'lodestone',
 ];
 export const WORLD_FLUIDS = ['water', 'brine', 'air', 'crude_oil', 'natural_gas'];

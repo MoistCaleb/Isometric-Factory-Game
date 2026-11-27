@@ -10,6 +10,8 @@ import { planetMap } from '../world/map';
 import { buildChunk, CH, disposeChunk } from './chunks';
 
 export type Mode = 'iso' | 'map' | 'globe';
+/** Player action mode (DESIGN §3 Building). */
+export type Act = 'view' | 'build' | 'base' | 'demolish' | 'mine';
 export interface View { mode: Mode; x: number; y: number; zoom: number; rot: number; level: number; xray: boolean; mapZoom: number; globeDist: number }
 
 export const LEVEL_MIN = -LAYERS.bedrock, LEVEL_MAX = 8;
@@ -43,6 +45,9 @@ export class Renderer {
   view: View = { mode: 'iso', x: 0, y: 0, zoom: 24, rot: 0, level: 0, xray: false, mapZoom: 400, globeDist: 2.6 };
   onView?: (v: View) => void;
   onHover?: (text: string | null) => void;
+  act: Act = 'view';
+  /** Click on a tile in iso view with a non-view action (z = depth layer). */
+  onTile?: (x: number, y: number, z: number) => void;
 
   private r: THREE.WebGLRenderer;
   private gen?: WorldGen;
@@ -147,6 +152,17 @@ export class Renderer {
     this.emit();
   }
   private get mapMax() { return this.p.h * 0.6; }
+
+  /** Apply world diff changes from the sim and rebuild the touched chunks (and neighbours sharing an edge). */
+  applyChanges(ch: Record<string, number>) {
+    const ncx = Math.ceil(this.p.w / CH), drop = new Set<string>();
+    for (const [k, b] of Object.entries(ch)) {
+      this.diffs[k] = b;
+      const [x, y] = k.split(',').map(Number);
+      for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) drop.add(`${mod(Math.floor((x + dx) / CH), ncx)},${Math.floor((y + dy) / CH)}`);
+    }
+    for (const k of drop) { const e = this.chunks.get(k); if (e) { disposeChunk(e.g); this.terrain.remove(e.g); this.chunks.delete(k); } }
+  }
 
   // ---------- chunks ----------
   private clearChunks() {
@@ -503,8 +519,11 @@ export class Renderer {
 
   private click(px: number, py: number) {
     const v = this.view;
-    if (v.mode === 'iso') return; // P2: tile actions
     const t = this.tileAt(px, py);
+    if (v.mode === 'iso') {
+      if (t && this.act !== 'view' && v.level <= 0) this.onTile?.(t.x, t.y, -v.level);
+      return;
+    }
     if (!t || t.y < 0 || t.y >= this.p.h) return;
     v.x = t.x + 0.5; v.y = t.y + 0.5;
     if (v.mode === 'globe') { this.setMode('map'); v.mapZoom = 300; }

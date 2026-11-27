@@ -1,6 +1,6 @@
 // Chunk meshes: one layer slice (surface, or depth d) of CH×CH tiles, vertex-colored quads + instanced trees.
 import * as THREE from 'three';
-import { BLOCKS, isOre } from '../world/blocks';
+import { B, BLOCKS, isOre } from '../world/blocks';
 import { Tree, Water, type WorldGen } from '../world/gen';
 import { hash01 } from '../world/noise';
 
@@ -17,24 +17,31 @@ const TREE_PARTS: Record<number, [w: number, h: number, y: number, color: number
   [Tree.Cactus]: [[0.18, 0.7, 0, 0x4a8a3a]],
 };
 
-/** Height of a tile's top face relative to the layer plane. */
+const darken = (c: number, f: number) => (Math.round(((c >> 16) & 255) * f) << 16) | (Math.round(((c >> 8) & 255) * f) << 8) | Math.round((c & 255) * f);
+
+/** Height of a tile's top face relative to the layer plane. Dug-out (air) blocks show as pits onto the block below. */
 function topOf(gen: WorldGen, x: number, y: number, level: number, xray: boolean, diffs: Record<string, number>): { h: number; c: number } {
   if (!gen.inBounds(y)) return { h: -2, c: 0 };
   const xw = gen.wrapX(x);
-  if (level > 0 || level === 0) {
+  const at = (z: number) => diffs[`${xw},${y},${z}`] ?? (xray ? gen.block(xw, y, z) : gen.terrain(xw, y, z));
+  const z0 = Math.max(0, -level);
+  let b: number, h = 0, c: number;
+  if (z0 === 0) {
     const sf = gen.surface(xw, y);
-    const b = diffs[`${xw},${y},0`] ?? gen.terrain(xw, y, 0, sf);
-    let c = BLOCKS[b].color;
-    if (sf.water === Water.Ocean) c = sf.coast ? 0x3a7cb0 : 0x1f4f80;
-    const h = sf.ice ? 0.12 : sf.water === Water.Ocean ? -0.35 : sf.water !== Water.None ? -0.22 : 0;
-    return { h, c };
+    b = diffs[`${xw},${y},0`] ?? gen.terrain(xw, y, 0, sf);
+    c = BLOCKS[b].color;
+    if (b !== B.air) {
+      if (sf.water === Water.Ocean) c = sf.coast ? 0x3a7cb0 : 0x1f4f80;
+      return { h: sf.ice ? 0.12 : sf.water === Water.Ocean ? -0.35 : sf.water !== Water.None ? -0.22 : 0, c };
+    }
+  } else {
+    b = at(z0);
+    if (b !== B.air) return { h: xray && isOre(b) ? 0.12 : 0, c: BLOCKS[b].color };
   }
-  const z = -level;
-  let b = diffs[`${xw},${y},${z}`];
-  if (b === undefined) {
-    b = xray ? gen.block(xw, y, z) : gen.terrain(xw, y, z);
-  }
-  return { h: xray && isOre(b) ? 0.12 : 0, c: BLOCKS[b].color };
+  let z = z0;
+  while (b === B.air && z < 25) { b = at(++z); h -= 0.5; }
+  c = darken(BLOCKS[b].color, Math.max(0.35, 1 + h * 0.4));
+  return { h: Math.max(h, -1.5), c };
 }
 
 function shade(c: number, f: number): [number, number, number] {
@@ -63,15 +70,15 @@ export function buildChunk(gen: WorldGen, cx: number, cy: number, o: ChunkOpts):
     quad([[i, h, j], [i, h, j + 1], [i + 1, h, j + 1], [i + 1, h, j]], [0, 1, 0], shade(c, jit));
     // Sides where a neighbour is lower (water banks, ice edges, ore bumps, world edge).
     const sides: [number, number[][], number[]][] = [
-      [k - 1, [[i, h, j], [i, -1, j], [i, -1, j + 1], [i, h, j + 1]], [-1, 0, 0]],
-      [k + 1, [[i + 1, h, j + 1], [i + 1, -1, j + 1], [i + 1, -1, j], [i + 1, h, j]], [1, 0, 0]],
-      [k - N, [[i + 1, h, j], [i + 1, -1, j], [i, -1, j], [i, h, j]], [0, 0, -1]],
-      [k + N, [[i, h, j + 1], [i, -1, j + 1], [i + 1, -1, j + 1], [i + 1, h, j + 1]], [0, 0, 1]],
+      [k - 1, [[i, h, j], [i, -99, j], [i, -99, j + 1], [i, h, j + 1]], [-1, 0, 0]],
+      [k + 1, [[i + 1, h, j + 1], [i + 1, -99, j + 1], [i + 1, -99, j], [i + 1, h, j]], [1, 0, 0]],
+      [k - N, [[i + 1, h, j], [i + 1, -99, j], [i, -99, j], [i, h, j]], [0, 0, -1]],
+      [k + N, [[i, h, j + 1], [i, -99, j + 1], [i + 1, -99, j + 1], [i + 1, h, j + 1]], [0, 0, 1]],
     ];
     for (const [nk, p, n] of sides) {
-      const nh = Math.max(H[nk], -1);
+      const nh = Math.max(H[nk], -2);
       if (nh >= h) continue;
-      for (const v of p) if (v[1] === -1) v[1] = nh;
+      for (const v of p) if (v[1] === -99) v[1] = nh;
       quad(p, n, shade(c, jit * 0.62));
     }
   }
