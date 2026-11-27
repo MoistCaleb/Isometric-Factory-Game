@@ -265,6 +265,7 @@ export const QUESTS: QuestDef[] = [
       'A **Water Pump** next to a river, lake or sea fills its tank with 10 L of water every tick.',
       '**Bronze Fluid Pipes** carry it away. Place them like any block: a pipe joins other pipes of its kind and every machine on all **6 sides**, including above and below.',
       'All the pipes joined together form one **network** that holds **one fluid at a time**. Each machine pushes out what it makes and pulls in what it uses, up to 120 L per tick per connection. Keep water and steam on separate networks.',
+      '**Separate lines side by side:** pick a **channel** colour in the build bar before placing — pipes only join pipes on the same channel. Or tap a pipe in View mode to change its channel or **cut** single sides (a cut side joins nothing, machines included).',
     ],
     tasks: [build('water_pump'), build('bronze_pipe', 6)] },
   { id: 's_boiler', chapter: 'S', title: 'Under Pressure', req: ['s_pipes'], reward: S2,
@@ -428,7 +429,7 @@ export const QUESTS: QuestDef[] = [
     text: [
       'LV machines follow a template: **LV hull + 2 basic circuits + 2 tin cables** + their own parts. Each has a small **energy buffer** (1 s of input, 32 W max at LV) and draws its recipe\'s power every tick — "No power" when the buffer runs dry.',
       '**Cables** join every cable they touch on all 6 sides, any material, into one network; machines and generators touching it connect (set a side **Off** in the machine\'s Sides to cut it). Bare **wire** works too but loses twice as much.',
-      '**Loss:** every tile of cable between a machine and the nearest generator costs a little (tin cable 0.4 V per tile of 32 V). Keep generators close. The machine panel shows the network: volts, watts, amps and loss. The pipe overlay (**H**) shows cables in yellow.',
+      '**Loss:** every tile of cable between a machine and the nearest generator costs a little (tin cable 0.4 V per tile of 32 V). Keep generators close. The machine panel shows the network: volts, watts, amps and loss. The pipe overlay (**H**) shows cables in yellow. Channels and cut sides work for cables exactly like pipes.',
     ],
     tasks: [build('tin_cable', 4), flag('powered', 'Power an LV machine')] },
   { id: 'l_fuse', chapter: 'LV', title: 'Blow a Fuse', req: ['l_cables'], reward: L1,

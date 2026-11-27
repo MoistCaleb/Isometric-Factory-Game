@@ -13,6 +13,8 @@ import { nearSide, type BaseKind } from '../sim/build';
 import { BuildBar } from './BuildBar';
 import { bytes, duration, gameClock, levelName, weatherText } from './format';
 import { hoverItem, Inventory } from './Inventory';
+import { Conduit } from './Conduit';
+import { isConduit } from '../data/structures';
 import { Recipes, type Look } from './Recipes';
 import { Machine } from './Machine';
 import { Veins } from './Veins';
@@ -65,6 +67,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [journal, setJournal] = useState(false);
   const [, setVeinTick] = useState(0);
   const [machKey, setMachKey] = useState<string | null>(null);
+  /** Open pipe/cable panel · channel for new pipes/cables. */
+  const [conKey, setConKey] = useState<string | null>(null);
+  const [ch, setCh] = useState(0);
   const [machView, setMachView] = useState<MachView | null>(null);
   const [qbook, setQbook] = useState(false);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -165,12 +170,18 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         const [bx, by, bb] = block?.split(',').map(Number) ?? [];
         const k = (block ? controllerAt(renderer.entities, renderer.width, bx, by, bb) : null)
           ?? (level >= 0 ? controllerInStorey(renderer.entities, renderer.width, x, y, level) : null);
-        return k ? openMach(k) : undefined;
+        if (k) { setConKey(null); return openMach(k); }
+        // Pipe / cable: the hit block, else the top conduit in the viewed storey.
+        const ents = renderer.entities, xx = ((x % renderer.width) + renderer.width) % renderer.width;
+        const ck = block && ents[block] && isConduit(ents[block].s) ? block
+          : level >= 0 ? [2, 1, 0].map((i) => `${xx},${y},${level * STOREY + i}`).find((kk) => ents[kk] && isConduit(ents[kk].s)) : undefined;
+        if (ck) { openMach(null); setConKey(ck); }
+        return;
       }
       if (act === 'mine' && mineTool === 'prospect') return game.sim.cmd({ k: 'prospect', x, y });
       if (act === 'mine') return level > 0 ? say('Mining works at the surface and below') : game.sim.cmd({ k: 'mine', x, y, z: -level });
       if (level < 0) return say('Build at the surface or above');
-      if (act === 'build') return buildId ? game.sim.cmd({ k: 'place', id: buildId, x, y, f: level, r: rot }) : say('Pick a structure to place');
+      if (act === 'build') return buildId ? game.sim.cmd({ k: 'place', id: buildId, x, y, f: level, r: rot, ch }) : say('Pick a structure to place');
       if (act === 'base') return game.sim.cmd({ k: 'base', kind: baseKind, x, y, f: level, side: nearSide(fx, fy) });
       if (act === 'demolish') {
         const edge = Math.min(fx, fy, 1 - fx, 1 - fy) < 0.22;
@@ -326,13 +337,16 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       )}
       {iso && !menu && !book && !bag && !qbook && (act === 'build' || act === 'base' || act === 'demolish') && (
         <BuildBar act={act} inv={inv.inv} buildId={buildId} onBuildId={setBuildId} rot={rot} onRot={() => setRot((r) => (r + 1) % 4)}
-          baseKind={baseKind} onBaseKind={setBaseKind} onBook={() => { setLook(null); setBook(true); setBag(false); }} />
+          baseKind={baseKind} onBaseKind={setBaseKind} ch={ch} onCh={setCh} onBook={() => { setLook(null); setBook(true); setBag(false); }} />
       )}
       {machKey && !book && !menu && !journal && !qbook && renderer.entities[machKey] && (
         <Machine ent={renderer.entities[machKey]} view={machView?.key === machKey ? machView : null} inv={inv} poll={pollAt(stats.pl, machKey)}
           onCmd={(c) => game.sim.cmd(c)} onLook={openLook} onClose={() => openMach(null)} />
       )}
-      {iso && !menu && !book && !journal && !qbook && !(machKey && renderer.entities[machKey]) && (
+      {conKey && !machKey && !book && !menu && !journal && !qbook && renderer.entities[conKey] && act === 'view' && (
+        <Conduit k={conKey} ent={renderer.entities[conKey]} onCmd={(c) => game.sim.cmd(c)} onClose={() => setConKey(null)} />
+      )}
+      {iso && !menu && !book && !journal && !qbook && !(machKey && renderer.entities[machKey]) && !(conKey && act === 'view' && renderer.entities[conKey]) && (
         <div class="zbar">
           <span class="zlabel">{levelName(view.level)}</span>
           <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>

@@ -223,6 +223,19 @@ function lvMachines(): StructDef[] {
 
 /** Pipe structures (fluid + item) by id. */
 export const PIPES = new Map(STRUCTURES.filter((s) => s.pipe).map((s) => [s.id, s.pipe!]));
+/** Conduit channels (pipes + cables): same-kind conduits join only on the same channel; 0 = plain. Tint per channel. */
+export const CHANNELS = [0, 0xe04040, 0x40c040, 0x4080ff, 0xe0d040, 0xc050e0, 0x40d0d0, 0xf0f0f0];
+/** A placed block as the join rules see it: structure id, channel, cut sides (bit i = side i, E W S N up down). */
+export interface Conn { s: string; ch?: number; cut?: number }
+export const sideOpen = (a: Conn, i: number) => !(((a.cut ?? 0) >> i) & 1);
+/** Conduit a joins conduit b across its side i (b's side i ^ 1): same kind (same pipe; any cable), same channel, neither cut. */
+export function conduitsJoin(a: Conn, b: Conn, i: number): boolean {
+  const kind = PIPES.has(a.s) ? a.s === b.s : CABLES.has(a.s) && CABLES.has(b.s);
+  return kind && (a.ch ?? 0) === (b.ch ?? 0) && sideOpen(a, i) && sideOpen(b, i ^ 1);
+}
+/** Pipe or cable block. */
+export const isConduit = (id: string) => PIPES.has(id) || CABLES.has(id);
+
 /** Cable structures by id (P4a). */
 export const CABLES = new Map(STRUCTURES.filter((s) => s.cable).map((s) => [s.id, s.cable!]));
 for (const s of STRUCTURES) if (s.multi) for (const id of [s.id, s.multi.casing, ...s.multi.parts ?? [], ...s.multi.hatches ?? []]) MULTI_PARTS.add(id);

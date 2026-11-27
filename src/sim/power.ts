@@ -3,11 +3,11 @@
 // cable loss to the nearest generator, generators share the total pro rata. Too much current burns the weakest block (a fuse
 // first); a cable or machine rated below the network voltage burns / explodes.
 import { AMP_IN, BUF_S, FACE, MACHINE, type MachineDef } from '../data/machines';
-import { CABLES, STRUCTURES } from '../data/structures';
+import { CABLES, STRUCTURES, conduitsJoin, sideOpen } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import type { WorldGen } from '../world/gen';
 import { controllerAt, newMach, simEvents, type Mach } from './machines';
-import { around, topoChanged, topoVersion } from './pipes';
+import { around, sideIndex, topoChanged, topoVersion } from './pipes';
 import { TPS, type GameState } from './state';
 
 interface PLink { ctl: string; via: string; face: number }
@@ -42,8 +42,8 @@ export function powerNets(ents: GameState['ents'], w: number): PNet[] {
       DIRS.forEach(([dx, dy, db], i) => {
         if (b + db < 0) return;
         const nk = `${mod(x + dx, w)},${y + dy},${b + db}`, ne = ents[nk];
-        if (!ne) return;
-        if (CABLES.has(ne.s)) { if (!seen.has(nk)) { seen.add(nk); todo.push(nk); } return; }
+        if (!ne || !sideOpen(ents[cur], i)) return;
+        if (CABLES.has(ne.s)) { if (conduitsJoin(ents[cur], ne, i) && !seen.has(nk)) { seen.add(nk); todo.push(nk); } return; }
         const [nx, ny, nb] = nk.split(',').map(Number), ctl = controllerAt(ents, w, nx, ny, nb);
         if (!ctl || HATCHED.has(ents[ctl].s) || links.has(`${ctl}|${i ^ 1}`)) return;
         links.set(`${ctl}|${i ^ 1}`, { ctl, via: cur, face: i ^ 1 });
@@ -56,11 +56,11 @@ export function powerNets(ents: GameState['ents'], w: number): PNet[] {
 }
 
 /** BFS distances (cable blocks) from a set of start blocks. */
-function distFrom(keys: string[], starts: string[], w: number): Map<string, number> {
+function distFrom(keys: string[], starts: string[], w: number, ents: GameState['ents']): Map<string, number> {
   const inNet = new Set(keys), d = new Map(starts.map((k) => [k, 1]));
   for (let q = [...new Set(starts)]; q.length;) {
     const nq: string[] = [];
-    for (const k of q) for (const nk of around(k, w)) if (inNet.has(nk) && !d.has(nk)) { d.set(nk, d.get(k)! + 1); nq.push(nk); }
+    for (const k of q) for (const nk of around(k, w)) if (inNet.has(nk) && !d.has(nk) && conduitsJoin(ents[k], ents[nk], sideIndex(k, nk, w))) { d.set(nk, d.get(k)! + 1); nq.push(nk); }
     q = nq;
   }
   return d;
@@ -103,7 +103,7 @@ export function stepPower(s: GameState, gen: WorldGen) {
       simEvents.push({ ok: false, sim: true, msg: `💥 ${hot.d.name} exploded — ${v} V is over its ${TIER_VOLTAGE[hot.d.tier]} V rating!`, ents: { [hot.ctl]: null } });
       continue;
     }
-    const dist = distFrom(net.keys, gens.map((g) => g.via), gen.w);
+    const dist = distFrom(net.keys, gens.map((g) => g.via), gen.w, s.ents);
     // Average drop per tile over the network (mixed cables).
     const drop = net.keys.reduce((a, k) => a + CABLES.get(s.ents[k].s)!.drop, 0) / net.keys.length;
     const supply = gens.reduce((a, g) => a + genAvail(g.m, g.d), 0);

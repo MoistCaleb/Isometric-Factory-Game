@@ -50,7 +50,7 @@ function support(s: GameState, gen: WorldGen, x: number, y: number, b: number): 
 }
 
 /** Place at an exact block level (multiblock auto-fill). */
-export function placeAt(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, b: number, r: number): ActResult {
+export function placeAt(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, b: number, r: number, ch = 0): ActResult {
   const x = gen.wrapX(xIn), st = STRUCT.get(id.replace(/^struct:/, ''));
   if (!st) return { ok: false, msg: 'Not placeable' };
   const item = `struct:${st.id}`, key = `${x},${y},${b}`;
@@ -61,6 +61,7 @@ export function placeAt(s: GameState, gen: WorldGen, id: string, xIn: number, y:
   if (why) return { ok: false, msg: why };
   take(s, item, 1);
   s.ents[key] = { s: st.id, r: mod(r, 4) };
+  if (ch && (st.pipe || st.cable)) s.ents[key].ch = ch;
   if (st.machine) s.mach[key] = newMach();
   topoChanged();
   return { ok: true, ents: { [key]: s.ents[key] } };
@@ -73,12 +74,12 @@ export function topInStorey(ents: GameState['ents'], x: number, y: number, f: nu
 }
 
 /** Machine Build on storey f: stacks on top of what's already there (up to 3 blocks per storey). */
-export function place(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, f: number, r: number): ActResult {
+export function place(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, f: number, r: number, ch = 0): ActResult {
   const x = gen.wrapX(xIn);
   if (f < 0 || f > FLOORS) return { ok: false, msg: 'Build on the surface or upper floors' };
   const top = topInStorey(s.ents, x, y, f), b = top ? +top.split(',')[2] + 1 : f * STOREY;
   if (b >= (f + 1) * STOREY) return { ok: false, msg: 'Storey is full here (3 blocks)' };
-  return placeAt(s, gen, id, x, y, b, r);
+  return placeAt(s, gen, id, x, y, b, r, ch);
 }
 
 export function addBase(s: GameState, gen: WorldGen, kind: BaseKind, xIn: number, y: number, f: number, side?: Side): ActResult {

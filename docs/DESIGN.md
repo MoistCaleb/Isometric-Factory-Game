@@ -102,6 +102,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Diverse generators that improve with tier: Solar (day only), Wind (stronger higher up), Water turbine (river/lake), Geothermal (must drill deep), Combustion/Gas (fuel), Steam turbines, Nuclear (EHV), Fusion (later).
 
 ## 7. Logistics
+- **Channels + cut sides** (all pipes and cables): a channel colour (build bar, or tap the block in View mode) — same-kind conduits join only on the same channel; any of a block's 6 sides can be cut (joins nothing, machines included). Lets separate lines run side by side.
 - **Pipes only** (no belts): item pipes (material → items/sec, route to nearest, restrictive variants), **single-fluid** pipes (material → throughput, max temp, hazard resistance).
 - Robotic arms, filters, vertical pipes. Chests by tier, super chest (MV).
 - Gas leaks into air from broken pipes. Fluid cells/capsules as items.

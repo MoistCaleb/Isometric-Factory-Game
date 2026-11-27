@@ -74,6 +74,7 @@
 - Water: `Surface.depth` = water layers (seabed at z = depth); ocean ≤8, trenches ≤22; no ore in water; under-water blocks unminable (offshore rigs later).
 - World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`, picked samples `x,y,s`). Vein id `cx.cy.slot`.
 - Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
+- Conduits (pipes + cables): `Ent.ch` channel, `Ent.cut` side bitmask (E W S N up down); joins via `conduitsJoin`/`sideOpen` (data/structures) in pipes, power and render; `conduit` cmd; panel ui/Conduit.
 - Machines: `StructDef.machine` → `MachineDef.run` fuel|self|crank|boiler|steam|pump|elec|gen (`steam` L/tick if set)|store (chest: items in `out`)|tank (barrel)|thump|dig (P3c; sim-made world changes/veins go out as `simEvents` with `sim: true`); steam machines use `power × STEAM_PER_POWER` L/tick from `Mach.steam`; sim-made changes (explosions) go out via `simEvents` as `act` messages; recipe `minHeatK` (else machine `heatK`). Multiblock = `StructDef.multi {casing, pattern}`. Worker streams statuses in `stats.ms` and the watched machine as `{t:'mach'}`. `player.ts` ↔ `machines.ts` import each other: no top-level use of imports.
 - Scripts: `npm run dev | test | validate | build | map`. Dev: `?seed=N` starts a fresh game on that seed when there's no save.
 

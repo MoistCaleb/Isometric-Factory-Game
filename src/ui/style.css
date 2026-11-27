@@ -155,3 +155,7 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .pop.alerts button.err { color: #f08080; }
 .pop .dim { white-space: normal; }
 .top:has(.pop) { opacity: 1; }
+.chans { display: inline-flex; gap: 3px; flex-wrap: wrap; }
+.chans button { min-width: 28px; padding: 4px; }
+.chans button.on { outline: 2px solid #e8a040; }
+.chans .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; }

@@ -9,6 +9,8 @@ import { B, BLOCKS } from '../world/blocks';
 import { LAYERS, Tree, type WorldGen } from '../world/gen';
 import { addBase, builtOn, demolish, place, type BaseKind, type Side } from './build';
 import { next } from './rng';
+import { CHANNELS, isConduit } from '../data/structures';
+import { topoChanged } from './pipes';
 import { machCmd, type MachCmd } from './machines';
 import { checkQuests, questCmd, type QuestCmd } from './quests';
 import { know, pickSample, prospect } from './veins';
@@ -25,7 +27,9 @@ export type Cmd =
   | { k: 'move'; a: SlotRef; b: SlotRef }
   | { k: 'trash'; a: SlotRef }
   | { k: 'craft'; recipe: string; n: number }
-  | { k: 'place'; id: string; x: number; y: number; f: number; r: number }
+  | { k: 'place'; id: string; x: number; y: number; f: number; r: number; ch?: number }
+  /** Pipe/cable block: set channel and/or cut sides (bitmask E W S N up down). */
+  | { k: 'conduit'; key: string; ch?: number; cut?: number }
   | { k: 'base'; kind: BaseKind; x: number; y: number; f: number; side?: Side }
   | { k: 'demolish'; x: number; y: number; f: number; side?: Side }
   | { k: 'prospect'; x: number; y: number }
@@ -308,7 +312,16 @@ function run(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'move': return move(s, c.a, c.b);
     case 'trash': box(s, c.a)[c.a.i] = null; return { ok: true };
     case 'craft': return craft(s, c.recipe, c.n);
-    case 'place': return place(s, gen, c.id, c.x, c.y, c.f, c.r);
+    case 'place': return place(s, gen, c.id, c.x, c.y, c.f, c.r, c.ch);
+    case 'conduit': {
+      const e = s.ents[c.key];
+      if (!e || !isConduit(e.s)) return { ok: false, msg: 'Not a pipe or cable' };
+      const n: Ent = { ...e };
+      if (c.ch !== undefined) { if (c.ch > 0 && c.ch < CHANNELS.length) n.ch = c.ch; else delete n.ch; }
+      if (c.cut !== undefined) { if (c.cut & 63) n.cut = c.cut & 63; else delete n.cut; }
+      s.ents[c.key] = n; topoChanged();
+      return { ok: true, ents: { [c.key]: n } };
+    }
     case 'base': return addBase(s, gen, c.kind, c.x, c.y, c.f, c.side);
     case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
     case 'prospect': return prospect(s, gen, c.x, c.y);

@@ -2,7 +2,7 @@
 // anything relevant changes (counts stay small in P2; per-chunk split later if needed).
 // Near-side walls render low (unless Base Build); roofs on the viewed storey go see-through when zoomed in.
 import * as THREE from 'three';
-import { CABLES, MULTI_PARTS, PIPES, STRUCTURES, multiCells, type Box } from '../data/structures';
+import { CABLES, CHANNELS, MULTI_PARTS, PIPES, conduitsJoin, isConduit, sideOpen, STRUCTURES, multiCells, type Box } from '../data/structures';
 import { STOREY, type Ent } from '../sim/state';
 
 const MODELS = new Map(STRUCTURES.map((s) => [s.id, s.model]));
@@ -95,11 +95,13 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
       const col = COLOR.get(e.s)!, h = cab ? (m![0][3] - m![0][0]) / 2 : 3, lo = 8 - h, hi = 8 + h;
       const fit = (c: number) => (!cab ? c : c === 5 || c === 6 ? lo : c === 10 || c === 11 ? hi : c);
       const arms: Box[] = [[lo, lo, lo, hi, hi, hi, col]];
-      for (const [dx, dy, db, bx] of ARMS) {
+      ARMS.forEach(([dx, dy, db, bx], i) => {
         const n = b + db >= 0 && v.ents[`${mod(x + dx, v.w)},${y + dy},${b + db}`];
-        const other = n && (PIPES.has(n.s) || CABLES.has(n.s));
-        if (n && (pipe ? n.s === e.s || !other : CABLES.has(n.s) || !other)) arms.push([...bx.slice(0, 6).map(fit), col] as Box);
-      }
+        // Joins a conduit by the channel/cut rules; any other structure if this side isn't cut.
+        if (n && (isConduit(n.s) ? conduitsJoin(e, n, i) : sideOpen(e, i))) arms.push([...bx.slice(0, 6).map(fit), col] as Box);
+      });
+      // Channel band around the hub.
+      if (e.ch) arms.push([lo - 0.5, lo + h * 0.6, lo - 0.5, hi + 0.5, hi - h * 0.6, hi + 0.5, CHANNELS[e.ch]]);
       solid.model(arms, wx(x), y0, y, 0);
     } else if (m) solid.model(m, wx(x), y0, y, e.r);
     const col = MS_COL[v.ms?.[k] ?? 0];

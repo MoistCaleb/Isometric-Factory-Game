@@ -6,7 +6,7 @@
 // Items (P3b): every ITEM_EVERY ticks each source (machine outputs on auto/out sides, chests on out sides) sends up to the
 // pipe rate to the nearest sinks by pipe distance (recipe inputs, fuel, chests on auto/in sides).
 import { BOILER_WATER, BOOM_K, FACE, FUELS, ITEM_EVERY, MACHINE, STEAM_BUF, type MachineDef } from '../data/machines';
-import { PIPES, STRUCTURES } from '../data/structures';
+import { PIPES, STRUCTURES, conduitsJoin, sideOpen } from '../data/structures';
 import { registry } from '../content/registry';
 import type { WorldGen } from '../world/gen';
 import { BAG as BAG_N, controllerAt, explode, hatchOf, newMach, type Mach } from './machines';
@@ -34,6 +34,8 @@ function sides(key: string, w: number): (string | null)[] {
 }
 /** Neighbour block keys (6 sides) of `x,y,b`. */
 export const around = (key: string, w: number): string[] => sides(key, w).filter((k): k is string => !!k);
+/** Side index of `a` that faces its neighbour `b`. */
+export const sideIndex = (a: string, b: string, w: number) => sides(a, w).indexOf(b);
 
 export function networks(ents: GameState['ents'], w: number): Net[] {
   const c = cache.get(ents);
@@ -49,8 +51,9 @@ export function networks(ents: GameState['ents'], w: number): Net[] {
       keys.push(cur);
       sides(cur, w).forEach((nk, i) => {
         const ne = nk && ents[nk];
-        if (!ne) return;
-        if (ne.s === e.s) { if (!seen.has(nk!)) { seen.add(nk!); todo.push(nk!); } return; }
+        const ce = ents[cur];
+        if (!ne || !sideOpen(ce, i)) return;
+        if (ne.s === e.s) { if (conduitsJoin(ce, ne, i) && !seen.has(nk!)) { seen.add(nk!); todo.push(nk!); } return; }
         if (PIPES.has(ne.s)) return;
         const [x, y, b] = nk!.split(',').map(Number), ctl = controllerAt(ents, w, x, y, b), face = i ^ 1;
         if (!ctl) return;
@@ -177,14 +180,15 @@ export function accepts(m: Mach, def: MachineDef, id: string): [number, Record<s
 }
 
 /** Pipe distances from one pipe block to every block of its network (BFS, cached per topology). */
-function distFrom(net: Net, from: string, w: number): Map<string, number> {
+function distFrom(net: Net, from: string, w: number, ents: GameState['ents']): Map<string, number> {
   let d = net.dist.get(from);
   if (d) return d;
   const inNet = new Set(net.keys);
+  const joined = (a: string, b: string) => conduitsJoin(ents[a], ents[b], sideIndex(a, b, w));
   d = new Map([[from, 0]]);
   for (let q = [from]; q.length;) {
     const nq: string[] = [];
-    for (const k of q) for (const nk of around(k, w)) if (inNet.has(nk) && !d.has(nk)) { d.set(nk, d.get(k)! + 1); nq.push(nk); }
+    for (const k of q) for (const nk of around(k, w)) if (inNet.has(nk) && !d.has(nk) && joined(k, nk)) { d.set(nk, d.get(k)! + 1); nq.push(nk); }
     q = nq;
   }
   net.dist.set(from, d);
@@ -196,7 +200,7 @@ function stepItems(s: GameState, net: Net, w: number) {
   if (!sinks.length) return;
   for (const src of attached(s, net, 'out')) {
     let left = net.rate;
-    const d = distFrom(net, src.via, w);
+    const d = distFrom(net, src.via, w, s.ents);
     const near = sinks.filter((t) => t.ctl !== src.ctl).sort((a, b) => (d.get(a.via) ?? 1e9) - (d.get(b.via) ?? 1e9));
     each: for (const id of Object.keys(src.m.out)) {
       for (const t of near) {

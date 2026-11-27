@@ -85,3 +85,35 @@ describe('P4a power', () => {
     expect(s.mach[pk].pw).toBe(0);
   });
 });
+
+describe('conduit channels + cut sides', () => {
+  it('parallel lines on different channels stay separate; a cut side splits a line and unlinks a machine', () => {
+    const s = structuredClone(s0), { x, y } = spot();
+    const a = [0, 1, 2].map((i) => place(s, 'tin_cable', x + i, y));
+    const b = [0, 1, 2].map((i) => { give(s, 'struct:tin_cable', 1); const r = apply(s, gen, { k: 'place', id: 'struct:tin_cable', x: gen.wrapX(x + i), y: y + 1, f: 0, r: 0, ch: 2 }); return Object.keys(r.ents!)[0]; });
+    const nets = () => powerNets(s.ents, gen.w);
+    expect(nets().length).toBe(2);
+    expect(nets().find((n) => n.keys.includes(a[0]))!.keys.sort()).toEqual([...a].sort());
+    // Same channel again → one network.
+    for (const k of b) apply(s, gen, { k: 'conduit', key: k, ch: 0 });
+    expect(nets().length).toBe(1);
+    // Cut a[1]'s east side (0): a[2] splits off on its own.
+    for (const k of b) apply(s, gen, { k: 'conduit', key: k, ch: 3 });
+    apply(s, gen, { k: 'conduit', key: a[1], cut: 1 });
+    expect(nets().length).toBe(3);
+    // A machine east of a[2] links; cutting a[2]'s east side unlinks it.
+    const mk = place(s, 'macerator', x + 3, y);
+    expect(nets().find((n) => n.keys.includes(a[2]))!.links.map((l) => l.ctl)).toEqual([mk]);
+    apply(s, gen, { k: 'conduit', key: a[2], cut: 1 });
+    expect(nets().find((n) => n.keys.includes(a[2]))!.links).toEqual([]);
+  });
+
+  it('pipes respect channels too', async () => {
+    const { networks } = await import('../src/sim/pipes');
+    const s = structuredClone(s0), { x, y } = spot();
+    place(s, 'bronze_pipe', x, y);
+    give(s, 'struct:bronze_pipe', 1);
+    apply(s, gen, { k: 'place', id: 'struct:bronze_pipe', x: gen.wrapX(x + 1), y, f: 0, r: 0, ch: 1 });
+    expect(networks(s.ents, gen.w).length).toBe(2);
+  });
+});

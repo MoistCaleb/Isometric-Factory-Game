@@ -23,7 +23,7 @@ export interface Weather {
 export interface Slot { id: string; n: number; dur?: number }
 
 /** Placed structure (DESIGN §3). `s` = structure id, `r` = rotation 0–3. */
-export interface Ent { s: string; r: number }
+export interface Ent { s: string; r: number; /** Pipes/cables: channel + cut sides (data/structures `conduitsJoin`). */ ch?: number; cut?: number }
 /** Base part keys `x,y,f,p` (DESIGN §3, free + visual): p = f floor/foundation · r roof · l light · n/w wall on the tile's north/west edge. */
 export type BasePart = 'f' | 'r' | 'l' | 'n' | 'w';
 /** Edge variants for n/w parts. */

@@ -4,6 +4,8 @@ import { registry } from '../content/registry';
 import type { BaseKind } from '../sim/build';
 import type { Slot } from '../sim/state';
 import type { Act } from '../render/renderer';
+import { isConduit } from '../data/structures';
+import { Channels } from './Conduit';
 
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const PARTS: [BaseKind, string, string][] = [
@@ -15,9 +17,11 @@ interface Props {
   act: Act; inv: (Slot | null)[];
   buildId: string | null; onBuildId: (id: string | null) => void; rot: number; onRot: () => void;
   baseKind: BaseKind; onBaseKind: (k: BaseKind) => void; onBook: () => void;
+  /** Channel for new pipes/cables. */
+  ch: number; onCh: (c: number) => void;
 }
 
-export function BuildBar({ act, inv, buildId, onBuildId, rot, onRot, baseKind, onBaseKind, onBook }: Props) {
+export function BuildBar({ act, inv, buildId, onBuildId, rot, onRot, baseKind, onBaseKind, onBook, ch, onCh }: Props) {
   const reg = registry();
   if (act === 'demolish') return <div class="buildbar"><span class="dim">Tap a structure to pick it up · near an edge removes walls · else roof → light → walls → floor</span></div>;
   if (act === 'base') {
@@ -41,6 +45,7 @@ export function BuildBar({ act, inv, buildId, onBuildId, rot, onRot, baseKind, o
         );
       })}
       {!have.size && <span class="dim">No structures — craft some in 📖</span>}
+      {buildId && isConduit(buildId.replace('struct:', '')) && <><span class="dim">Channel:</span><Channels ch={ch} onPick={onCh} /></>}
       <button onClick={onBook} title="Recipes">📖</button>
       <button onClick={onRot} title="Rotate (F)">↻ {['S', 'W', 'N', 'E'][rot]}</button>
     </div>
