@@ -4,7 +4,7 @@
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMBIENT_K, BOIL_K, BOILER_RATE, BOILER_WATER, CELL_FLUIDS, CELL_L, DUMP_POLL, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
-  THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
+  BATT, BATT_FULL, BATT_J, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
 import { PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
@@ -43,13 +43,15 @@ export interface Mach {
   cur?: number;
   /** Electric (P4a): energy buffer (J) · power in (consumers) or out (generators) last tick (W). */
   e?: number; pw?: number;
+  /** Transformer (P4c): step-up (low faces in → front out at MV); default step-down. */
+  up?: boolean;
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
-  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power'];
+  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -150,6 +152,8 @@ function nearWater(gen: WorldGen, key: string): boolean {
 const recipeOf = (id?: string): Recipe | undefined => (id ? registry().recipe(id) : undefined);
 const isGas = (id: string) => registry().fluid(id)?.phase === 'gas';
 /** Machines with a single tank (not a fluid bag). */
+/** Batteries in a battery buffer (P4c). */
+export const battN = (m: Mach) => m.inp[BATT] ?? 0;
 export const singleTank = (def: MachineDef) => def.run === 'boiler' || def.run === 'pump' || def.run === 'tank';
 /** Gas outputs vent from primitive/steam machines; electric ones keep them (P4b). */
 const vents = (def: MachineDef, id: string) => def.run !== 'elec' && isGas(id);
@@ -219,6 +223,8 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       if (m.st === MS.working) m.tank = { id: 'water', n: (m.tank?.n ?? 0) + Math.min(room, def.rate ?? 0) };
       continue;
     }
+    if (def.run === 'batt') { m.st = !battN(m) ? MS.noBatt : m.pw ? MS.working : MS.noLoad; continue; }
+    if (def.run === 'xfmr') { m.st = m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'gen') { m.st = def.steam && (m.steam ?? 0) < 1 ? MS.noSteam : m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'thump') { stepThumper(s, gen, key, m, def); continue; }
     if (def.run === 'dig') { stepDig(s, gen, key, m, def); continue; }
@@ -352,6 +358,10 @@ export type MachCmd =
   | { k: 'munload'; key: string }
   | { k: 'mdump'; key: string; id?: string }
   | { k: 'mcell'; key: string; id: string; fill?: boolean }
+  /** Battery buffer: insert a battery (`put` = item id) or take one out (charged if a full battery's worth is stored). */
+  | { k: 'mbat'; key: string; put?: string }
+  /** Transformer: toggle step-up / step-down. */
+  | { k: 'mxf'; key: string }
   | { k: 'crank'; key: string }
   | { k: 'mfill'; key: string }
   | { k: 'mface'; key: string; face: number; mode: number }
@@ -458,6 +468,31 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       return { ok: true, msg: poll ? `Dumped — pollution +${Math.round(poll)}` : 'Tank emptied' };
     }
     case 'mcell': return cellCmd(s, m, def, c.id, !!c.fill);
+    case 'mbat': {
+      if (def.run !== 'batt') return { ok: false, msg: 'Not a battery buffer' };
+      const n = battN(m);
+      if (c.put) {
+        if (c.put !== BATT && c.put !== BATT_FULL) return { ok: false, msg: 'Not a battery' };
+        if (n >= (def.slots ?? 0)) return { ok: false, msg: 'All slots full' };
+        if (!count(s, c.put)) return { ok: false, msg: `No ${name(c.put)}` };
+        take(s, c.put, 1); m.inp[BATT] = n + 1;
+        if (c.put === BATT_FULL) m.e = (m.e ?? 0) + BATT_J;
+        return { ok: true };
+      }
+      if (!n) return { ok: false, msg: 'No batteries' };
+      const full = (m.e ?? 0) >= BATT_J - 1e-6, id = full ? BATT_FULL : BATT;
+      if (give(s, id, 1)) return { ok: false, msg: 'Inventory full' };
+      if (full) m.e! -= BATT_J;
+      if (n > 1) m.inp[BATT] = n - 1; else delete m.inp[BATT];
+      m.e = Math.min(m.e ?? 0, (n - 1) * BATT_J);
+      if (full) s.flags.battery = (s.flags.battery ?? 0) + 1;
+      return { ok: true, gained: [{ id, n: 1 }] };
+    }
+    case 'mxf': {
+      if (def.run !== 'xfmr') return { ok: false, msg: 'Not a transformer' };
+      m.up = !m.up || undefined; m.e = 0;
+      return { ok: true, msg: m.up ? 'Step-up: low sides in → front out at 128 V' : 'Step-down: front in at 128 V → low sides out' };
+    }
     case 'crank': {
       if (def.run !== 'crank') return { ok: false };
       const b = blocker(s, gen, c.key, m, def, r);

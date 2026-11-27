@@ -13,7 +13,8 @@ import { buildStructs, ghostGeometry } from './structures';
 import { multiCells } from '../data/structures';
 import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
-import { pipeGeometry, pollGeometry } from './overlays';
+import { pipeGeometry, pollGeometry, powerGeometry } from './overlays';
+import { findNets, type PNet } from '../sim/power';
 import { HAZE, POLL_CH, SMOG } from '../sim/pollution';
 
 export type Mode = 'iso' | 'map' | 'globe';
@@ -25,7 +26,7 @@ export interface View { mode: Mode; x: number; y: number; zoom: number; rot: num
   /** Vein overlay on (iso + map). */
   veins: boolean;
   /** Pipe and pollution overlays (P3e). */
-  pipes?: boolean; poll?: boolean }
+  pipes?: boolean; poll?: boolean; power?: boolean }
 
 export const LEVEL_MIN = -LAYERS.bedrock, LEVEL_MAX = 8;
 const ISO_ZOOM: [number, number] = [5, 110];
@@ -105,6 +106,9 @@ export class Renderer {
   private pollMap = new THREE.Mesh(new THREE.BufferGeometry(), this.ovMat);
   private pipeMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75, depthWrite: false, depthTest: false }));
   private pipeSig = '';
+  /** Power overlay (P4c): cable networks (recomputed when structures change) + load per network from sim stats. */
+  private powerMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.85, depthWrite: false, depthTest: false }));
+  private powerSig = ''; private nets: PNet[] = []; private netsVer = -1; private pn: Record<string, number> = {};
 
   // iso
   private iso = new THREE.Scene();
@@ -164,9 +168,9 @@ export class Renderer {
 
     this.mapScene.background = new THREE.Color(0x0b0f16);
     this.mapScene.add(this.marker, this.veinMap);
-    this.iso.add(this.veinIso, this.pollIso, this.pipeMesh);
+    this.iso.add(this.veinIso, this.pollIso, this.pipeMesh, this.powerMesh);
     this.mapScene.add(this.pollMap);
-    for (const o of [this.pollIso, this.pollMap, this.pipeMesh]) { o.frustumCulled = false; o.renderOrder = 6; }
+    for (const o of [this.pollIso, this.pollMap, this.pipeMesh, this.powerMesh]) { o.frustumCulled = false; o.renderOrder = 6; }
     this.globeScene.background = new THREE.Color(0x05070c);
     this.globeScene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const gl = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -210,8 +214,10 @@ export class Renderer {
   toggleVeins() { this.view.veins = !this.view.veins; this.emit(); }
   togglePipes() { this.view.pipes = !this.view.pipes; this.emit(); }
   togglePoll() { this.view.poll = !this.view.poll; this.emit(); }
+  togglePower() { this.view.power = !this.view.power; this.emit(); }
   /** Pollution per chunk from sim stats. */
   setPollution(pl: Record<string, number> = {}) { this.pl = pl; }
+  setPowerLoad(pn: Record<string, number> = {}) { this.pn = pn; }
   /** Pollution at the camera's chunk. */
   get pollHere() { return this.pl[`${Math.floor(mod(this.view.x, this.p.w) / POLL_CH)},${Math.floor(this.view.y / POLL_CH)}`] ?? 0; }
 
@@ -234,6 +240,17 @@ export class Renderer {
     if (sig === this.pipeSig) return;
     this.pipeSig = sig;
     this.pipeMesh.geometry.dispose(); this.pipeMesh.geometry = pipeGeometry(this.ents, this.p.w, cx, cy, R);
+  }
+  private updatePower() {
+    const v = this.view, on = !!v.power;
+    this.powerMesh.visible = on;
+    if (!on) return;
+    if (this.netsVer !== this.structVer) { this.nets = findNets(this.ents, this.p.w); this.netsVer = this.structVer; }
+    const R = Math.ceil(Math.max(48, v.zoom * 2.5) / 16) * 16, cx = Math.round(v.x / 16) * 16, cy = Math.round(v.y / 16) * 16;
+    const sig = `${this.structVer}|${cx},${cy},${R}|${JSON.stringify(this.pn)}`;
+    if (sig === this.powerSig) return;
+    this.powerSig = sig;
+    this.powerMesh.geometry.dispose(); this.powerMesh.geometry = powerGeometry(this.ents, this.nets, this.pn, this.p.w, cx, cy, R);
   }
   /** Centre the local view on a tile. */
   flyTo(x: number, y: number) { Object.assign(this.view, { mode: 'iso', x: x + 0.5, y: y + 0.5 }); this.onHover?.(null); this.emit(); }
@@ -526,7 +543,7 @@ export class Renderer {
       this.updateSelected(now);
       this.updateVeins(this.veinIso, Math.max(0, -v.level), Math.min(v.level, 0) + 0.04, 1);
       this.updatePoll(this.pollIso, this.levelY + 0.06, Math.max(64, v.zoom * 3), !!v.poll);
-      this.updatePipes();
+      this.updatePipes(); this.updatePower();
       this.grid.visible = v.level > 0;
       if (this.grid.visible) this.grid.position.set(Math.round(v.x), this.levelY, Math.round(v.y));
       this.r.render(this.iso, this.isoCam);

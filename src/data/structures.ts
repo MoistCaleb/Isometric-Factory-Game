@@ -20,7 +20,7 @@ export interface StructDef {
    * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
   pipe?: { rate: number; cap: number; item?: boolean; /** Acid-proof (P4b corrosion). */ acid?: boolean };
   /** Cable (DESIGN §6, P4a): joins any cable on all 6 sides. Max volts, amps, volt drop per tile (loss W = I × drop × tiles). A fuse burns before anything else on overcurrent. */
-  cable?: { v: number; a: number; drop: number; fuse?: boolean };
+  cable?: { v: number; a: number; drop: number; fuse?: boolean; breaker?: boolean };
 }
 
 /** Multiblock cell offset from the controller at rotation 0: [dx, dy, db, part?] (db = block levels up; 3 blocks = 1
@@ -177,6 +177,10 @@ export const STRUCTURES: StructDef[] = [
   { id: 'copper_cable', name: 'Copper Cable', color: CABLE_CU, cost: [['cable:copper', 1]], cable: { v: 128, a: 4, drop: 0.2 }, model: [[6, 6, 6, 10, 10, 10, CABLE_CU]] },
   { id: 'fuse', name: 'Fuse (2 A)', color: 0xcfe8ee, cost: [['wire:tin', 1], ['tube:glass', 1]], cable: { v: 32, a: 2, drop: 0.4, fuse: true },
     model: [[5, 5, 4, 11, 11, 12, 0xcfe8ee], [7, 7, 3, 9, 9, 13, TIN], [4, 4, 3, 12, 12, 4, TIN], [4, 4, 12, 12, 12, 13, TIN]] },
+  // P4c: a breaker trips instead of burning (reset or switch it in its panel).
+  { id: 'breaker', name: 'Breaker (4 A)', color: 0x404448, cost: [['cable:tin', 1], ['circuit:basic', 1], ['plate:steel', 1]], tools: ['wrench'],
+    cable: { v: 32, a: 4, drop: 0.4, breaker: true },
+    model: [[4, 3, 4, 12, 13, 12, 0x404448], [6, 8, 3, 10, 11, 4, 0xd03030], [7, 6, 3, 9, 7, 4, VOLT]] },
   { id: 'steam_turbine', name: 'Steam Turbine', color: LVC, machine: 'steam_turbine', tools: ['wrench'],
     cost: [['hull:lv', 1], ['motor:lv', 2], ['rotor:steel', 2], ['pipe:bronze', 2], ['cable:tin', 2]],
     model: [[1, 0, 1, 15, 10, 15, LVC], [0, 3, 4, 16, 9, 12, STEEL], [3, 10, 3, 13, 13, 13, BRONZE], [5, 13, 5, 11, 16, 11, 0xd0d0d0], [6, 2, 15, 10, 6, 16, VOLT]] },
@@ -233,6 +237,12 @@ function lvMachines(): StructDef[] {
       [[3, 12, 4, 7, 15, 8, TIN], [9, 12, 8, 13, 15, 12, TIN]]),
     row('electric_pump', 'Electric Pump', [['pump:lv', 1], ['rotor:steel', 1]],
       [[5, 12, 5, 11, 16, 11, 0x5070a0], [0, 3, 6, 1, 8, 10, WATER]]),
+    // P4c grid
+    row('battery_buffer', 'Battery Buffer', [['struct:chest', 1], ['cable:tin', 2]],
+      [[3, 12, 3, 7, 15, 7, LEAD], [9, 12, 3, 13, 15, 7, LEAD], [3, 12, 9, 7, 15, 13, LEAD], [9, 12, 9, 13, 15, 13, LEAD]]),
+    { id: 'transformer', name: 'Transformer', color: LVC, machine: 'transformer', tools: ['wrench'],
+      cost: [['hull:lv', 1], ['cable:copper', 2], ['cable:tin', 1], ['wire:copper', 8]],
+      model: [...base, [4, 12, 4, 12, 15, 12, COPPER], [5, 3, 15, 11, 9, 16, 0xd03030]] },
   ];
 }
 

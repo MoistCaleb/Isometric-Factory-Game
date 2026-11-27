@@ -360,8 +360,8 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Electric Pump | pump, steel rotor (60 L/t water, 16 W) |
 | Mining Rig | 2 motors, steel drill head, pipe |
 | Scanner (block) | circuit, emitter-lite, copper coil |
-| Battery Buffer | chest, cables |
-| Transformer | 2 copper cable + 1 tin cable + coil |
+| Battery Buffer | chest, 2 tin cables (4 battery slots) |
+| Transformer | LV hull, 2 copper cable + 1 tin cable + 8 copper wire (coil); front = 128 V side |
 
 **LV generators:**
 
@@ -375,11 +375,11 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 
 **Fuses & breakers:**
 - **Fuse:** tin wire in a glass tube. Burns out.
-- **Breaker:** LV, needs a circuit. Resettable.
+- **Breaker:** LV, 4 A: tin cable + basic circuit + steel plate. Trips open (reset or switch in its panel).
 
 **Tin cell:** 2 tin plates + rubber ring (hammer) or bender; holds 1000 L of one fluid.
 
-**Lead-acid battery (LV):** lead-antimony plates + sulfuric acid + rubber case.
+**Lead-acid battery (LV):** lead-antimony (4 Pb + 1 Sb, alloy smelter / mixer) → case (2 plates + 2 rubber sheets + tin cable) → canner + 1000 L sulfuric acid → battery (36 kJ).
 
 **LV gate multiblock:** **EBF**
 - steel casings + cupronickel coils
@@ -505,7 +505,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - steam excavator (s_excavator)
    - P3e: pollution, overlays, alerts (s_smoke, flags poll_overlay / pipe_overlay / alerts)
    - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
-3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid)
+3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid; P4c done: l_battery, l_battery_buffer, l_breaker, l_transformer)
    - lodestone magnet
    - first motor
    - hand-made basic circuit

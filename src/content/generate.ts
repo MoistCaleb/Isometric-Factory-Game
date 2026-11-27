@@ -1,7 +1,7 @@
 // Generates items, fluids and templated recipes from data (DESIGN §1).
 import { CHEMICALS } from '../data/chemicals';
 import { FLAG_FORMS, FORMS, type ToolType } from '../data/forms';
-import { CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
+import { BATT, BATT_FULL, CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
 import { MATERIALS, type MaterialDef } from '../data/materials';
 import { MINERALS, type MineralDef } from '../data/minerals';
 import { MISC_ITEMS } from '../data/misc';
@@ -230,6 +230,7 @@ export function generate(): Generated {
   steam(hand, mach);
   lv(hand, mach);
   chem({ addItem, hand, mach, itemIds });
+  grid({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -421,6 +422,19 @@ function lv(hand: Ctx['hand'], mach: Ctx['mach']) {
   hand([s('plate:steel', 8), s('cable:tin', 2)], [s('hull:lv')], ['wrench']);
   // Rubber rings for pumps.
   hand([s('plate:rubber')], [s('ring:rubber', 2)], ['knife']);
+}
+
+/** Grid (P4c, CONTENT §11c): lead-antimony, the lead-acid battery (case canned with sulfuric acid). */
+function grid(c: Ctx) {
+  const { hand, mach } = c;
+  for (const f of ['ingot', 'dust']) mach('steam_alloy_smelter', [s(`${f}:lead`, 4), s(`${f}:antimony`)], [s('ingot:lead_antimony', 5)], { ticks: 250, power: 4 });
+  mach('mixer', [s('dust:lead', 4), s('dust:antimony')], [s('dust:lead_antimony', 5)], { ticks: 200, power: 8 });
+  c.addItem({ id: 'battery_case:lead_acid', name: 'Lead-Acid Battery Case', kind: 'misc', color: 0x3a3a40 });
+  c.addItem({ id: BATT, name: 'Lead-Acid Battery (empty)', kind: 'misc', color: 0x5c5a78, hazards: ['corrosive'] });
+  c.addItem({ id: BATT_FULL, name: 'Lead-Acid Battery (charged)', kind: 'misc', color: 0x7a78a8, hazards: ['corrosive'] });
+  hand([s('plate:lead_antimony', 2), s('sheet:rubber', 2), s('cable:tin')], [s('battery_case:lead_acid')], ['hammer', 'wire_cutter']);
+  mach('assembler', [s('plate:lead_antimony', 2), s('sheet:rubber', 2), s('cable:tin')], [s('battery_case:lead_acid')], { ticks: 100, power: 16 });
+  mach('canner', [s('battery_case:lead_acid')], [s(BATT)], { fluidsIn: [s('sulfuric_acid', 1000)], ticks: 100, power: 8 });
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

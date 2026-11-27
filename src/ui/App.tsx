@@ -91,7 +91,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   };
   useEffect(() => {
     game.sim.onStats = (st) => {
-      setStats(st); renderer.setStatuses(st.ms); renderer.setPollution(st.pl);
+      setStats(st); renderer.setStatuses(st.ms); renderer.setPollution(st.pl); renderer.setPowerLoad(st.pn);
       const now = performance.now(), list: Alert[] = [];
       for (const [k, s] of Object.entries(st.ms ?? {})) {
         const ma = machineAt(renderer.entities, k);
@@ -148,6 +148,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (v.veins && !p.veins) flag('overlay');
       if (v.pipes && !p.pipes) flag('pipe_overlay');
       if (v.poll && !p.poll) flag('poll_overlay');
+      if (v.power && !p.power) flag('power_overlay');
     };
     renderer.onHover = setHover;
     refresh();
@@ -207,6 +208,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (e.code === 'KeyO') renderer.toggleVeins();
       if (e.code === 'KeyH') renderer.togglePipes();
       if (e.code === 'KeyK') renderer.togglePoll();
+      if (e.code === 'KeyT') renderer.togglePower();
       if (e.code === 'KeyJ') setJournal((j) => !j);
       if (e.code === 'KeyL') setQbook((q) => !q);
       if (e.code === 'KeyP') { pickAct('mine'); setMineTool((m) => (m === 'prospect' ? 'dig' : 'prospect')); }
@@ -258,12 +260,13 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button class={qbook ? 'on' : ''} onClick={() => { setQbook(!qbook); setMenu(false); }} title="Quest book (L)">📜 Quests{claimable(stats.q) > 0 && <span class="badge">{claimable(stats.q)}</span>}</button>
         <button class={journal ? 'on' : ''} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎ Veins</button>
         <span class="popwrap">
-          <button class={ovOpen ? 'on' : ''} onClick={() => { setOvOpen(!ovOpen); setAlertsOpen(false); }} title="Overlays: veins O · pipes H · pollution K">Overlays</button>
+          <button class={ovOpen ? 'on' : ''} onClick={() => { setOvOpen(!ovOpen); setAlertsOpen(false); }} title="Overlays: veins O · pipes H · pollution K · power T">Overlays</button>
           {ovOpen && (
             <div class="pop">
               <label><input type="checkbox" checked={view.veins} onChange={() => renderer.toggleVeins()} /> Veins (O)</label>
               <label><input type="checkbox" checked={!!view.pipes} onChange={() => renderer.togglePipes()} /> Pipes + cables (H)</label>
               <label><input type="checkbox" checked={!!view.poll} onChange={() => renderer.togglePoll()} /> Pollution (K)</label>
+              <label><input type="checkbox" checked={!!view.power} onChange={() => renderer.togglePower()} /> Power load (T)</label>
             </div>
           )}
         </span>

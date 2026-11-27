@@ -3,6 +3,7 @@
 import * as THREE from 'three';
 import { CABLES, PIPES } from '../data/structures';
 import { HAZE, POLL_CH, SMOG } from '../sim/pollution';
+import type { PNet } from '../sim/power';
 import type { Ent } from '../sim/state';
 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -33,15 +34,27 @@ export function pollGeometry(pl: Record<string, number>, w: number, cx: number, 
 const BOX = new THREE.BoxGeometry(0.42, 0.42, 0.42);
 const FLUID = new THREE.Color(0x40a8ff), ITEM = new THREE.Color(0xffa040), POWER = new THREE.Color(0xf0e040);
 
-/** Pipe and cable (yellow, P4a) blocks within `R` tiles of the camera, as one merged geometry of small boxes. */
-export function pipeGeometry(ents: Record<string, Ent>, w: number, cx: number, cy: number, R: number): THREE.BufferGeometry {
+const OK = new THREE.Color(0x40d040), BUSY = new THREE.Color(0xf0e040), HOT = new THREE.Color(0xf08020), OVER = new THREE.Color(0xe02020),
+  DEAD = new THREE.Color(0x707070), TRIP = new THREE.Color(0xff40ff);
+/** Load colour: green → yellow (50 %) → orange (90 %) → red (over); grey = no source. */
+export function loadColor(l: number | undefined) {
+  if (l === undefined || l < 0) return DEAD;
+  return l <= 0.5 ? OK.clone().lerp(BUSY, l / 0.5) : l <= 0.9 ? BUSY.clone().lerp(HOT, (l - 0.5) / 0.4) : l <= 1 ? HOT : OVER;
+}
+
+/** Power overlay (P4c): every cable block near the camera coloured by its network's load; tripped breakers magenta. */
+export function powerGeometry(ents: Record<string, Ent>, nets: PNet[], load: Record<string, number>, w: number, cx: number, cy: number, R: number): THREE.BufferGeometry {
+  const col = new Map<string, THREE.Color>();
+  for (const n of nets) { const c = loadColor(load[n.id]); for (const k of n.keys) col.set(k, c); }
+  for (const [k, e] of Object.entries(ents)) if (e.trip && CABLES.has(e.s)) col.set(k, TRIP);
+  return boxes([...col.entries()], w, cx, cy, R);
+}
+
+function boxes(list: [string, THREE.Color][], w: number, cx: number, cy: number, R: number): THREE.BufferGeometry {
   const bp = BOX.getAttribute('position'), idx = BOX.getIndex()!, pos: number[] = [], col: number[] = [];
-  for (const [k, e] of Object.entries(ents)) {
-    const pd = PIPES.get(e.s), cab = CABLES.has(e.s);
-    if (!pd && !cab) continue;
+  for (const [k, c] of list) {
     const [x, y, b] = k.split(',').map(Number), wx = cx + mod(x - cx + w / 2, w) - w / 2;
     if (Math.abs(wx - cx) > R || Math.abs(y - cy) > R) continue;
-    const c = cab ? POWER : pd!.item ? ITEM : FLUID;
     for (let i = 0; i < idx.count; i++) {
       const j = idx.getX(i);
       pos.push(Math.floor(wx) + 0.5 + bp.getX(j), b + 0.5 + bp.getY(j), y + 0.5 + bp.getZ(j));
@@ -52,4 +65,14 @@ export function pipeGeometry(ents: Record<string, Ent>, w: number, cx: number, c
   geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
   geo.setAttribute('color', new THREE.Float32BufferAttribute(col, 3));
   return geo;
+}
+
+/** Pipe and cable (yellow, P4a) blocks within `R` tiles of the camera, as one merged geometry of small boxes. */
+export function pipeGeometry(ents: Record<string, Ent>, w: number, cx: number, cy: number, R: number): THREE.BufferGeometry {
+  const list: [string, THREE.Color][] = [];
+  for (const [k, e] of Object.entries(ents)) {
+    const pd = PIPES.get(e.s), cab = CABLES.has(e.s);
+    if (pd || cab) list.push([k, cab ? POWER : pd!.item ? ITEM : FLUID]);
+  }
+  return boxes(list, w, cx, cy, R);
 }

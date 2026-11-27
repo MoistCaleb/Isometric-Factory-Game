@@ -9,7 +9,7 @@ import { B, BLOCKS } from '../world/blocks';
 import { LAYERS, Tree, type WorldGen } from '../world/gen';
 import { addBase, builtOn, demolish, place, type BaseKind, type Side } from './build';
 import { next } from './rng';
-import { CHANNELS, isConduit } from '../data/structures';
+import { CABLES, CHANNELS, isConduit } from '../data/structures';
 import { topoChanged } from './pipes';
 import { machCmd, type MachCmd } from './machines';
 import { checkQuests, questCmd, type QuestCmd } from './quests';
@@ -29,7 +29,7 @@ export type Cmd =
   | { k: 'craft'; recipe: string; n: number }
   | { k: 'place'; id: string; x: number; y: number; f: number; r: number; ch?: number }
   /** Pipe/cable block: set channel and/or cut sides (bitmask E W S N up down). */
-  | { k: 'conduit'; key: string; ch?: number; cut?: number }
+  | { k: 'conduit'; key: string; ch?: number; cut?: number; trip?: number }
   | { k: 'base'; kind: BaseKind; x: number; y: number; f: number; side?: Side }
   | { k: 'demolish'; x: number; y: number; f: number; side?: Side }
   | { k: 'prospect'; x: number; y: number }
@@ -319,13 +319,14 @@ function run(s: GameState, gen: WorldGen, c: Cmd): ActResult {
       const n: Ent = { ...e };
       if (c.ch !== undefined) { if (c.ch > 0 && c.ch < CHANNELS.length) n.ch = c.ch; else delete n.ch; }
       if (c.cut !== undefined) { if (c.cut & 63) n.cut = c.cut & 63; else delete n.cut; }
+      if (c.trip !== undefined && CABLES.get(e.s)?.breaker) { if (c.trip) n.trip = 1; else delete n.trip; s.flags.breaker = (s.flags.breaker ?? 0) + 1; }
       s.ents[c.key] = n; topoChanged();
       return { ok: true, ents: { [c.key]: n } };
     }
     case 'base': return addBase(s, gen, c.kind, c.x, c.y, c.f, c.side);
     case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
     case 'prospect': return prospect(s, gen, c.x, c.y);
-    case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': case 'mface': case 'cput': case 'mcell': return machCmd(s, gen, c);
+    case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': case 'mface': case 'cput': case 'mcell': case 'mbat': case 'mxf': return machCmd(s, gen, c);
     case 'qclaim': case 'open': return questCmd(s, c);
     case 'flag': if ((UI_FLAGS as readonly string[]).includes(c.id)) s.flags[c.id] = (s.flags[c.id] ?? 0) + 1; return { ok: true };
     case 'devpoll': { const k = pollKey(c.x, c.y); s.poll[k] = (s.poll[k] ?? 0) + 2000; return { ok: true, msg: 'Dev: +2000 pollution here' }; }

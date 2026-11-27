@@ -1,5 +1,5 @@
 // Pipe / cable panel: channel + per-side cut, so tightly packed lines can stay separate networks.
-import { CHANNELS, STRUCTURES } from '../data/structures';
+import { CABLES, CHANNELS, STRUCTURES } from '../data/structures';
 import { SIDES } from '../data/machines';
 import type { Cmd } from '../sim/player';
 import type { Ent } from '../sim/state';
@@ -25,6 +25,12 @@ export function Conduit({ k, ent, onCmd, onClose }: { k: string; ent: Ent; onCmd
   return (
     <div class="panel mach">
       <div class="row"><b class="grow">{NAME.get(ent.s) ?? ent.s}</b><button onClick={onClose} title="Close (Esc)">✕</button></div>
+      {CABLES.get(ent.s)?.breaker && <>
+        <h3>Breaker</h3>
+        <div class="row"><b class="grow">{ent.trip ? '⭘ Open — no current flows' : '● Closed'}</b>
+          <button onClick={() => onCmd({ k: 'conduit', key: k, trip: ent.trip ? 0 : 1 })}>{ent.trip ? 'Reset (close)' : 'Switch off'}</button></div>
+        <div class="dim">Trips open instead of burning when the current goes over {CABLES.get(ent.s)!.a} A. Also a switch: open it to cut a line.</div>
+      </>}
       <h3>Channel</h3>
       <Channels ch={ent.ch ?? 0} onPick={(ch) => set({ ch })} />
       <div class="dim">Same-kind pipes (or any cables) join only when on the same channel. Use another channel for a line that runs right next to this one.</div>

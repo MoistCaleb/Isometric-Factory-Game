@@ -9,11 +9,12 @@ import type { TierId } from './tiers';
  * mdump open claim mface cput tap thump lboiler powered cell corrode + chemistry outputs (brine chlorine hydrochloric_acid
  * sulfur_dioxide sulfuric_acid). UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
-  'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts'] as const;
+  'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts', 'power_overlay'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
   'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered',
-  'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid'] as const;
+  'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid',
+  'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -503,5 +504,31 @@ export const QUESTS: QuestDef[] = [
       'Sulfuric acid feeds the **Chemical Bath** (acid leaching frees specific byproducts) and, soon, lead-acid batteries. Keep it in lead pipes.',
     ],
     tasks: [flag('sulfuric_acid', 'Make sulfuric acid')] },
+  // ---- LV (P4c): grid ----
+  { id: 'l_battery', chapter: 'LV', title: 'Lead-Acid Battery', req: ['l_acid', 'l_canner'], reward: L2,
+    text: [
+      '**Lead-antimony** (4 lead + 1 antimony in the alloy smelter or mixer; antimony from roasted stibnite) makes stiff battery plates. Two plates, rubber sheets and a tin cable make a **battery case**.',
+      'The **Canner** fills the case with 1000 L of sulfuric acid: a **Lead-Acid Battery** holding 36 kJ.',
+    ],
+    tasks: [have('battery:lead_acid')] },
+  { id: 'l_battery_buffer', chapter: 'LV', title: 'Battery Buffer', req: ['l_battery'], reward: L2,
+    text: [
+      'A **Battery Buffer** holds 4 batteries. It charges from whatever its generators make beyond what the machines use, and supplies the network when they fall short (32 W per battery) — a turbine\'s spare steam becomes power for later.',
+      'Take a battery out once a full one\'s worth is stored and it comes out **charged** — electric tools will run on those.',
+    ],
+    tasks: [build('battery_buffer'), flag('discharge', 'Run machines from batteries')] },
+  { id: 'l_breaker', chapter: 'LV', title: 'Breakers', req: ['l_fuse'], reward: L1,
+    text: [
+      'A **Breaker** (4 A) trips open on overcurrent instead of burning: open its panel and **Reset** it. It is also a switch — open it to cut a line by hand.',
+      'The **Power load** overlay (T) colours every cable by its network\'s load: green is easy, orange near the limit, red over it, grey has no source. Tripped breakers glow magenta.',
+    ],
+    tasks: [build('breaker'), flag('breaker', 'Switch or reset a breaker'), flag('power_overlay', 'Open the power load overlay (T)')] },
+  { id: 'l_transformer', chapter: 'LV', title: 'Transformers', req: ['l_breaker'], reward: L2,
+    text: [
+      'A **Transformer** links two voltages. Its **front** (the way you placed it) is the 128 V side; every other face is 32 V. Step-down: 128 V in at the front, 32 V out of the sides. Step-up: the reverse.',
+      'Careful: 128 V on a network **melts tin cable** and **explodes** any 32 V machine on it. Run copper cable on the high side. A transformer passes 128 W — 4 A on its low side, more than a tin cable carries.',
+      'Long lines lose less at a higher voltage (same power, a quarter of the current): step up at the generators, step down near the machines.',
+    ],
+    tasks: [build('transformer'), flag('xfmr', 'Pass power through a transformer')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

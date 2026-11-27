@@ -5,7 +5,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMP_IN, BOIL_K, CELL_FLUIDS, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
-  THUMP_TICKS } from '../data/machines';
+  THUMP_TICKS, BATT, BATT_FULL, BATT_J, BATT_W, XFMR_W, xfFront } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import { bufJ, inputW } from '../sim/power';
@@ -111,14 +111,35 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
           <div class="dim">{r ? `Uses ${r.power * STEAM_PER_POWER} L/tick while working. ` : def.steam ? `Uses ${def.steam} L/tick while working. ` : ''}Connect a bronze pipe from a boiler.</div>
         </>
       )}
-      {(def.run === 'elec' || def.run === 'gen' || def.elec) && (
+      {(def.run === 'elec' || def.run === 'gen' || def.run === 'batt' || def.run === 'xfmr' || def.elec) && (
         <>
           <h3>Power</h3>
-          {def.run !== 'gen' && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / bufJ(def)) * 100)}%`, background: '#f0d040' }} /></div>
+          {(def.run === 'elec' || def.elec) && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / bufJ(def)) * 100)}%`, background: '#f0d040' }} /></div>
             <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def))} = {TIER_VOLTAGE[def.tier]} V × {AMP_IN} A){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div></>}
           {def.run === 'gen' && <div class="dim">Out {fmtW(m.pw ?? 0)} of {fmtW(def.gen ?? 0)} at {TIER_VOLTAGE[def.tier]} V{def.steam ? ` · uses up to ${def.steam} L/tick of steam, only as much as the cables draw` : ''}</div>}
           {view!.pw ? <div class="dim">Network: {view!.pw.v} V · {fmtW(view!.pw.w)} delivered of {fmtW(view!.pw.cap)} available · {view!.pw.a.toFixed(2)} A / {view!.pw.maxA} A max · cable loss {fmtW(view!.pw.loss)} · {view!.pw.cables} cable blocks</div>
             : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} Place tin cable touching it.</div>}
+        </>
+      )}
+      {def.run === 'batt' && (
+        <>
+          <h3>Batteries</h3>
+          <div class="bar"><div style={{ width: `${(m.inp[BATT] ?? 0) ? Math.min(100, ((m.e ?? 0) / ((m.inp[BATT] ?? 0) * BATT_J)) * 100) : 0}%`, background: '#f0d040' }} /></div>
+          <div class="dim">{m.inp[BATT] ?? 0} / {def.slots} batteries · stored {fmtJ(m.e ?? 0)} of {fmtJ((m.inp[BATT] ?? 0) * BATT_J)} · {(m.pw ?? 0) >= 0 ? `charging ${fmtW(m.pw ?? 0)}` : `supplying ${fmtW(-(m.pw ?? 0))}`} (max {fmtW((m.inp[BATT] ?? 0) * BATT_W)})</div>
+          <div class="row">
+            {[BATT_FULL, BATT].map((id) => <button key={id} disabled={!count(inv, id)} onClick={() => cmd({ k: 'mbat', put: id })}>Insert {id === BATT ? 'empty' : 'charged'} ({count(inv, id)})</button>)}
+            <button disabled={!(m.inp[BATT] ?? 0)} onClick={() => cmd({ k: 'mbat' })}>Take one</button>
+          </div>
+          <div class="dim">Charges from spare generator output, supplies its network when generators fall short (1 A = {fmtW(BATT_W)} per battery). A battery taken out comes out charged if a full battery's worth ({fmtJ(BATT_J)}) is stored.</div>
+        </>
+      )}
+      {def.run === 'xfmr' && (
+        <>
+          <h3>Transformer</h3>
+          <div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / XFMR_W) * 100)}%`, background: '#f0d040' }} /></div>
+          <div class="dim">{m.up ? 'Step-up' : 'Step-down'}: {m.up ? `low sides in at ${TIER_VOLTAGE.LV} V → ${SIDES[xfFront(ent.r)]} (front) out at ${TIER_VOLTAGE.MV} V` : `${SIDES[xfFront(ent.r)]} (front) in at ${TIER_VOLTAGE.MV} V → other sides out at ${TIER_VOLTAGE.LV} V`} · passing {fmtW(m.pw ?? 0)} of {fmtW(XFMR_W)}</div>
+          <div class="row"><button onClick={() => cmd({ k: 'mxf' })}>Switch to {m.up ? 'step-down' : 'step-up'}</button></div>
+          <div class="dim">The front face is the {TIER_VOLTAGE.MV} V side. Anything rated {TIER_VOLTAGE.LV} V on that side explodes, tin cable melts — use copper there. The low side can draw {XFMR_W / TIER_VOLTAGE.LV} A: more than a tin cable carries.</div>
         </>
       )}
       {def.run === 'thump' && (

@@ -8,7 +8,7 @@ import type { TierId } from './tiers';
  * `thump` steam thumper (surveys deep veins once) · `dig` steam excavator (mines ore below it) (P3c) · `elec` draws power from its
  * buffer, filled by cables · `gen` generator feeding cables (P4a).
  */
-export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig' | 'elec' | 'gen';
+export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig' | 'elec' | 'gen' | 'batt' | 'xfmr';
 export interface MachineDef {
   id: string; name: string; tier: TierId; maxHeatK?: number;
   run?: RunMode;
@@ -92,6 +92,8 @@ const ROWS: Row[] = [
   ['roaster', 'Roaster', 'LV', 1300, { run: 'elec', tank: 8000, smoke: 1 }],
   ['canner', 'Canner', 'LV', undefined, { run: 'elec', tank: 8000 }],
   ['electric_pump', 'Electric Pump', 'LV', undefined, { run: 'pump', rate: 60, tank: 16000, water: true, elec: 16 }],
+  ['battery_buffer', 'Battery Buffer', 'LV', undefined, { run: 'batt', slots: 4 }],
+  ['transformer', 'Transformer', 'LV', undefined, { run: 'xfmr' }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
 ];
 export const MACHINES: MachineDef[] = ROWS.map(([id, name, tier, maxHeatK, x]) => ({ id, name, tier, maxHeatK, ...x }));
@@ -121,6 +123,11 @@ export const THUMP_TICKS = 400, THUMP_R = 48, THUMP_DEPTH = 16;
 export const DIG_R = 4, DIG_DEPTH = 16, DIG_H = 1, DIG_TICKS = 40, DIG_SCAN = 128;
 /** Electricity (DESIGN §6, P4a): machine input = tier voltage × AMP_IN, buffer = BUF_S seconds of input. */
 export const AMP_IN = 1, BUF_S = 1;
+/** Grid (P4c): lead-acid battery (J), battery buffer W per battery (1 A at LV) · transformer W (1 A high side = 4 A low side). */
+export const BATT_J = 36000, BATT_W = 32, XFMR_W = 128;
+export const BATT = 'battery:lead_acid', BATT_FULL = 'charged_battery:lead_acid';
+/** Transformer high (MV) side: the controller's front face (rot 0 south → west → north → east), as a SIDES index. */
+export const xfFront = (r: number) => [2, 1, 3, 0][r & 3];
 /** Chemistry (P4b): litres per cell · corrosion burst chance per non-acid-proof pipe block per second · pollution per burst ·
  * pollution per litre of a dumped gas/toxic fluid. */
 export const CELL_L = 1000, CORRODE_P = 0.01, LEAK_POLL = 100, DUMP_POLL = 0.05;
