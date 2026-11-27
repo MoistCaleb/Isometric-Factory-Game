@@ -23,7 +23,8 @@ export class Game {
     } catch (e) {
       this.onToast?.(`Could not load save: ${e}`, true);
     }
-    this.start(state ?? newGame());
+    const seed = Number(new URLSearchParams(location.search).get('seed')) || undefined; // dev: ?seed=N for a fresh game
+    this.start(state ?? newGame(seed));
     this.timer = window.setInterval(() => void this.autosave(), AUTOSAVE_MS);
     // No offline progress: pause + autosave when hidden; resume when visible unless user paused.
     document.addEventListener('visibilitychange', () => {

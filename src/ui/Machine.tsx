@@ -3,7 +3,7 @@
 import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
-import { FUELS, MACHINE } from '../data/machines';
+import { BOIL_K, BOILER_WATER, FUELS, MACHINE, STEAM_BUF, STEAM_PER_POWER } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
 import type { MachView } from '../sim/client';
 import { MS, MS_TEXT, type MachCmd } from '../sim/machines';
@@ -37,10 +37,15 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
   }, [all, q, inv]);
   if (!m) return <div class="panel mach"><div class="row"><b class="grow">{st.name}</b><button onClick={onClose}>✕</button></div><div class="dim">Gone.</div></div>;
 
-  const need = r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
+  const boiler = def.run === 'boiler';
+  const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn].includes(m.st as 2);
+  const meter = (label: string, n: number, cap: number, col: string) => (
+    <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
+      <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
+  );
   const fuels = Object.keys(FUELS).filter((id) => count(inv, id) > 0);
   const casing = st.multi && STRUCT.get(st.multi.casing);
 
@@ -60,7 +65,24 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
         </div>
       )}
 
-      {def.run === 'fuel' && (
+      {boiler && (
+        <>
+          <h3>Water → Steam</h3>
+          {meter('Water', m.water ?? 0, BOILER_WATER, '#3070d0')}
+          {meter('Steam', m.tank?.n ?? 0, def.tank ?? 0, '#d0d0d0')}
+          <div class="dim">Up to {def.rate} L/tick of steam when hot. Pipe water in and steam out (bronze pipes). Never let it run dry while hot.</div>
+        </>
+      )}
+      {def.run === 'steam' && (
+        <>
+          <h3>Steam</h3>
+          {meter('Buffer', m.steam ?? 0, STEAM_BUF, '#d0d0d0')}
+          <div class="dim">{r ? `Uses ${r.power * STEAM_PER_POWER} L/tick while working. ` : ''}Connect a bronze pipe from a boiler.</div>
+        </>
+      )}
+      {def.run === 'pump' && <div class="dim">Pumps {def.rate} L/tick of water from the next tile. Pipe it away.</div>}
+
+      {(def.run === 'fuel' || boiler) && (
         <>
           <h3>Heat</h3>
           <div class="bar"><div style={{ width: `${Math.min(100, (m.heat / (def.maxHeatK ?? 1)) * 100)}%`, background: m.heat >= need ? '#e08030' : '#806040' }} />
@@ -81,7 +103,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
         </>
       )}
 
-      <h3>Recipe</h3>
+      {all.length > 0 && <h3>Recipe</h3>}
       {r && !pick && (
         <div class="card">
           <div class="io">
@@ -96,7 +118,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
           <div class="dim">{r.ticks / 20} s{r.minHeatK ? ` · ${r.minHeatK} K` : ''}{r.keep ? ' · mold is kept' : ''}</div>
         </div>
       )}
-      {!pick && <div class="row"><button onClick={() => setPick(true)}>{r ? 'Change recipe' : 'Pick recipe'} ({all.length})</button></div>}
+      {!pick && all.length > 0 && <div class="row"><button onClick={() => setPick(true)}>{r ? 'Change recipe' : 'Pick recipe'} ({all.length})</button></div>}
       {pick && (
         <>
           <div class="row">
@@ -137,14 +159,14 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
         </>
       )}
 
-      {(Object.keys(m.out).length > 0 || m.tank) && <h3>Output</h3>}
+      {(Object.keys(m.out).length > 0 || (m.tank && !boiler)) && <h3>Output</h3>}
       {Object.keys(m.out).length > 0 && (
         <div class="row"><span class="io grow">{bag(m.out).map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}</span>
           <button class="primary" onClick={() => cmd({ k: 'mtake' })}>Collect</button></div>
       )}
-      {m.tank && (
+      {m.tank && !boiler && (
         <div class="row"><span class="io grow"><Chip st={m.tank} fluid /> <span class="dim">/ {def.tank} L</span></span>
-          <button onClick={() => cmd({ k: 'mdump' })} title="Pour it away (barrels + pipes arrive with steam)">Dump</button></div>
+          <button onClick={() => cmd({ k: 'mdump' })} title="Pour it away (or connect a pipe)">Dump</button></div>
       )}
     </div>
   );

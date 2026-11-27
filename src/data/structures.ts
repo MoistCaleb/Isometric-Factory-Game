@@ -12,6 +12,8 @@ export interface StructDef {
   model: Box[];
   /** Multiblock controller (DESIGN §5): casing structure required on the pattern tiles (same storey). */
   multi?: { casing: string; pattern: PatternId };
+  /** Fluid pipe (DESIGN §7, P3a): joins same-kind pipes on all 6 sides; L moved per link per tick, L held per block. */
+  pipe?: { rate: number; cap: number };
 }
 
 /** Multiblock cell offset from the controller: [dx, dy, db] (db = block levels up; 3 blocks = 1 storey). */
@@ -36,6 +38,7 @@ export type PatternId = keyof typeof PATTERNS;
 export const MULTI_PARTS = new Set<string>();
 
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
+const HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
 export const STRUCTURES: StructDef[] = [
@@ -74,8 +77,34 @@ export const STRUCTURES: StructDef[] = [
     model: [[0, 0, 0, 16, 16, 16, FIRE], [5, 2, 15, 11, 8, 16, GLOW]] },
   { id: 'fire_brick_wall', name: 'Fire Brick Wall', color: FIRE, cost: [['fire_brick:fireclay', 2]],
     model: [[0, 0, 0, 16, 16, 16, FIRE], [0, 8, 0, 16, 9, 16, 0xb8a47a]] },
+  // ---- Steam age (P3a) ----
+  { id: 'bronze_pipe', name: 'Bronze Fluid Pipe', color: BRONZE, cost: [['pipe_small:bronze', 1]], pipe: { rate: 120, cap: 1000 },
+    model: [[5, 5, 5, 11, 11, 11, BRONZE]] },
+  { id: 'water_pump', name: 'Water Pump', color: BRONZE, machine: 'water_pump', tools: ['wrench'],
+    cost: [['plate:bronze', 4], ['pipe:bronze', 2], ['rotor:bronze', 1], ['plank:wood', 4]],
+    model: [[2, 0, 2, 14, 3, 14, WOOD], [4, 3, 4, 12, 11, 12, BRONZE], [6, 11, 6, 10, 14, 10, HULL_D], [1, 5, 6, 4, 9, 10, WATER]] },
+  { id: 'small_boiler', name: 'Small Bronze Boiler', color: BRONZE, machine: 'small_boiler', tools: ['wrench'],
+    cost: [['hull:bronze', 1], ['brick:brick', 8], ['struct:clay_furnace', 1]],
+    model: [[1, 0, 1, 15, 5, 15, BRICK], [5, 1, 15, 11, 4, 16, GLOW], [2, 5, 2, 14, 15, 14, BRONZE], [2, 9, 2, 14, 10, 14, HULL_D], [6, 15, 6, 10, 16, 10, HULL_D]] },
+  { id: 'steam_furnace', name: 'Steam Furnace', color: BRONZE, machine: 'steam_furnace', tools: ['wrench'],
+    cost: [['hull:bronze', 1], ['brick:brick', 8], ['struct:clay_furnace', 1]],
+    model: [[1, 0, 1, 15, 14, 15, BRONZE], [4, 3, 15, 12, 9, 16, SOOT], [5, 4, 15, 11, 7, 16, GLOW], [1, 14, 1, 15, 15, 15, HULL_D]] },
+  { id: 'steam_macerator', name: 'Steam Macerator', color: BRONZE, machine: 'steam_macerator', tools: ['wrench'],
+    cost: [['hull:bronze', 1], ['grinder_head:steel', 1], ['piston:bronze', 1]],
+    model: [[1, 0, 1, 15, 11, 15, BRONZE], [3, 11, 3, 13, 15, 13, STEEL], [5, 15, 5, 11, 16, 11, SOOT], [4, 3, 15, 12, 8, 16, HULL_D]] },
+  { id: 'steam_forge_hammer', name: 'Steam Forge Hammer', color: BRONZE, machine: 'steam_forge_hammer', tools: ['wrench'],
+    cost: [['hull:bronze', 1], ['piston:bronze', 1], ['struct:stone_anvil', 1]],
+    model: [[1, 0, 1, 15, 6, 15, BRONZE], [4, 6, 4, 12, 8, 12, STONE], [6, 8, 6, 10, 15, 10, STEEL], [3, 12, 3, 13, 16, 13, BRONZE]] },
+  { id: 'steam_ore_washer', name: 'Steam Ore Washer', color: BRONZE, machine: 'steam_ore_washer', tools: ['wrench'],
+    cost: [['hull:bronze', 1], ['rotor:bronze', 1], ['pipe:bronze', 1]],
+    model: [[1, 0, 1, 15, 10, 15, BRONZE], [3, 10, 3, 13, 13, 13, WATER], [7, 10, 2, 9, 16, 14, HULL_D]] },
+  { id: 'steam_alloy_smelter', name: 'Steam Alloy Smelter', color: BRONZE, machine: 'steam_alloy_smelter', tools: ['wrench'],
+    cost: [['hull:bronze', 1], ['brick:brick', 8], ['crucible:clay', 1]],
+    model: [[1, 0, 1, 15, 12, 15, BRICK], [3, 2, 15, 13, 8, 16, BRONZE], [5, 3, 15, 11, 7, 16, GLOW], [4, 12, 4, 12, 15, 12, BRONZE]] },
   { id: 'stone_anvil', name: 'Stone Anvil', color: STONE, machine: 'anvil', cost: [['cobble:stone', 8]], tools: ['hammer'],
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
 ];
 
+/** Fluid pipe structures by id. */
+export const PIPES = new Map(STRUCTURES.filter((s) => s.pipe).map((s) => [s.id, s.pipe!]));
 for (const s of STRUCTURES) if (s.multi) { MULTI_PARTS.add(s.id); MULTI_PARTS.add(s.multi.casing); }

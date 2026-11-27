@@ -2,10 +2,11 @@
 import type { TierId } from './tiers';
 
 /**
- * Primitive run modes (P2d): `fuel` burns fuel items for heat · `self` burns its own charge (no fuel) ·
- * `crank` advances only when the player cranks/strikes it. Steam/electric arrive P3/P4.
+ * Run modes: `fuel` burns fuel items for heat · `self` burns its own charge (no fuel) · `crank` advances only when the
+ * player cranks/strikes it (P2d) · `boiler` burns fuel to turn piped water into steam · `steam` draws steam from pipes ·
+ * `pump` fills its tank from adjacent water (P3a). Electric arrives P4.
  */
-export type RunMode = 'fuel' | 'self' | 'crank';
+export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump';
 export interface MachineDef {
   id: string; name: string; tier: TierId; maxHeatK?: number;
   run?: RunMode;
@@ -15,6 +16,8 @@ export interface MachineDef {
   tank?: number;
   /** Needs water on an adjacent tile (river, lake, sea). */
   water?: boolean;
+  /** Boiler: steam L/tick at full temperature. Pump: water L/tick. */
+  rate?: number;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
@@ -31,10 +34,13 @@ const ROWS: Row[] = [
   ['quern', 'Quern', 'P', undefined, { run: 'crank' }],
   ['sluice', 'Sluice Box', 'P', undefined, { run: 'crank', water: true }],
   ['anvil', 'Anvil', 'P', undefined, { run: 'crank' }],
-  ['steam_furnace', 'Steam Furnace', 'S', 1400],
-  ['steam_macerator', 'Steam Macerator', 'S'],
-  ['steam_forge_hammer', 'Steam Forge Hammer', 'S'],
-  ['steam_ore_washer', 'Steam Ore Washer', 'S'],
+  ['small_boiler', 'Small Bronze Boiler', 'S', 500, { run: 'boiler', rate: 12, tank: 16000 }],
+  ['water_pump', 'Water Pump', 'S', undefined, { run: 'pump', rate: 10, tank: 8000, water: true }],
+  ['steam_furnace', 'Steam Furnace', 'S', 1400, { run: 'steam' }],
+  ['steam_macerator', 'Steam Macerator', 'S', undefined, { run: 'steam' }],
+  ['steam_forge_hammer', 'Steam Forge Hammer', 'S', undefined, { run: 'steam' }],
+  ['steam_ore_washer', 'Steam Ore Washer', 'S', undefined, { run: 'steam', tank: 8000 }],
+  ['steam_alloy_smelter', 'Steam Alloy Smelter', 'S', undefined, { run: 'steam' }],
   ['electric_furnace', 'Electric Furnace', 'LV', 1750],
   ['ebf', 'Electric Blast Furnace', 'LV', 4200],
   ['macerator', 'Macerator', 'LV'],
@@ -61,3 +67,6 @@ export const FUELS: Record<string, [number, number]> = {
 /** Ticks added per crank / hammer strike. */
 export const CRANK_TICKS = 20;
 export const AMBIENT_K = 290;
+/** Steam (DESIGN §6, P3a): boiling point, water → steam ratio, steam per recipe power unit per tick, machine steam buffer,
+ * boiler water tank, boiler heating rate (slower than furnaces), dry boiler explodes on water above this. */
+export const BOIL_K = 373, STEAM_PER_WATER = 160, STEAM_PER_POWER = 2, STEAM_BUF = 2000, BOILER_WATER = 8000, BOILER_RATE = 0.002, BOOM_K = 400;

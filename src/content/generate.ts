@@ -221,6 +221,7 @@ export function generate(): Generated {
   hand([s('plank:wood')], [s('stick:wood', 4)], ['saw']);
 
   primitive(hand, mach);
+  steam(hand, mach);
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -348,4 +349,14 @@ function primitive(hand: Ctx['hand'], mach: Ctx['mach']) {
   mach('anvil', [s('iron_bloom')], [s('ingot:wrought_iron'), s('slag', 1, 0.5)], { ticks: 200, tools: ['hammer'] });
   mach('primitive_blast_furnace', [s('ingot:wrought_iron'), s('lump:coke', 2)], [s('ingot:steel'), s('slag')], { ticks: 2400 });
   mach('primitive_blast_furnace', [s('ingot:wrought_iron'), s('lump:coke'), s('dust:quicklime')], [s('ingot:steel'), s('slag')], { ticks: 1200 });
+}
+
+/** Steam age parts + machine recipes not covered by the material templates (CONTENT §11c, P3a). */
+function steam(hand: Ctx['hand'], mach: Ctx['mach']) {
+  hand([s('plate:bronze', 8), s('brick:brick', 4)], [s('hull:bronze')], ['hammer', 'wrench']);
+  hand([s('plate:bronze'), s('rod:bronze'), s('small_gear:bronze')], [s('piston:bronze')], ['hammer']);
+  hand([s('plate:steel', 3), s('ingot:steel')], [s('grinder_head:steel')], ['hammer', 'file']);
+  // Alloy smelter: bronze straight to ingots (no crucible + mold).
+  for (const f of ['ingot', 'dust']) mach('steam_alloy_smelter', [s(`${f}:copper`, 3), s(`${f}:tin`)], [s('ingot:bronze', 4)], { ticks: 200, power: 4 });
+  mach('steam_alloy_smelter', [s('dust:sand', 2), s('dust:ash')], [s('pane:glass', 2)], { ticks: 200, power: 4 });
 }

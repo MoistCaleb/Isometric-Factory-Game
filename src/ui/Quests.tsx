@@ -1,5 +1,5 @@
 // Quest book (DESIGN §8, P2e): visual tree per tier chapter; tap a quest for its tasks, progress and reward.
-import { useMemo, useState } from 'preact/hooks';
+import { useEffect, useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import { crateId } from '../data/loot';
 import { QUEST, QUESTS, type QuestDef } from '../data/quests';
@@ -15,7 +15,8 @@ const CHAPTERS = TIERS.slice(0, 6);
 /** Column = depth in the req graph; rows ordered by the mean row of their reqs (fewer crossing edges). */
 function layout(list: QuestDef[]) {
   const depth = new Map<string, number>();
-  const d = (q: QuestDef): number => depth.get(q.id) ?? (depth.set(q.id, 1 + Math.max(-1, ...q.req.map((r) => d(QUEST.get(r)!)))), depth.get(q.id)!);
+  // Only reqs in this chapter count (a chapter starts where the previous one ends).
+  const d = (q: QuestDef): number => depth.get(q.id) ?? (depth.set(q.id, 1 + Math.max(-1, ...q.req.map((r) => QUEST.get(r)!).filter((x) => x.chapter === q.chapter).map(d))), depth.get(q.id)!);
   const cols: QuestDef[][] = [];
   list.forEach((q) => (cols[d(q)] ??= []).push(q));
   const row = new Map<string, number>(), pos = new Map<string, [number, number]>();
@@ -41,6 +42,7 @@ export function Quests({ quests, flags, inv, ents, onClaim, onLook, onClose }: P
   const { pos, w, h } = useMemo(() => layout(list), [list]);
   const built = useMemo(() => builtCounts(ents), [ents]);
   const [selId, setSel] = useState<string>(() => list.find((q) => quests[q.id] === QDONE)?.id ?? list.find((q) => !quests[q.id] && unlocked(q, quests))?.id ?? list[0]?.id);
+  useEffect(() => { if (QUEST.get(selId)?.chapter !== ch) setSel(list.find((q) => quests[q.id] === QDONE || (!quests[q.id] && unlocked(q, quests)))?.id ?? list[0]?.id); }, [ch]);
   const sel = QUEST.get(selId);
   const reg = registry();
   const state = (q: QuestDef) => quests[q.id] === QCLAIMED ? 'claimed' : quests[q.id] === QDONE ? 'done' : unlocked(q, quests) ? 'open' : 'locked';

@@ -46,6 +46,6 @@ export interface Recipe {
   minHeatK?: number;
   /** Duration in ticks (20/s). 0 = instant (hand). */
   ticks: number;
-  /** Power draw in W (electric) or steam L/s; 0 for primitive. */
+  /** Power draw in W (electric); steam machines draw STEAM_PER_POWER L steam/tick per unit; 0 for primitive. */
   power: number;
 }

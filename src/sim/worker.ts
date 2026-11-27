@@ -2,7 +2,7 @@
 import { planet } from '../data/planets';
 import { worldGen, type WorldGen } from '../world/gen';
 import { advance, createLoop } from './loop';
-import { multiCheck, newMach, statuses } from './machines';
+import { multiCheck, newMach, simEvents, statuses } from './machines';
 import { apply } from './player';
 import type { FromSim, ToSim } from './protocol';
 import { TPS, type GameState } from './state';
@@ -27,6 +27,7 @@ function frame() {
     const n = advance(loop, now, TICK_MS);
     const t0 = performance.now();
     for (let i = 0; i < n; i++) { step(state, gen!); tpsWindow.push(now); }
+    for (const res of simEvents.splice(0)) post({ t: 'act', res, inv: state.inv, tools: state.tools });
     if (n) msptAvg = msptAvg * 0.9 + ((performance.now() - t0) / n) * 0.1;
   } else {
     loop.last = now;

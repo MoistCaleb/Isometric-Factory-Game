@@ -9,6 +9,10 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'lodestone', name: 'Lodestone', color: 0x303034 },
   { id: 'slag', name: 'Slag', color: 0x5a5048 },
   { id: 'iron_bloom', name: 'Iron Bloom', color: 0x6a5a50 },
+  // Steam parts (CONTENT §11c Steam age).
+  { id: 'hull:bronze', name: 'Bronze Hull', color: 0xc98b3a },
+  { id: 'piston:bronze', name: 'Bronze Piston', color: 0xb07a30 },
+  { id: 'grinder_head:steel', name: 'Steel Grinder Head', color: 0x707478 },
 ];
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */

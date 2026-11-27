@@ -7,6 +7,7 @@ import { Water, type WorldGen } from '../world/gen';
 import type { ActResult } from './player';
 import { count, give, take } from './player';
 import { newMach, refund } from './machines';
+import { topoChanged } from './pipes';
 import { EDGE, FLOORS, STOREY, type BasePart, type GameState } from './state';
 
 export const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
@@ -61,6 +62,7 @@ export function placeAt(s: GameState, gen: WorldGen, id: string, xIn: number, y:
   take(s, item, 1);
   s.ents[key] = { s: st.id, r: mod(r, 4) };
   if (st.machine) s.mach[key] = newMach();
+  topoChanged();
   return { ok: true, ents: { [key]: s.ents[key] } };
 }
 
@@ -103,7 +105,8 @@ export function demolish(s: GameState, gen: WorldGen, xIn: number, y: number, f:
     if (s.ents[`${x},${y},${+ek.split(',')[2] + 1}`]) return { ok: false, msg: 'Remove what is above it first' };
     const st = STRUCT.get(e.s), back = refund(s, ek);
     if (!back.ok || give(s, `struct:${e.s}`, 1)) return { ok: false, msg: 'Inventory full', gained: back.gained };
-    delete s.ents[ek];
+    delete s.ents[ek]; delete s.pipes[ek];
+    topoChanged();
     return { ok: true, ents: { [ek]: null }, gained: [...back.gained, { id: `struct:${e.s}`, n: 1 }], msg: st ? undefined : 'Removed' };
   }
   const order: string[] = [];

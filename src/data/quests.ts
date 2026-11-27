@@ -2,6 +2,7 @@
 // that first needs it. Quests unlock when all `req` are done.
 // Tasks: `have` = hold n (summed over ids, inventory + tool slots) · `build` = n placed structures · `flag` = an action
 // done at least once (FLAGS; set by the sim for commands, by the UI for camera/panels).
+import { MINERALS } from './minerals';
 import type { TierId } from './tiers';
 
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
@@ -31,6 +32,8 @@ const any = (ids: string[], n: number, label: string): QuestTask => ({ k: 'have'
 const build = (id: string, n = 1): QuestTask => ({ k: 'build', id, n });
 const flag = (id: string, label: string): QuestTask => ({ k: 'flag', id, label });
 const P1: QuestDef['reward'] = { crates: [['P', 1]] }, P2: QuestDef['reward'] = { crates: [['P', 2]] };
+const S1: QuestDef['reward'] = { crates: [['S', 1]] }, S2: QuestDef['reward'] = { crates: [['S', 2]] };
+const ores = (form: string) => MINERALS.map((m) => `${form}:${m.id}`);
 
 export const QUESTS: QuestDef[] = [
   // ---- Getting started ----
@@ -248,5 +251,56 @@ export const QUESTS: QuestDef[] = [
       'Feed it wrought iron and coke (quicklime halves the time) for **steel** — the gate to the Steam age.',
     ],
     tasks: [build('primitive_blast_furnace'), have('ingot:steel', 4)] },
+
+  // ======== Steam (P3a) ========
+  { id: 's_hull', chapter: 'S', title: 'Bronze Hull', req: ['steel'], reward: S1,
+    text: [
+      'Welcome to the **Steam age**. Every steam machine is built around a **Bronze Hull**: 8 bronze plates and 4 bricks, shaped with a hammer and a **wrench**.',
+      'A wrench is 4 plates of any metal, hammered. You also need it to assemble every steam machine.',
+    ],
+    tasks: [have('hull:bronze')] },
+  { id: 's_pipes', chapter: 'S', title: 'Running Water', req: ['s_hull'], reward: S1,
+    text: [
+      'A **Water Pump** next to a river, lake or sea fills its tank with 10 L of water every tick.',
+      '**Bronze Fluid Pipes** carry it away. Place them like any block: a pipe joins other pipes of its kind and every machine on all **6 sides**, including above and below.',
+      'All the pipes joined together form one **network** that holds **one fluid at a time**. Each machine pushes out what it makes and pulls in what it uses, up to 120 L per tick per connection. Keep water and steam on separate networks.',
+    ],
+    tasks: [build('water_pump'), build('bronze_pipe', 6)] },
+  { id: 's_boiler', chapter: 'S', title: 'Under Pressure', req: ['s_pipes'], reward: S2,
+    text: [
+      'A **Small Bronze Boiler** burns fuel to boil piped water into steam (1 L water → 160 L steam). It heats up slowly; above **373 K** it starts making steam, more the hotter it gets (up to 12 L per tick at 500 K).',
+      '**⚠ Never let a hot boiler run dry.** If it runs out of water while hot, it goes **DRY**. If water then reaches it while it is still above 400 K, it **explodes** and everything in it is lost. If a boiler goes dry, stop the fuel and let it cool below 373 K before sending water again.',
+      'Connect the pump\'s water pipe to the boiler first, then add fuel.',
+    ],
+    tasks: [build('small_boiler')] },
+  { id: 's_furnace', chapter: 'S', title: 'Steam Furnace', req: ['s_boiler'], reward: S1,
+    text: [
+      'Steam machines take steam from a pipe into their own buffer and use **2 L per tick for each unit of recipe power** (most use 8 L per tick). Without steam they stop with status **No steam**.',
+      'The **Steam Furnace** smelts dusts that melt below 1400 K, with no fuel and no waiting for heat.',
+    ],
+    tasks: [build('steam_furnace')] },
+  { id: 's_alloy', chapter: 'S', title: 'Alloy Smelter', req: ['s_boiler'], reward: S1,
+    text: [
+      'The **Steam Alloy Smelter** makes bronze ingots directly (3 copper + 1 tin), with no crucible and no molds. It also makes glass twice as fast.',
+    ],
+    tasks: [build('steam_alloy_smelter'), have('ingot:bronze', 16)] },
+  { id: 's_hammer', chapter: 'S', title: 'Forge Hammer', req: ['s_boiler'], reward: S1,
+    text: [
+      'Hammering plates by hand costs 2 ingots per plate. The **Steam Forge Hammer** makes 2 plates from 3 ingots.',
+    ],
+    tasks: [build('steam_forge_hammer'), have('plate:bronze', 16)] },
+  { id: 's_macerator', chapter: 'S', title: 'Double Yield', req: ['s_boiler'], reward: S2,
+    text: [
+      'The **Steam Macerator** crushes each ore into **2 crushed ores**, double what the hammer gets. Its grinder head is made of steel.',
+      'Crushed ore can be ground to dust in the quern, washed, or smelted.',
+    ],
+    tasks: [build('steam_macerator'), any(ores('crushed_ore'), 16, 'Any crushed ore')] },
+  { id: 's_washer', chapter: 'S', title: 'Ore Washing', req: ['s_macerator', 's_pipes'], reward: S2,
+    text: [
+      'The **Steam Ore Washer** needs **steam and water** (1000 L of water per ore). Connect two separate networks to it: one carrying steam and one carrying water.',
+      'Washing turns crushed ore into purified ore, often with a **byproduct**. Every byproduct has a use somewhere.',
+      'A machine with a liquid byproduct, such as a coke oven making creosote, pushes it into any pipe connected to it, so you no longer have to dump it.',
+    ],
+    tasks: [build('steam_ore_washer'), any(ores('purified_ore'), 8, 'Any purified ore')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

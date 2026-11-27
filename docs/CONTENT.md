@@ -280,7 +280,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 
 | Machine | Key parts | Notes |
 |---|---|---|
-| Small Bronze Boiler | bronze hull + bricks + furnace | coal / charcoal / coke / creosote |
+| Small Bronze Boiler | bronze hull + 8 bricks + clay furnace | burns fuel items; 12 L/tick steam at 500 K |
 | Solar Boiler | bronze hull + glass + silver plate | weak, daytime |
 | High-Pressure Steel Boiler | steel hull | 2.5× steam |
 | Large Boiler (multiblock) | bronze/steel casings, fire boxes | Steam gate multiblock |
@@ -291,6 +291,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 |---|---|
 | Steam Macerator | hull + **steel grinder head** + piston |
 | Steam Ore Washer | hull + bronze rotor + bronze pipe |
+| Water Pump (P3a) | 4 bronze plates + 2 bronze pipes + bronze rotor + 4 planks (next to water, 10 L/tick) |
 | Steam Furnace | hull + bricks + furnace |
 | Steam Alloy Smelter | hull + bricks + crucible |
 | Steam Compressor | hull + 2 pistons |
@@ -302,7 +303,8 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 
 **Pipes and parts:**
 - Bronze fluid pipes (steam, ≤ 1000 K), lead fluid pipes (acid-proof).
-- **Mechanical parts:** piston = bronze plate + rod + small gear. Bronze/steel gears via file + hammer, or a forge hammer.
+- Bronze Fluid Pipe block (P3a) = 1 small bronze pipe; 120 L/tick per link, 1000 L per block.
+- **Mechanical parts:** piston = bronze plate + rod + small gear. Steel grinder head = 3 steel plates + steel ingot. Bronze/steel gears via file + hammer, or a forge hammer.
 
 ### LV
 **Basics:**
@@ -481,7 +483,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - PBF steel
    - quern & sluice
    - glass
-2. **Steam:**
+2. **Steam** (P3a implemented: hull → pump + pipes → boiler (explosion warning) → steam furnace / alloy smelter / forge hammer / macerator → ore washer):
    - rubber (needs sulfur: not reachable in Primitive)
    - first boiler (explosion warning quest)
    - bronze/lead pipes

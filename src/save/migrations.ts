@@ -24,6 +24,7 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   },
   // P2e: quest book.
   8: (s) => ({ ...s, version: 9, quests: {}, flags: {} }),
+  9: (s) => ({ ...s, version: 10, pipes: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

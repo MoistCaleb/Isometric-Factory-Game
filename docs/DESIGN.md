@@ -86,6 +86,10 @@ Content details live in [CONTENT.md](CONTENT.md).
 ## 6. Power
 - **Real units:** V, A, W (= V×A), J. Display auto-scales (kJ, MJ, GJ).
 - **Steam:** boilers heat up over time; **dry boiler + water = explosion**. No exhaust-vent mechanic.
+  - Small boiler (P3a): burns fuel items; temperature eases toward the flame (capped 500 K); above 373 K it turns water into steam (1 L water → 160 L steam), output scaling with temperature up to its rate. Water tank empty while hot = **dry**; water arriving while dry and still > 400 K = **explosion** (boiler and its contents lost). Let it cool below 373 K to clear.
+  - Steam machines draw steam from their own buffer (filled by pipes): 2 L/tick per recipe power unit; no steam = status "No steam".
+  - Water pump (P3a): on a tile next to water, fills its tank 10 L/tick; pipes carry it away.
+- **Fluid pipes (P3a):** pipe blocks join with neighbours on all 6 sides into a network that holds one fluid at a time (cap per pipe); once a fluid has entered, the network keeps that fluid even when empty (demolish a pipe to reset it). Each tick every attached machine pushes what it makes (boiler steam, pump water) and pulls what it uses (boiler water, steam, recipe fluids), limited by the pipe's rate. Face config comes with item pipes (P3b).
 - **Electric:** per-network solve once per tick. Cables: material → max voltage, amps/thickness, loss per tile. Insulation halves loss and protects from acid rain. Superconductors later.
 - Transformers (±1 tier), batteries, battery buffers, large storage multiblock.
 - **Fuses** (burn out, cheap) and **breakers** (trip, resettable) placed after generators/batteries or before machines.

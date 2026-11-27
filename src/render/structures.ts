@@ -2,13 +2,20 @@
 // anything relevant changes (counts stay small in P2; per-chunk split later if needed).
 // Near-side walls render low (unless Base Build); roofs on the viewed storey go see-through when zoomed in.
 import * as THREE from 'three';
-import { MULTI_PARTS, STRUCTURES, type Box } from '../data/structures';
+import { MULTI_PARTS, PIPES, STRUCTURES, type Box } from '../data/structures';
 import { STOREY, type Ent } from '../sim/state';
 
 const MODELS = new Map(STRUCTURES.map((s) => [s.id, s.model]));
 const TOP = new Map(STRUCTURES.map((s) => [s.id, Math.max(...s.model.map((b) => b[4])) / 16]));
-/** Status icon colour by machine status (sim/machines MS): idle none · working · no input · full · cold · incomplete · no water · crank · no fuel. */
-const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040];
+/** Status icon colour by machine status (sim/machines MS): idle none · working · no input · full · cold · incomplete · no water ·
+ * crank · no fuel · no steam · dry · no water in. */
+const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040, 0xe8c040, 0xff2020, 0xe8c040];
+const COLOR = new Map(STRUCTURES.map((s) => [s.id, s.color]));
+/** Pipe arms toward the 6 neighbours: [dx, dy(row), db, box in 16ths]. */
+const ARMS: [number, number, number, Box][] = [
+  [1, 0, 0, [11, 6, 6, 16, 10, 10, 0]], [-1, 0, 0, [0, 6, 6, 5, 10, 10, 0]], [0, 1, 0, [6, 6, 11, 10, 10, 16, 0]],
+  [0, -1, 0, [6, 6, 0, 10, 10, 5, 0]], [0, 0, 1, [6, 11, 6, 10, 16, 10, 0]], [0, 0, -1, [6, 0, 6, 10, 5, 10, 0]],
+];
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 const SLAB = 0.06, WALL_T = 0.1, LOW = 0.22;
 const C = { floor: 0x8a7a64, found: 0x6a6a70, wall: 0xc8bca8, window: 0x9ac8e8, door: 0x7a5430, roof: 0x8a3a2a, light: 0xffe890, post: 0x404040 };
@@ -81,7 +88,15 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
     if ((f > v.top && !MULTI_PARTS.has(e.s)) || !near(x, y)) continue;
     const m = MODELS.get(e.s);
     const y0 = baseY(x, y, b);
-    if (m) solid.model(m, wx(x), y0, y, e.r);
+    if (PIPES.has(e.s)) {
+      // Pipe: hub + arms to every neighbour it can join (same pipe or any structure).
+      const col = COLOR.get(e.s)!, arms: Box[] = [[5, 5, 5, 11, 11, 11, col]];
+      for (const [dx, dy, db, bx] of ARMS) {
+        const n = b + db >= 0 && v.ents[`${mod(x + dx, v.w)},${y + dy},${b + db}`];
+        if (n && (n.s === e.s || !PIPES.has(n.s))) arms.push([...bx.slice(0, 6), col] as Box);
+      }
+      solid.model(arms, wx(x), y0, y, 0);
+    } else if (m) solid.model(m, wx(x), y0, y, e.r);
     const col = MS_COL[v.ms?.[k] ?? 0];
     if (col) { const h = y0 + (TOP.get(e.s) ?? 0.5) + 0.15, X = wx(+x), Y = +y; solid.add(X + 0.42, h, Y + 0.42, X + 0.58, h + 0.16, Y + 0.58, col); }
   }

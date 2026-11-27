@@ -3,10 +3,11 @@
 // Run modes: fuel (burn items for heat, recipe needs minHeatK) · self (burns its own charge) · crank (player-driven).
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
-import { AMBIENT_K, CRANK_TICKS, FUELS, MACHINE, type MachineDef } from '../data/machines';
+import { AMBIENT_K, BOIL_K, BOILER_RATE, CRANK_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER, type MachineDef } from '../data/machines';
 import { PATTERNS, STRUCTURES, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
 import { placeAt } from './build';
+import { topoChanged } from './pipes';
 import type { ActResult } from './player';
 import { STACK, bestTool, count, give, take, wear } from './player';
 import { next } from './rng';
@@ -25,11 +26,24 @@ export interface Mach {
   prog: number;
   /** Status (MS). */
   st: number;
+  /** Boiler water (L) · steam machine steam buffer (L) · boiler ran dry while hot (P3a). */
+  water?: number; steam?: number; dry?: boolean;
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8 } as const;
-export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock', 'Needs water next to it', 'Ready — crank it', 'Needs fuel'];
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11 } as const;
+export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
+  'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in'];
+
+/** Things the sim did on its own (explosions): the worker forwards them like command results. */
+export const simEvents: ActResult[] = [];
+
+/** Boiler explosion (DESIGN §6): the machine and everything in it is lost. */
+export function explode(s: GameState, key: string) {
+  delete s.ents[key]; delete s.mach[key];
+  topoChanged();
+  simEvents.push({ ok: false, msg: '💥 A boiler exploded — water hit it while dry and hot!', ents: { [key]: null } });
+}
 /** Input bag cap per item. */
 export const BAG = 256; // 4 stacks (literal: player.ts ↔ machines.ts import cycle)
 const HEAT_RATE = 0.01;
@@ -144,6 +158,13 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     const ma = machineAt(s.ents, key);
     if (!ma) { delete s.mach[key]; continue; }
     const { def } = ma, r = recipeOf(m.rec);
+    if (def.run === 'boiler') { stepBoiler(m, def); continue; }
+    if (def.run === 'pump') {
+      const room = (def.tank ?? 0) - (m.tank?.n ?? 0);
+      m.st = !nearWater(gen, key) ? MS.noWater : room <= 0 ? MS.full : MS.working;
+      if (m.st === MS.working) m.tank = { id: 'water', n: (m.tank?.n ?? 0) + Math.min(room, def.rate ?? 0) };
+      continue;
+    }
     const b = blocker(s, gen, key, m, def, r);
     if (def.run === 'fuel') {
       if (b === null && m.burn <= 0) {
@@ -160,9 +181,34 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     if (b !== null) { m.st = b; continue; }
     if (def.run === 'crank') { m.st = MS.crank; continue; }
     if (def.run === 'fuel' && m.heat < (r!.minHeatK ?? def.heatK ?? 0)) { m.st = m.burn > 0 ? MS.cold : MS.noFuel; continue; }
+    if (def.run === 'steam') {
+      const need = r!.power * STEAM_PER_POWER;
+      if ((m.steam ?? 0) < need) { m.st = MS.noSteam; continue; }
+      m.steam! -= need;
+    }
     m.st = MS.working;
     if (++m.prog >= r!.ticks) finish(s, m, r!);
   }
+}
+
+/** Boiler (DESIGN §6): fuel heats it (slowly) toward the flame, capped; above boiling it turns water into steam in its tank. */
+function stepBoiler(m: Mach, def: MachineDef) {
+  const cap = def.tank ?? 0, max = def.maxHeatK ?? BOIL_K + 1, steam = m.tank?.n ?? 0;
+  if (m.burn <= 0 && steam < cap) {
+    const fuel = Object.keys(m.fuel).sort((a, c) => FUELS[c][0] - FUELS[a][0])[0];
+    if (fuel) { [m.burnK, m.burn] = FUELS[fuel]; if (!--m.fuel[fuel]) delete m.fuel[fuel]; }
+  }
+  const target = m.burn > 0 ? Math.min(m.burnK, max) : AMBIENT_K;
+  m.heat += (target - m.heat) * BOILER_RATE;
+  if (m.burn > 0) m.burn--;
+  if (m.heat < BOIL_K) { m.dry = false; m.st = m.burn > 0 ? MS.cold : MS.noFuel; return; }
+  if (m.dry) { m.st = MS.dry; return; }
+  if ((m.water ?? 0) <= 1e-6) { m.water = 0; m.dry = true; m.st = MS.dry; return; }
+  const n = Math.min((def.rate ?? 0) * (m.heat - BOIL_K) / (max - BOIL_K), cap - steam, m.water! * STEAM_PER_WATER);
+  m.st = steam >= cap ? MS.full : MS.working;
+  if (n <= 0) return;
+  m.water! -= n / STEAM_PER_WATER;
+  m.tank = { id: 'steam', n: steam + n };
 }
 
 // ---------- player commands ----------
@@ -235,7 +281,7 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       return { ok: true, msg: r.inputs.length ? `Loaded ×${done}` : undefined };
     }
     case 'mfuel': {
-      if (def.run !== 'fuel') return { ok: false, msg: 'Burns no fuel' };
+      if (def.run !== 'fuel' && def.run !== 'boiler') return { ok: false, msg: 'Burns no fuel' };
       if (!FUELS[c.id]) return { ok: false, msg: 'Not a fuel' };
       const n = Math.min(c.n, count(s, c.id), BAG - (m.fuel[c.id] ?? 0));
       if (n <= 0) return { ok: false, msg: count(s, c.id) ? 'Fuel bag full' : `No ${name(c.id)}` };
