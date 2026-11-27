@@ -4,7 +4,7 @@ import type { Game } from '../game';
 import { LEVEL_MAX, LEVEL_MIN, type Act, type Renderer, type View } from '../render/renderer';
 import * as store from '../save/store';
 import type { MachView, SimStats } from '../sim/client';
-import { controllerInStorey } from '../sim/machines';
+import { controllerAt, controllerInStorey } from '../sim/machines';
 import type { ActResult, SlotRef } from '../sim/player';
 import { nearSide, STRUCT, type BaseKind } from '../sim/build';
 import { BuildBar } from './BuildBar';
@@ -96,10 +96,13 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   useEffect(() => {
     renderer.ghost = act === 'build' && buildId ? { kind: 'struct', id: buildId.replace('struct:', ''), r: rot }
       : act === 'base' ? { kind: 'base', part: baseKind } : act === 'demolish' ? { kind: 'demolish' } : null;
-    renderer.onTile = (x, y, level, fx, fy) => {
+    renderer.onTile = (x, y, level, fx, fy, block) => {
       const say = (m: string) => push(m, true);
       if (act === 'view') {
-        const k = level >= 0 ? controllerInStorey(renderer.entities, renderer.width, x, y, level) : null;
+        // The visible block under the pointer first (e.g. the top of a tall multiblock seen from an upper level).
+        const [bx, by, bb] = block?.split(',').map(Number) ?? [];
+        const k = (block ? controllerAt(renderer.entities, renderer.width, bx, by, bb) : null)
+          ?? (level >= 0 ? controllerInStorey(renderer.entities, renderer.width, x, y, level) : null);
         return k ? openMach(k) : undefined;
       }
       if (act === 'mine' && mineTool === 'prospect') return game.sim.cmd({ k: 'prospect', x, y });

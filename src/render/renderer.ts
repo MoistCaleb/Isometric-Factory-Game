@@ -55,7 +55,8 @@ export class Renderer {
   onHover?: (text: string | null) => void;
   act: Act = 'view';
   /** Click on a tile in iso view with a non-view action. level = view level (−depth or storey); fx/fy = point inside the tile. */
-  onTile?: (x: number, y: number, level: number, fx: number, fy: number) => void;
+  /** Tile click; `block` = structure block under the pointer (`x,y,b`), if one was hit. */
+  onTile?: (x: number, y: number, level: number, fx: number, fy: number, block?: string) => void;
   ghost: Ghost | null = null;
   /** Tile under the mouse (iso). */
   cursor: { x: number; y: number; fx: number; fy: number } | null = null;
@@ -640,11 +641,24 @@ export class Renderer {
     return hit?.uv ? { x: Math.floor(hit.uv.x * this.p.w) % this.p.w, y: Math.floor((1 - hit.uv.y) * this.p.h) } : null;
   }
 
+  /** Structure block (`x,y,b`) under a screen point, by raycasting the visible structure mesh. */
+  private blockAt(px: number, py: number): string | null {
+    const [nx, ny] = this.ndc(px, py);
+    this.ray.setFromCamera(new THREE.Vector2(nx, ny), this.isoCam);
+    for (const h of this.ray.intersectObject(this.structs)) {
+      const n = h.face?.normal, p = h.point.clone().addScaledVector(n ?? new THREE.Vector3(), -0.01);
+      const x = mod(Math.floor(p.x), this.p.w), y = Math.floor(p.z), b = Math.floor(p.y);
+      // Floor slabs lift a block by a few pixels, so its top can poke into the next level.
+      for (const bb of [b, b - 1]) if (bb >= 0 && this.ents[`${x},${y},${bb}`]) return `${x},${y},${bb}`;
+    }
+    return null;
+  }
+
   private click(px: number, py: number) {
     const v = this.view;
     const t = this.tileAt(px, py);
     if (v.mode === 'iso') {
-      if (t) this.onTile?.(t.x, t.y, v.level, t.fx ?? 0.5, t.fy ?? 0.5);
+      if (t) this.onTile?.(t.x, t.y, v.level, t.fx ?? 0.5, t.fy ?? 0.5, this.blockAt(px, py) ?? undefined);
       return;
     }
     if (!t || t.y < 0 || t.y >= this.p.h) return;
