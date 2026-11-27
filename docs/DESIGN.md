@@ -40,6 +40,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Layers: Surface 0 · Soil 1–2 · Stone 3–8 · Deep 9–16 · Abyssal 17–24 · Bedrock 25.
 - **Flat terrain** (no hills). Rivers, lakes, oceans. Biomes: plains, forest, swamp, desert, tundra, jungle, ocean.
 - **Oceans/lakes are buildable with foundations** (placed on water tiles; machines then sit on them normally). Enables offshore pumps.
+- **Water has depth** (water blocks fill layers 0…d−1, seabed silt at d): rivers 1–2, lakes 1–3, ocean 1–8 (shelf → open sea), **trenches** 9–22 (narrow ridges in deep ocean). Water can't be dug, nor can a block directly under water. Under open ocean/trenches the deep + abyssal vein slots fill more often and are larger/richer — reached only by **offshore mining rigs** (later tier; on foundations). Render: seabed drawn below a translucent surface, tint by depth.
 - **Ores are buried.** Must **scan** (prospector's hammer → steam thumper → electric scanners → survey drones) and **excavate** (hand shovel/pick → steam excavator → electric rigs → large mining multiblock → deep core drill).
 - Overburden (dirt/stone/gravel) is a resource.
 - Veins: GT-style mixed deposits (3–4 minerals), depth band + biome bias + rarity, **finite**.

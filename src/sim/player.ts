@@ -221,6 +221,7 @@ export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: n
   const def = BLOCKS[b];
   if (def.liquid) return { ok: false, msg: `Can't dig ${def.name.toLowerCase()}` };
   if (def.unbuildable) return { ok: false, msg: `${def.name} is too hard` };
+  if (z > 0 && BLOCKS[blockAt(s, gen, x, y, z - 1)].liquid) return { ok: false, msg: 'Under water — needs an offshore rig' };
   if (!exposed(s, gen, x, y, z)) return { ok: false, msg: 'Dig down from above or beside it first' };
 
   const mineral = def.mineral ? MINERAL.get(def.mineral) : undefined;

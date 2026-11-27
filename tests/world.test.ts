@@ -67,6 +67,24 @@ describe('world gen', () => {
     }
     expect(hits).toBeGreaterThan(0);
   });
+  it('water has depth: rivers 1–2, lakes 1–3, ocean 1–8 + trenches, seabed below, no ore in water', () => {
+    const max: Record<number, number> = {}, min: Record<number, number> = {};
+    let trench = 0, n = 0;
+    for (let y = 300; y < 1750; y += 7) for (let x = 0; x < earth.w; x += 13) {
+      const sf = gen.surface(x, y);
+      if (!sf.water) { expect(sf.depth).toBe(0); continue; }
+      max[sf.water] = Math.max(max[sf.water] ?? 0, sf.depth); min[sf.water] = Math.min(min[sf.water] ?? 99, sf.depth);
+      if (sf.depth > 8) trench++;
+      if (n++ % 50) continue;
+      for (let z = 0; z < sf.depth; z++) { expect(gen.terrain(x, y, z, sf)).toBe(B.water); expect(gen.ore(x, y, z)).toBeNull(); }
+      expect(gen.terrain(x, y, sf.depth, sf)).toBe(B.silt);
+    }
+    expect(min[Water.River]).toBe(1); expect(max[Water.River]).toBe(2);
+    expect(max[Water.Lake]).toBeLessThanOrEqual(3);
+    expect(min[Water.Ocean]).toBe(1); expect(max[Water.Ocean]).toBeGreaterThan(12);
+    expect(trench).toBeGreaterThan(0);
+  });
+
   it('spawns on temperate land', () => {
     const s = gen.findSpawn(), sf = gen.surface(s.x, s.y);
     expect(sf.water).toBe(Water.None);

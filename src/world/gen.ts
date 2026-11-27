@@ -17,8 +17,11 @@ export const VEIN_RMAX = 22;
 /** Depth slots per vein spot: [top, bottom, fill chance]. Soil only fills where a biome-biased soil vein fits. */
 export const VEIN_SLOTS: [number, number, number][] = [[1, 2, 0.5], [3, 8, 0.6], [9, 16, 0.5], [17, 24, 0.15]];
 const SEA = 0.05;
+/** Ocean depth (layers) per unit below sea level; shelf → open ocean caps at OCEAN_MAX; trenches go to TRENCH_MAX. */
+const OCEAN_K = 40, OCEAN_MAX = 8, TRENCH_MAX = 22;
 
-export interface Surface { biome: Biome; water: Water; ice: boolean; volcanic: boolean; coast: boolean; river: number; temp: number; moist: number }
+/** `depth` = water layers (z 0 … depth−1 are water, seabed at z = depth); 0 on land. */
+export interface Surface { biome: Biome; water: Water; depth: number; ice: boolean; volcanic: boolean; coast: boolean; river: number; temp: number; moist: number }
 export interface VeinInst { id: string; def: VeinDef; x: number; y: number; z0: number; z1: number; a: number; b: number; rot: number; richness: number; seed: number }
 export interface OreHit { vein: VeinInst; block: number; richness: number }
 
@@ -42,11 +45,21 @@ export class WorldGen {
     const lat = ((y + 0.5) / this.h) * 2 - 1;
     const temp = 1 - Math.abs(lat) + sfbm(s + 2, p, 16, 3) * 0.15;
     const moist = sfbm(s + 3, p, 12, 4) * 0.8 + 0.5;
-    const out: Surface = { biome: 'plains', water: Water.None, ice: false, volcanic: false, coast: false, river: 1, temp, moist };
+    const out: Surface = { biome: 'plains', water: Water.None, depth: 0, ice: false, volcanic: false, coast: false, river: 1, temp, moist };
     if (Math.abs(lat) > 0.968 + sfbm(s + 7, p, 64, 3) * 0.015) { out.ice = true; out.biome = 'tundra'; return out; }
     const c = sfbm(s + 1, p, 6, 6);
     out.coast = Math.abs(c - SEA) < 0.035;
-    if (c < SEA) { out.water = Water.Ocean; out.biome = 'ocean'; return out; }
+    if (c < SEA) {
+      out.water = Water.Ocean; out.biome = 'ocean';
+      const t = SEA - c;
+      out.depth = Math.min(OCEAN_MAX, 1 + Math.floor(t * OCEAN_K));
+      // Trenches: narrow ridges of a second noise field, only out past the shelf. Deep/abyssal ores hide beneath.
+      if (t > 0.08) {
+        const r = Math.abs(sfbm(s + 8, p, 10, 4));
+        if (r < 0.012) out.depth = Math.min(TRENCH_MAX, OCEAN_MAX + 1 + Math.floor((1 - r / 0.012) * 6 + (t - 0.08) * 40));
+      }
+      return out;
+    }
     out.biome = temp < 0.17 ? 'tundra'
       : temp > 0.62 ? (moist < 0.4 ? 'desert' : moist > 0.62 ? 'jungle' : 'plains')
       : moist > 0.68 ? 'swamp' : moist > 0.48 ? 'forest' : moist < 0.25 && temp > 0.5 ? 'desert' : 'plains';
@@ -56,22 +69,28 @@ export class WorldGen {
     // tiles, and stop rivers in the far north/south where they would smear.
     const coslat = Math.cos(lat * Math.PI / 2);
     const rw = Math.abs(lat) > 0.85 ? 0 : (out.biome === 'desert' ? 0.009 : 0.018) * coslat;
-    if (out.river < rw) out.water = Water.River;
-    else if (out.biome !== 'desert' && sfbm(s + 6, p, 48, 3) > 0.55) out.water = Water.Lake;
+    if (out.river < rw) { out.water = Water.River; out.depth = out.river < rw * 0.45 ? 2 : 1; return out; }
+    const lake = out.biome !== 'desert' ? sfbm(s + 6, p, 48, 3) : 0;
+    if (lake > 0.55) { out.water = Water.Lake; out.depth = Math.min(3, 1 + Math.floor((lake - 0.55) / 0.05)); }
     return out;
   }
 
   /** Terrain block ignoring ores. */
   terrain(x: number, y: number, z: number, sf = this.surface(x, y)): number {
     if (z >= LAYERS.bedrock) return B.bedrock;
+    if (sf.depth) {
+      if (z < sf.depth) return B.water;
+      // Seabed: silt, then sand (ocean) or gravel/clay (fresh water), then the normal layer.
+      if (z === sf.depth) return B.silt;
+      if (z === sf.depth + 1 && z < 9) return sf.water === Water.Ocean ? B.sand : fbm(this.seed + 21, x, y, this.w, 200, 2) > 0.2 ? B.gravel : B.clay;
+    }
     if (z >= 17) return B.abyssal;
     if (z >= 9) return B.deepstone;
     const s = this.seed, w = this.w;
     if (z >= 3) return fbm(s + 20 + z, x, y, w, 256, 2) > 0.55 ? B.gravel : B.stone;
     if (z >= 1) {
       if (sf.ice) return z === 1 ? B.ice : B.permafrost;
-      if (sf.water === Water.Ocean) return z === 1 ? B.silt : B.sand;
-      if (sf.water !== Water.None) return z === 1 ? B.silt : fbm(s + 21, x, y, w, 200, 2) > 0.2 ? B.gravel : B.clay;
+      if (sf.water !== Water.None) return B.sand;
       if (fbm(s + 22 + z, x, y, w, 220, 2) > 0.5) return B.clay;
       switch (sf.biome) {
         case 'desert': return B.sand;
@@ -81,7 +100,6 @@ export class WorldGen {
       }
     }
     if (sf.ice) return B.ice;
-    if (sf.water !== Water.None) return B.water;
     if (sf.volcanic) return B.basalt;
     switch (sf.biome) {
       case 'forest': return B.forest_floor;
@@ -95,7 +113,7 @@ export class WorldGen {
 
   /** Generated block (terrain + ores). */
   block(x: number, y: number, z: number, sf?: Surface): number {
-    if (z >= 1 && z < LAYERS.bedrock) { const o = this.ore(x, y, z); if (o) return o.block; }
+    if (z >= 1 && z < LAYERS.bedrock) { const o = this.ore(x, y, z, sf); if (o) return o.block; }
     return this.terrain(x, y, z, sf);
   }
 
@@ -134,17 +152,20 @@ export class WorldGen {
     const x = Math.min(this.w - 1, cx * VEIN_CELL + half + Math.round((hash01(s, cx, cy, 1) - 0.5) * 2 * VEIN_JITTER));
     const y = Math.min(this.h - 1, cy * VEIN_CELL + half + Math.round((hash01(s, cx, cy, 2) - 0.5) * 2 * VEIN_JITTER));
     const sf = this.surface(x, y);
+    // Under open ocean / trenches, deep and abyssal slots fill more often and richer (reached by offshore rigs, DESIGN §3).
+    const sea = sf.water === Water.Ocean ? (sf.depth > OCEAN_MAX ? 2 : 1) : 0;
     if (!sf.ice) VEIN_SLOTS.forEach(([b0, b1, fill], k) => {
       const h = (n: number) => hash01(s, cx, cy, 16 + k * 16 + n);
-      if (h(0) > fill) return;
+      const boost = k >= 2 ? sea : 0;
+      if (h(0) > Math.min(0.9, fill + boost * 0.25)) return;
       const def = pickVein(sf, h(1), b0, b1);
       if (!def) return;
       const d0 = Math.max(def.depth[0], b0), d1 = Math.min(def.depth[1], b1);
       const zc = d0 + Math.floor(h(2) * (d1 - d0 + 1));
       const z0 = Math.max(d0, zc - 1), z1 = Math.min(d1, zc + 1);
       const [s0, s1] = RARITY_SIZE[def.rarity];
-      const size = (s0 + (s1 - s0) * h(3)) * (def.sizeMul ?? 1);
-      const rich = 4 + Math.floor(h(4) * 5); // ore per block
+      const size = (s0 + (s1 - s0) * h(3)) * (def.sizeMul ?? 1) * (1 + boost * 0.75);
+      const rich = (4 + Math.floor(h(4) * 5)) * (1 + boost * 0.75); // ore per block
       const r = Math.sqrt(size / rich / (z1 - z0 + 1) / Math.PI);
       const ecc = 0.6 + h(5) * 0.8;
       const a = Math.min(VEIN_RMAX, r * Math.sqrt(ecc)), bb = Math.min(VEIN_RMAX, r / Math.sqrt(ecc));
@@ -163,7 +184,8 @@ export class WorldGen {
     return out;
   }
 
-  ore(xIn: number, y: number, z: number): OreHit | null {
+  /** Ore at a block; never inside water (z < surface depth). */
+  ore(xIn: number, y: number, z: number, sf?: Surface): OreHit | null {
     const x = this.wrapX(xIn);
     for (const v of this.veinsAround(x, y)) {
       if (z < v.z0 || z > v.z1) continue;
@@ -173,6 +195,7 @@ export class WorldGen {
       const u = (dx * c + dy * s) / v.a, t = (-dx * s + dy * c) / v.b;
       const edge = (hash01(v.seed, x, y, z) - 0.5) * 0.35;
       if (u * u + t * t + edge > 1) continue;
+      if (z < (sf ??= this.surface(x, y)).depth) return null;
       // Weighted mineral pick per block.
       let r = hash01(v.seed + 1, x, y, z) * 100;
       for (const p of v.def.parts) {

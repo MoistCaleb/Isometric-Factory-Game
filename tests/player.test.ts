@@ -111,4 +111,13 @@ describe('crafting', () => {
     expect(res.gained).toEqual([{ id: 'plank:wood', n: 4 }]);
     expect(missing(s, r('plank:wood', ['saw']))).toContain('saw');
   });
+  it('water and the seabed under it can not be mined', () => {
+    const s = fresh();
+    give(s, 'tool:shovel:flint', 1); give(s, 'tool:pickaxe:flint', 1);
+    const w = (() => { for (let r = 0; r < 400; r++) for (let dx = -r; dx <= r; dx += 3) { const x = s0.spawn.x + dx, y = s0.spawn.y + r; if (gen.surface(x, y).depth) return { x: gen.wrapX(x), y }; } throw new Error('no water'); })();
+    const d = gen.surface(w.x, w.y).depth;
+    expect(mine(s, gen, w.x, w.y, 0).msg).toMatch(/water/i);
+    s.diffs[`${w.x + 1},${w.y},${d}`] = B.air; // a side pit next to the seabed
+    expect(mine(s, gen, w.x, w.y, d).msg).toMatch(/offshore/);
+  });
 });

@@ -599,7 +599,7 @@ export class Renderer {
   describe(x: number, y: number): string {
     const gen = this.gen!, v = this.view, sf = gen.surface(x, y);
     const lat = (0.5 - (y + 0.5) / gen.h) * 180, lon = ((x + 0.5) / gen.w) * 360 - 180;
-    const place = sf.ice ? 'Polar ice cap' : sf.water === Water.Ocean ? 'Ocean' : sf.water === Water.River ? `River (${sf.biome})` : sf.water === Water.Lake ? `Lake (${sf.biome})` : `${sf.biome[0].toUpperCase()}${sf.biome.slice(1)}${sf.volcanic ? ', volcanic' : ''}`;
+    const place = sf.ice ? 'Polar ice cap' : sf.water === Water.Ocean ? `${sf.depth > 8 ? 'Ocean trench' : 'Ocean'}, depth ${sf.depth}` : sf.water === Water.River ? `River (${sf.biome}), depth ${sf.depth}` : sf.water === Water.Lake ? `Lake (${sf.biome}), depth ${sf.depth}` : `${sf.biome[0].toUpperCase()}${sf.biome.slice(1)}${sf.volcanic ? ', volcanic' : ''}`;
     const head = `${x}, ${y} · ${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'} · ${place}`;
     if (v.mode !== 'iso') return head;
     if (v.level > 0) { const e = this.ents[`${x},${y},${v.level}`]; return `${head}\nStorey ${v.level}${e ? ` · ${STRUCT.get(e.s)?.name ?? e.s}` : this.base[`${x},${y},${v.level},f`] ? ' · Floor' : ''}`; }

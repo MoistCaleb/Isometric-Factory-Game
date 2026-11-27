@@ -63,6 +63,7 @@
 - Hand recipes: machine `hand`, ticks 0, `tools` worn. Machine conflicts need `circuit`. Hand recipes are picked from a list (no grid), so they never conflict.
 - Mineral refs: material id, chemical id, `m:<mineral>`, `later:<x>`.
 - Storey f: 0 = ground, 1–8 up (view level > 0). Render Y = f.
+- Water: `Surface.depth` = water layers (seabed at z = depth); ocean ≤8, trenches ≤22; no ore in water; under-water blocks unminable (offshore rigs later).
 - World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`).
 - Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
 - Scripts: `npm run dev | test | validate | build | map`.
@@ -71,6 +72,7 @@
 - **P0 done**. **P1 done** (planet gen, chunk render, camera, Z-slider, day/night, weather, map + globe).
 - Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
 - X-ray ore view is a dev toggle; real reveal = scanning (P2+).
+- TODO: offshore mining rig (tier + recipe) to reach seabed/trench ores.
 - TODO: chunk loader design (keep chunks loaded off-screen for automation); sim will tick loaded chunks only.
 - **P2 Primitive** in progress:
   - [x] P2a mining mode, inventory, tool slots/wear, pits render
