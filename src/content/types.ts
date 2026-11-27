@@ -2,7 +2,7 @@ import type { ToolType } from '../data/forms';
 import type { Hazard } from '../data/materials';
 import type { TierId } from '../data/tiers';
 
-export type ItemKind = 'material' | 'ore' | 'tool' | 'misc';
+export type ItemKind = 'material' | 'ore' | 'tool' | 'misc' | 'structure';
 
 export interface ItemDef {
   id: string;

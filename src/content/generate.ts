@@ -5,6 +5,7 @@ import { MACHINES } from '../data/machines';
 import { MATERIALS, type MaterialDef } from '../data/materials';
 import { MINERALS, type MineralDef } from '../data/minerals';
 import { MISC_ITEMS } from '../data/misc';
+import { STRUCTURES } from '../data/structures';
 import type { TierId } from '../data/tiers';
 import type { FluidDef, ItemDef, Recipe, Stack } from './types';
 
@@ -208,6 +209,11 @@ export function generate(): Generated {
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
 
+  // Placeable structures (P2c).
+  for (const st of STRUCTURES) {
+    addItem({ id: `struct:${st.id}`, name: st.name, kind: 'structure', color: st.color });
+    hand(st.cost.map(([id, n]) => s(id, n)), [s(`struct:${st.id}`)], st.tools);
+  }
   return { items, fluids, recipes };
 }
 

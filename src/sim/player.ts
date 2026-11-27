@@ -6,8 +6,9 @@ import type { ToolType } from '../data/forms';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
 import { LAYERS, Tree, type WorldGen } from '../world/gen';
+import { addBase, builtOn, demolish, place, type BaseKind, type Side } from './build';
 import { next } from './rng';
-import type { GameState, Slot } from './state';
+import type { Ent, GameState, Slot } from './state';
 
 export const STACK = 64;
 /** Just the inventory part of the state (the UI checks craftability against its copy). */
@@ -18,7 +19,12 @@ export type Cmd =
   | { k: 'mine'; x: number; y: number; z: number }
   | { k: 'move'; a: SlotRef; b: SlotRef }
   | { k: 'trash'; a: SlotRef }
-  | { k: 'craft'; recipe: string; n: number };
+  | { k: 'craft'; recipe: string; n: number }
+  | { k: 'place'; id: string; x: number; y: number; f: number; r: number }
+  | { k: 'base'; kind: BaseKind; x: number; y: number; f: number; side?: Side }
+  | { k: 'demolish'; x: number; y: number; f: number; side?: Side }
+  /** Dev kit (Debug menu): one of each structure. */
+  | { k: 'devkit' };
 
 export interface ActResult {
   ok: boolean;
@@ -29,6 +35,9 @@ export interface ActResult {
   /** Dig progress [hits, needed] while a block is not yet broken. */
   progress?: [number, number];
   target?: string;
+  /** Structure / base part changes (null = removed). */
+  ents?: Record<string, Ent | null>;
+  base?: Record<string, number | null>;
 }
 
 // ---------- inventory ----------
@@ -202,6 +211,7 @@ function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
 export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: number): ActResult {
   const x = gen.wrapX(xIn);
   if (!gen.inBounds(y)) return { ok: false };
+  if (zIn === 0 && builtOn(s, x, y)) return { ok: false, msg: 'Something is built here — demolish it first' };
   if (zIn === 0 && s.diffs[`${x},${y},t`] === undefined) {
     const tree = gen.tree(x, y);
     if (tree && blockAt(s, gen, x, y, 0) !== B.air) return chop(s, x, y, tree);
@@ -248,6 +258,14 @@ export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'move': return move(s, c.a, c.b);
     case 'trash': box(s, c.a)[c.a.i] = null; return { ok: true };
     case 'craft': return craft(s, c.recipe, c.n);
+    case 'place': return place(s, gen, c.id, c.x, c.y, c.f, c.r);
+    case 'base': return addBase(s, gen, c.kind, c.x, c.y, c.f, c.side);
+    case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
+    case 'devkit': {
+      const ids = registry().items.filter((i) => i.kind === 'structure').map((i) => i.id);
+      for (const id of ids) give(s, id, 2);
+      return { ok: true, gained: ids.map((id) => ({ id, n: 2 })) };
+    }
   }
 }
 

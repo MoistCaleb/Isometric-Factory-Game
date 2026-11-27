@@ -11,6 +11,8 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   2: (s) => ({ ...s, version: 3, spawn: worldGen(s.seed as number, planet(s.planet as string)).findSpawn(), diffs: {} }),
   // P2: inventory + tool slots.
   3: (s) => ({ ...s, version: 4, ...emptyInv() }),
+  // P2c: placed structures + base parts.
+  4: (s) => ({ ...s, version: 5, ents: {}, base: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

@@ -87,3 +87,9 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .arrow { color: var(--acc); font-weight: 700; padding: 0 2px; }
 .craftrow { margin-top: 6px; font-size: 12px; }
 .craftrow button { min-height: 28px; padding: 3px 10px; }
+.buildbar { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(64px + env(safe-area-inset-bottom, 0)); max-width: calc(100% - 150px);
+  display: flex; gap: 4px; align-items: center; overflow-x: auto; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 4px; font-size: 12px; }
+.buildbar button { white-space: nowrap; display: flex; align-items: center; gap: 4px; padding: 4px 8px; }
+.buildbar .sw { width: 12px; height: 12px; border-radius: 3px; border: 1px solid #0006; }
+.buildbar .dim { white-space: nowrap; padding: 0 4px; }
+@media (max-height: 420px) { .buildbar .lbl { display: none; } }

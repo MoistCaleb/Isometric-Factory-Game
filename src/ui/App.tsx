@@ -5,16 +5,18 @@ import { LEVEL_MAX, LEVEL_MIN, type Act, type Renderer, type View } from '../ren
 import * as store from '../save/store';
 import type { SimStats } from '../sim/client';
 import type { ActResult, SlotRef } from '../sim/player';
+import { nearSide, type BaseKind } from '../sim/build';
+import { BuildBar } from './BuildBar';
 import { bytes, duration, gameClock, levelName, weatherText } from './format';
 import { hoverItem, Inventory } from './Inventory';
 import { Recipes, type Look } from './Recipes';
 
 const ACTS: [Act, string, string, boolean][] = [
-  ['view', '👁', 'View', true],
-  ['build', '🏭', 'Machine Build (P2)', false],
-  ['base', '🧱', 'Base Build (P2)', false],
-  ['demolish', '💥', 'Demolition (P2)', false],
-  ['mine', '⛏', 'Mining', true],
+  ['view', '👁', 'View (V)', true],
+  ['build', '🏭', 'Machine Build (B)', true],
+  ['base', '🧱', 'Base Build (N)', true],
+  ['demolish', '💥', 'Demolition (Z)', true],
+  ['mine', '⛏', 'Mining (X)', true],
 ];
 
 interface Feed { id: number; text: string; err?: boolean }
@@ -35,6 +37,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [dig, setDig] = useState<string | null>(null);
   const [book, setBook] = useState(false);
   const [look, setLook] = useState<Look | null>(null);
+  const [buildId, setBuildId] = useState<string | null>(null);
+  const [rot, setRot] = useState(0);
+  const [baseKind, setBaseKind] = useState<BaseKind>('floor');
   const openLook = (l: Look) => { setLook(l); setBook(true); setBag(false); setMenu(false); setSel(null); };
 
   const refresh = () => store.list().then(setSaves).catch(() => setSaves([]));
@@ -51,6 +56,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
     game.onWorld = (s) => { prevWorld?.(s); setInv({ inv: s.inv, tools: s.tools }); };
     game.sim.onAct = (r: ActResult) => {
       if (r.changes) renderer.applyChanges(r.changes);
+      if (r.ents || r.base) renderer.applyBuild(r.ents, r.base);
       setInv({ inv: game.sim.inv, tools: game.sim.tools });
       setDig(r.progress && r.target ? `${r.target} ${r.progress[0]}/${r.progress[1]}` : null);
       const reg = registry();
@@ -59,11 +65,31 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
     };
     renderer.onView = setView;
     renderer.onHover = setHover;
-    renderer.onTile = (x, y, z) => { if (renderer.act === 'mine') game.sim.cmd({ k: 'mine', x, y, z }); };
     refresh();
   }, [game, renderer]);
 
-  const pickAct = (a: Act) => { renderer.act = a; setAct(a); setDig(null); };
+  const pickAct = (a: Act) => {
+    renderer.act = a; setAct(a); setDig(null);
+    // Mining works at the surface and below; building at the surface and above.
+    if ((a === 'mine' && renderer.view.level > 0) || ((a === 'build' || a === 'base' || a === 'demolish') && renderer.view.level < 0)) renderer.setLevel(0);
+  };
+
+  // Tile clicks + ghost preview for the active mode.
+  useEffect(() => {
+    renderer.ghost = act === 'build' && buildId ? { kind: 'struct', id: buildId.replace('struct:', ''), r: rot }
+      : act === 'base' ? { kind: 'base', part: baseKind } : act === 'demolish' ? { kind: 'demolish' } : null;
+    renderer.onTile = (x, y, level, fx, fy) => {
+      const say = (m: string) => push(m, true);
+      if (act === 'mine') return level > 0 ? say('Mining works at the surface and below') : game.sim.cmd({ k: 'mine', x, y, z: -level });
+      if (level < 0) return say('Build at the surface or above');
+      if (act === 'build') return buildId ? game.sim.cmd({ k: 'place', id: buildId, x, y, f: level, r: rot }) : say('Pick a structure to place');
+      if (act === 'base') return game.sim.cmd({ k: 'base', kind: baseKind, x, y, f: level, side: nearSide(fx, fy) });
+      if (act === 'demolish') {
+        const edge = Math.min(fx, fy, 1 - fx, 1 - fy) < 0.22;
+        game.sim.cmd({ k: 'demolish', x, y, f: level, side: edge ? nearSide(fx, fy) : undefined });
+      }
+    };
+  }, [act, buildId, rot, baseKind]);
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -75,6 +101,10 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if ((e.code === 'KeyR' || e.code === 'KeyU') && hoverItem) openLook({ id: hoverItem, tab: e.code === 'KeyR' ? 'recipes' : 'uses' });
       if (e.code === 'KeyV') pickAct('view');
       if (e.code === 'KeyX') pickAct('mine');
+      if (e.code === 'KeyB') pickAct('build');
+      if (e.code === 'KeyN') pickAct('base');
+      if (e.code === 'KeyZ') pickAct('demolish');
+      if (e.code === 'KeyF') setRot((r) => (r + 1) % 4);
     };
     addEventListener('keydown', key);
     return () => removeEventListener('keydown', key);
@@ -135,6 +165,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           <h3>Debug</h3>
           <div class="row">
             <label><input type="checkbox" checked={view.xray} onChange={() => renderer.toggleXray()} /> X-ray ores (dev)</label>
+            <button onClick={() => game.sim.cmd({ k: 'devkit' })}>Give structures (dev)</button>
           </div>
           <h3>Content</h3>
           <div class="dim">{reg.items.length} items · {reg.fluids.length} fluids · {reg.recipes.length} recipes</div>
@@ -146,6 +177,10 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
             <button key={a} class={act === a ? 'on' : ''} disabled={!on} onClick={() => pickAct(a)} title={name}>{icon}</button>
           ))}
         </div>
+      )}
+      {iso && !menu && !book && !bag && (act === 'build' || act === 'base' || act === 'demolish') && (
+        <BuildBar act={act} inv={inv.inv} buildId={buildId} onBuildId={setBuildId} rot={rot} onRot={() => setRot((r) => (r + 1) % 4)}
+          baseKind={baseKind} onBaseKind={setBaseKind} onBook={() => { setLook(null); setBook(true); setBag(false); }} />
       )}
       {iso && !menu && !book && (
         <div class="zbar">

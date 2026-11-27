@@ -4,14 +4,19 @@ import * as THREE from 'three';
 import { planet, type PlanetDef } from '../data/planets';
 import type { SimClient } from '../sim/client';
 import { TPS, timeOfDay, type GameState } from '../sim/state';
+import { nearSide, STRUCT } from '../sim/build';
 import { BLOCKS, isOre } from '../world/blocks';
 import { LAYERS, Tree, Water, worldGen, type WorldGen } from '../world/gen';
 import { planetMap } from '../world/map';
 import { buildChunk, CH, disposeChunk } from './chunks';
+import { buildStructs, ghostGeometry } from './structures';
+import type { Ent } from '../sim/state';
 
 export type Mode = 'iso' | 'map' | 'globe';
 /** Player action mode (DESIGN §3 Building). */
 export type Act = 'view' | 'build' | 'base' | 'demolish' | 'mine';
+/** Build cursor preview (set by the UI). */
+export type Ghost = { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string } | { kind: 'demolish' };
 export interface View { mode: Mode; x: number; y: number; zoom: number; rot: number; level: number; xray: boolean; mapZoom: number; globeDist: number }
 
 export const LEVEL_MIN = -LAYERS.bedrock, LEVEL_MAX = 8;
@@ -46,13 +51,25 @@ export class Renderer {
   onView?: (v: View) => void;
   onHover?: (text: string | null) => void;
   act: Act = 'view';
-  /** Click on a tile in iso view with a non-view action (z = depth layer). */
-  onTile?: (x: number, y: number, z: number) => void;
+  /** Click on a tile in iso view with a non-view action. level = view level (−depth or storey); fx/fy = point inside the tile. */
+  onTile?: (x: number, y: number, level: number, fx: number, fy: number) => void;
+  ghost: Ghost | null = null;
+  /** Tile under the mouse (iso). */
+  cursor: { x: number; y: number; fx: number; fy: number } | null = null;
 
   private r: THREE.WebGLRenderer;
   private gen?: WorldGen;
   private p: PlanetDef = planet('earth');
   private diffs: Record<string, number> = {};
+  private ents: Record<string, Ent> = {};
+  private base: Record<string, number> = {};
+  private structVer = 0;
+  private structSig = '';
+  private structMat = new THREE.MeshLambertMaterial({ vertexColors: true });
+  private structs = new THREE.Mesh(new THREE.BufferGeometry(), this.structMat);
+  private structsGlass = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.3, depthWrite: false }));
+  private ghostMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false }));
+  private ghostSig = '';
   private seed = 0;
   private frameNo = 0;
 
@@ -94,7 +111,8 @@ export class Renderer {
     this.iso.add(this.terrain, this.hemi, this.sun, this.sun.target);
     (this.grid.material as THREE.Material).transparent = true;
     (this.grid.material as THREE.Material).opacity = 0.25;
-    this.iso.add(this.grid);
+    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh);
+    this.structs.frustumCulled = this.structsGlass.frustumCulled = this.ghostMesh.frustumCulled = false;
 
     const N = 2500;
     this.rainBase = new Float32Array(N * 3);
@@ -125,6 +143,9 @@ export class Renderer {
     this.p = planet(s.planet);
     this.gen = worldGen(s.seed, this.p);
     this.diffs = s.diffs;
+    this.ents = s.ents;
+    this.base = s.base;
+    this.structVer++;
     if (this.seed !== s.seed) {
       this.seed = s.seed;
       this.clearChunks();
@@ -162,6 +183,42 @@ export class Renderer {
       for (const [dx, dy] of [[0, 0], [-1, 0], [1, 0], [0, -1], [0, 1]]) drop.add(`${mod(Math.floor((x + dx) / CH), ncx)},${Math.floor((y + dy) / CH)}`);
     }
     for (const k of drop) { const e = this.chunks.get(k); if (e) { disposeChunk(e.g); this.terrain.remove(e.g); this.chunks.delete(k); } }
+  }
+
+  /** Apply structure / base part changes from the sim. */
+  applyBuild(ents?: Record<string, Ent | null>, base?: Record<string, number | null>) {
+    for (const [k, e] of Object.entries(ents ?? {})) if (e) this.ents[k] = e; else delete this.ents[k];
+    for (const [k, b] of Object.entries(base ?? {})) if (b) this.base[k] = b; else delete this.base[k];
+    this.structVer++;
+  }
+
+  private updateStructs() {
+    const v = this.view, R = Math.ceil(Math.max(48, v.zoom * 2.5) / 16) * 16;
+    const cx = Math.round(v.x / 16) * 16, cy = Math.round(v.y / 16) * 16, zoomedOut = v.zoom >= 30, baseMode = this.act === 'base';
+    const sig = `${this.structVer}|${v.level}|${v.rot}|${baseMode}|${zoomedOut}|${cx},${cy},${R}`;
+    const show = v.level >= 0;
+    this.structs.visible = this.structsGlass.visible = show;
+    if (!show || sig === this.structSig) return;
+    this.structSig = sig;
+    const [a, b] = buildStructs({ ents: this.ents, base: this.base, w: this.p.w, cx, cy, radius: R, top: v.level, rot: v.rot, baseMode, zoomedOut });
+    this.structs.geometry.dispose(); this.structs.geometry = a;
+    this.structsGlass.geometry.dispose(); this.structsGlass.geometry = b;
+  }
+
+  private updateGhost() {
+    const v = this.view, c = this.cursor, g = this.ghost;
+    const on = !!(c && g && v.level >= 0 && (this.act === 'build' || this.act === 'base' || this.act === 'demolish'));
+    this.ghostMesh.visible = on;
+    if (!on) return;
+    const side = g!.kind === 'base' ? nearSide(c!.fx, c!.fy) : '';
+    const sig = JSON.stringify(g) + side;
+    if (sig !== this.ghostSig) {
+      this.ghostSig = sig;
+      this.ghostMesh.geometry.dispose();
+      this.ghostMesh.geometry = ghostGeometry(g!.kind === 'base' ? { kind: 'base', part: g!.part, side } : g!);
+    }
+    const wx = v.x + mod(c!.x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2;
+    this.ghostMesh.position.set(Math.floor(wx), v.level + 0.01, c!.y);
   }
 
   // ---------- chunks ----------
@@ -230,7 +287,7 @@ export class Renderer {
 
   private updateIsoCam() {
     const v = this.view, c = this.isoCam, a = this.aspect;
-    const th = Math.PI / 4 + v.rot * (Math.PI / 2), ly = Math.min(v.level, 0), D = 500;
+    const th = Math.PI / 4 + v.rot * (Math.PI / 2), ly = v.level, D = 500;
     c.left = -v.zoom * a; c.right = v.zoom * a; c.top = v.zoom; c.bottom = -v.zoom;
     c.position.set(v.x + D * Math.cos(ELEV) * Math.sin(th), ly + D * Math.sin(ELEV), v.y + D * Math.cos(ELEV) * Math.cos(th));
     c.lookAt(v.x, ly, v.y);
@@ -262,7 +319,7 @@ export class Renderer {
   }
 
   /** Ground point (plane y = ly) under NDC coords in iso view. */
-  private groundAt(nx: number, ny: number, ly = Math.min(this.view.level, 0)): THREE.Vector3 | null {
+  private groundAt(nx: number, ny: number, ly = this.view.level): THREE.Vector3 | null {
     this.ray.setFromCamera(new THREE.Vector2(nx, ny), this.isoCam);
     const out = new THREE.Vector3();
     return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -ly), out);
@@ -329,6 +386,8 @@ export class Renderer {
       this.updateIsoCam();
       this.updateChunks();
       this.updateSky(now, dt);
+      this.updateStructs();
+      this.updateGhost();
       this.grid.visible = v.level > 0;
       if (this.grid.visible) this.grid.position.set(Math.round(v.x), v.level, Math.round(v.y));
       this.r.render(this.iso, this.isoCam);
@@ -412,7 +471,7 @@ export class Renderer {
     };
     c.addEventListener('pointerup', up);
     c.addEventListener('pointercancel', up);
-    c.addEventListener('pointerleave', () => { if (!this.pointers.size) this.onHover?.(null); });
+    c.addEventListener('pointerleave', () => { if (!this.pointers.size) { this.onHover?.(null); this.cursor = null; } });
     c.addEventListener('wheel', (e) => { e.preventDefault(); this.zoomBy(Math.exp(e.deltaY * 0.0015), e.clientX, e.clientY); }, { passive: false });
     window.addEventListener('keydown', (e: KeyboardEvent) => {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
@@ -500,11 +559,11 @@ export class Renderer {
   }
 
   /** Tile under a screen point (any mode). */
-  private tileAt(px: number, py: number): { x: number; y: number } | null {
+  private tileAt(px: number, py: number): { x: number; y: number; fx?: number; fy?: number } | null {
     const [nx, ny] = this.ndc(px, py), v = this.view;
     if (v.mode === 'iso') {
       const g = this.groundAt(nx, ny);
-      return g ? { x: mod(Math.floor(g.x), this.p.w), y: Math.floor(g.z) } : null;
+      return g ? { x: mod(Math.floor(g.x), this.p.w), y: Math.floor(g.z), fx: g.x - Math.floor(g.x), fy: g.z - Math.floor(g.z) } : null;
     }
     if (v.mode === 'map') {
       this.ray.setFromCamera(new THREE.Vector2(nx, ny), this.mapCam);
@@ -521,7 +580,7 @@ export class Renderer {
     const v = this.view;
     const t = this.tileAt(px, py);
     if (v.mode === 'iso') {
-      if (t && this.act !== 'view' && v.level <= 0) this.onTile?.(t.x, t.y, -v.level);
+      if (t && this.act !== 'view') this.onTile?.(t.x, t.y, v.level, t.fx ?? 0.5, t.fy ?? 0.5);
       return;
     }
     if (!t || t.y < 0 || t.y >= this.p.h) return;
@@ -532,6 +591,7 @@ export class Renderer {
 
   private hover(px: number, py: number) {
     const t = this.tileAt(px, py), gen = this.gen;
+    this.cursor = t && gen?.inBounds(t.y) && this.view.mode === 'iso' ? { x: t.x, y: t.y, fx: t.fx ?? 0.5, fy: t.fy ?? 0.5 } : null;
     if (!t || !gen || !gen.inBounds(t.y)) return this.onHover?.(null);
     this.onHover?.(this.describe(t.x, t.y));
   }
@@ -542,7 +602,10 @@ export class Renderer {
     const place = sf.ice ? 'Polar ice cap' : sf.water === Water.Ocean ? 'Ocean' : sf.water === Water.River ? `River (${sf.biome})` : sf.water === Water.Lake ? `Lake (${sf.biome})` : `${sf.biome[0].toUpperCase()}${sf.biome.slice(1)}${sf.volcanic ? ', volcanic' : ''}`;
     const head = `${x}, ${y} · ${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'} · ${place}`;
     if (v.mode !== 'iso') return head;
+    if (v.level > 0) { const e = this.ents[`${x},${y},${v.level}`]; return `${head}\nStorey ${v.level}${e ? ` · ${STRUCT.get(e.s)?.name ?? e.s}` : this.base[`${x},${y},${v.level},f`] ? ' · Floor' : ''}`; }
     const z = Math.max(0, -v.level);
+    const ent = z === 0 ? this.ents[`${x},${y},0`] : undefined;
+    if (ent) return `${head}\n${STRUCT.get(ent.s)?.name ?? ent.s}`;
     let b = this.diffs[`${x},${y},${z}`];
     let extra = '';
     if (b === undefined) {

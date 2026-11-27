@@ -238,6 +238,7 @@ Distance: rare veins are weighted away from spawn.
   - etc.
 
 ### Primitive structures & machines
+Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `src/data/structures.ts`).
 | Thing | Build | Does |
 |---|---|---|
 | Pit Kiln | clay + sticks + straw (place on tile) | Fire bricks, molds, crucibles, pottery (≤1100 K) |
