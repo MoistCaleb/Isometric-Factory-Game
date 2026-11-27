@@ -58,7 +58,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Decorative/base blocks are **free**: **edge walls**, floors, windows, doors, roofs, lights. Purely visual.
 - Near-side walls always rendered **low**, except in Base Build mode. Roofs/walls go see-through when zoomed in and opaque when zoomed out.
 - Modes: **View · Machine Build · Base Build · Demolition · Mining**.
-  - **Machine Build:** pick a structure item, tap a tile at the viewed storey (Z-slider ≥ 0), rotate 4 ways. Ground needs dry, treeless, unpitted land, or a **foundation** on water; upper storeys need a floor. Built-on tiles can't be mined.
+  - **Machine Build:** pick a structure item, tap a tile at the viewed storey (Z-slider ≥ 0), rotate 4 ways. **A storey is 3 blocks tall**; a structure is 1 block, so tapping the same tile again stacks up to 3 per storey. Ground needs dry, treeless, unpitted land, or a **foundation** on water; a block above ground needs a floor (at a storey base), a block below it, or a block beside it (bridging). Demolition takes the top block first; a block holding one up can't be removed. Built-on tiles can't be mined.
   - **Base Build:** floor/foundation, roof and light per tile; wall/window/door on the **nearest tile edge**. Free, no inventory.
   - **Demolition:** structure first (refunded to inventory); else the edge under the pointer if near one, then roof → light → walls → floor.
   - Walls are drawn low when the tile behind them (away from the camera) is in use; roofs on the viewed storey are see-through when zoomed in.
@@ -80,7 +80,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Machine **parts** per tier: motor, pump, piston, conveyor module, robot arm, (MV+) sensor/emitter, (HV+) field generator.
 - **Multiblocks:** pattern of casings + hatches; controller shows ghost; player chooses **auto-fill or manual placing**.
 - **Primitive machines (P2d):** tap a machine in View mode to open its panel: pick a recipe, load inputs/fuel from the global inventory, collect outputs. Run modes: **fuel** (burns items; heat eases toward the flame temperature, capped by the machine's max; a recipe runs only at ≥ its min heat), **self** (charcoal pile, coke oven burn their own charge), **crank** (quern, sluice, anvil advance only when the player cranks/strikes; anvil wears the hammer). Liquid byproducts fill the machine's tank (dump it until pipes/barrels arrive); gases vent. Sluice needs water on an adjacent tile. Until chunk loaders exist, every machine ticks.
-- **Primitive multiblocks:** controller + casing structures on a fixed pattern around it on the same storey (ring = 8 neighbours, plus = 4). Missing casings show as ghosts while the panel is open; **Auto-fill** places them from the inventory. Tapping a casing opens its controller. **Planned:** multiblocks span several storeys (3D patterns, e.g. 3×3×3), and machine models get an art pass.
+- **Primitive multiblocks:** controller (bottom centre) + casing blocks on a 3D pattern, some with a hollow chamber that must stay empty. A 3-high multiblock fills one storey; taller ones reach into the next. They always render full height, whatever the view level. Missing casings show as ghosts while the panel is open; **Auto-fill** places them bottom-up from the inventory. Tapping a casing opens its controller. **Planned:** rotation; machine art pass.
 - **Maintenance hatch** on multiblocks (random issues fixed with tools); **auto-maintenance hatch** later (consumes duct tape/lubricant).
 
 ## 6. Power

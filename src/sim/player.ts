@@ -274,7 +274,7 @@ export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'prospect': return prospect(s, gen, c.x, c.y);
     case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': return machCmd(s, gen, c);
     case 'devkit': {
-      const kit: [string, number][] = [...registry().items.filter((i) => i.kind === 'structure').map((i): [string, number] => [i.id, /wall|cover/.test(i.id) ? 8 : 1]),
+      const kit: [string, number][] = [...registry().items.filter((i) => i.kind === 'structure').map((i): [string, number] => [i.id, /wall|cover/.test(i.id) ? 64 : 1]),
         ['tool:prospector:bronze', 1], ['tool:hammer:stone', 1], ['lump:charcoal', 32], ['log:wood', 16], ['unfired_brick:clay', 8], ['ingot:copper', 6], ['ingot:tin', 2], ['mold_ingot:clay', 1]];
       const gained = kit.map(([id, n]) => ({ id, n: n - give(s, id, n) }));
       return { ok: true, gained };

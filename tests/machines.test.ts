@@ -71,14 +71,46 @@ describe('machines', () => {
     run(s, 2);
     expect(s.mach[key].st).toBe(MS.incomplete);
     expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(false); // no casings
-    give(s, 'struct:fire_brick_wall', 8);
+    give(s, 'struct:fire_brick_wall', 10);
+    expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(false); // runs out partway
+    give(s, 'struct:fire_brick_wall', 15);
     const r = apply(s, gen, { k: 'mfill', key });
     expect(r.ok).toBe(true);
-    expect(Object.keys(r.ents!)).toHaveLength(8);
+    expect(Object.keys(s.ents).filter((k) => s.ents[k].s === 'fire_brick_wall')).toHaveLength(25); // 3×3×3 blocks = 1 storey
+    expect(s.ents[`${at.x},${at.y},1`]).toBeUndefined(); // hollow chamber
     expect(controllerAt(s.ents, gen.w, at.x + 1, at.y + 1, 0)).toBe(key);
+    expect(controllerAt(s.ents, gen.w, at.x, at.y, 2)).toBe(key); // roof centre
+    // Open the roof, put something in the chamber: incomplete. Clear it and re-fill.
+    expect(apply(s, gen, { k: 'demolish', x: at.x, y: at.y, f: 0 }).ok).toBe(true);
+    give(s, 'struct:chest', 1);
+    expect(apply(s, gen, { k: 'place', id: 'struct:chest', x: at.x, y: at.y, f: 0, r: 0 }).ents).toHaveProperty(`${at.x},${at.y},1`);
+    run(s, 1);
+    expect(s.mach[key].st).toBe(MS.incomplete);
+    expect(apply(s, gen, { k: 'demolish', x: at.x, y: at.y, f: 0 }).ok).toBe(true);
+    expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(true);
     run(s, 1800);
     expect(s.mach[key].out['lump:coke']).toBe(2);
     expect(s.mach[key].tank).toEqual({ id: 'creosote', n: 500 });
+  });
+
+  it('stacks 3 blocks per storey; upper storeys need support; supports cannot be demolished', () => {
+    const { s, at } = setup('fire_brick_wall');
+    give(s, 'struct:fire_brick_wall', 5);
+    const put = (dx: number, f: number) => apply(s, gen, { k: 'place', id: 'struct:fire_brick_wall', x: at.x + dx, y: at.y, f, r: 0 });
+    expect(put(0, 0).ents).toHaveProperty(`${at.x},${at.y},1`);
+    expect(put(0, 0).ents).toHaveProperty(`${at.x},${at.y},2`);
+    expect(put(0, 0).ok).toBe(false); // storey full
+    expect(put(1, 1).ok).toBe(false); // nothing under storey 1 there
+    expect(put(0, 1).ents).toHaveProperty(`${at.x},${at.y},3`); // on the stack
+    expect(put(1, 1).ents).toHaveProperty(`${at.x + 1},${at.y},3`); // bridged
+    expect(apply(s, gen, { k: 'demolish', x: at.x, y: at.y, f: 0 }).ok).toBe(false);
+  });
+
+  it('migrates v7 ent keys to block levels', () => {
+    const v7 = { ...structuredClone(s0), version: 7, ents: { '1,2,0': { s: 'chest', r: 0 }, '1,2,1': { s: 'chest', r: 0 } }, mach: { '1,2,1': {} } };
+    const m = migrate(v7 as never);
+    expect(Object.keys(m.ents)).toEqual(['1,2,0', '1,2,3']);
+    expect(Object.keys(m.mach)).toEqual(['1,2,3']);
   });
 
   it('quern is cranked by hand', () => {

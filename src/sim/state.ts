@@ -3,7 +3,7 @@ import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 import type { Mach } from './machines';
 
-export const STATE_VERSION = 7;
+export const STATE_VERSION = 8;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;
@@ -29,6 +29,8 @@ export type BasePart = 'f' | 'r' | 'l' | 'n' | 'w';
 /** Edge variants for n/w parts. */
 export const EDGE = { wall: 1, window: 2, door: 3 } as const;
 export const FLOORS = 8;
+/** Block levels per storey: a storey is 3 blocks tall; structures stack in block levels b (storey = ⌊b/3⌋). */
+export const STOREY = 3;
 /** Vein knowledge (DESIGN §3 discovery): 1 hint (surface sample) · 2 exposed (ore mined) · 3 surveyed (prospected). */
 export const KNOW = { hint: 1, exposed: 2, surveyed: 3 } as const;
 
@@ -49,13 +51,13 @@ export interface GameState {
   tools: (Slot | null)[];
   /** Block currently being dug (hits so far). */
   dig?: { key: string; hits: number };
-  /** Structures by `x,y,f` (f = storey, 0 = ground). */
+  /** Structures by `x,y,b` (b = block level, storey ⌊b/3⌋; 0 = ground). */
   ents: Record<string, Ent>;
   /** Base build parts by `x,y,f,p` → variant. */
   base: Record<string, number>;
   /** Known veins by vein id (`cx.cy.slot`) → KNOW level. */
   veins: Record<string, number>;
-  /** Machine state by controller ent key `x,y,f` (P2d). */
+  /** Machine state by controller ent key `x,y,b` (P2d). */
   mach: Record<string, Mach>;
 }
 

@@ -4,13 +4,13 @@
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMBIENT_K, CRANK_TICKS, FUELS, MACHINE, type MachineDef } from '../data/machines';
-import { PATTERNS, STRUCTURES, type StructDef } from '../data/structures';
+import { PATTERNS, STRUCTURES, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
-import { place } from './build';
+import { placeAt } from './build';
 import type { ActResult } from './player';
 import { STACK, bestTool, count, give, take, wear } from './player';
 import { next } from './rng';
-import type { GameState } from './state';
+import { STOREY, type GameState } from './state';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -47,26 +47,43 @@ export function machineAt(ents: GameState['ents'], key: string): { st: StructDef
   return st && def ? { st, def } : null;
 }
 
-/** Controller key for a tile: the machine itself, or the multiblock controller whose pattern includes this casing. */
+const PATTERN_LIST = Object.values(PATTERNS);
+const cellKey = (w: number, x: number, y: number, f: number, [dx, dy, df]: Cell) => `${mod(x + dx, w)},${y + dy},${f + df}`;
+
+/** Controller for what's at a tile on storey f (top block first). */
+export function controllerInStorey(ents: GameState['ents'], w: number, x: number, y: number, f: number): string | null {
+  const xx = mod(x, w);
+  for (let b = f * STOREY + STOREY - 1; b >= f * STOREY; b--) if (ents[`${xx},${y},${b}`]) return controllerAt(ents, w, xx, y, b);
+  return null;
+}
+
+/** Controller key for a block: the machine itself, or the multiblock controller whose pattern includes this casing. */
 export function controllerAt(ents: GameState['ents'], w: number, x: number, y: number, f: number): string | null {
   const key = `${mod(x, w)},${y},${f}`;
   if (machineAt(ents, key)) return key;
   const e = ents[key];
   if (!e) return null;
-  for (const [dx, dy] of PATTERNS.ring) {
-    const k = `${mod(x - dx, w)},${y - dy},${f}`, c = ents[k], st = c && STRUCT.get(c.s);
-    if (st?.multi?.casing === e.s && PATTERNS[st.multi.pattern].some(([a, b]) => a === dx && b === dy)) return k;
+  for (const p of PATTERN_LIST) for (const [dx, dy, df] of p.cells) {
+    if (f - df < 0) continue;
+    const k = `${mod(x - dx, w)},${y - dy},${f - df}`, st = STRUCT.get(ents[k]?.s ?? '');
+    if (st?.multi?.casing === e.s && PATTERNS[st.multi.pattern] === p) return k;
   }
   return null;
 }
 
-/** Pattern tiles of a multiblock that lack their casing (keys); [] when formed or not a multiblock. */
-export function missingCasings(ents: GameState['ents'], w: number, key: string): string[] {
+/** Multiblock check: pattern tiles lacking their casing, and chamber tiles that must be empty. */
+export function multiCheck(ents: GameState['ents'], w: number, key: string): { miss: string[]; blocked: string[] } {
   const st = STRUCT.get(ents[key]?.s ?? ''), m = st?.multi;
-  if (!m) return [];
-  const [x, y, f] = parse(key);
-  return PATTERNS[m.pattern].map(([dx, dy]) => `${mod(x + dx, w)},${y + dy},${f}`).filter((k) => ents[k]?.s !== m.casing);
+  if (!m) return { miss: [], blocked: [] };
+  const [x, y, f] = parse(key), p = PATTERNS[m.pattern];
+  return {
+    // Bottom-up, outer before centre, so auto-fill always has support.
+    miss: [...p.cells].sort((a, b) => a[2] - b[2] || Math.abs(b[0]) + Math.abs(b[1]) - Math.abs(a[0]) - Math.abs(a[1]))
+      .map((c) => cellKey(w, x, y, f, c)).filter((k) => ents[k]?.s !== m.casing),
+    blocked: p.hollow.map((c) => cellKey(w, x, y, f, c)).filter((k) => ents[k]),
+  };
 }
+export const missingCasings = (ents: GameState['ents'], w: number, key: string) => multiCheck(ents, w, key).miss;
 
 const waterCache = new Map<string, boolean>();
 function nearWater(gen: WorldGen, key: string): boolean {
@@ -102,7 +119,8 @@ function hasRoom(m: Mach, r: Recipe, def: MachineDef): boolean {
 /** Why the machine can't progress right now (null = ready). Doesn't touch fuel/heat. */
 function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef, r?: Recipe): number | null {
   if (!r) return MS.idle;
-  if (missingCasings(s.ents, gen.w, key).length) return MS.incomplete;
+  const mc = multiCheck(s.ents, gen.w, key);
+  if (mc.miss.length || mc.blocked.length) return MS.incomplete;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
   if (!hasInputs(m, r)) return MS.noInput;
   if (!hasRoom(m, r, def)) return MS.full;
@@ -255,7 +273,8 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       for (const k of miss) {
         const [x, y, f] = parse(k);
         if (s.ents[k]) { why = 'Something else is in the way'; continue; }
-        const res = place(s, gen, `struct:${casing}`, x, y, f, 0);
+        const res = placeAt(s, gen, `struct:${casing}`, x, y, f, 0);
+        if (!res.ok && res.msg?.startsWith('No ')) { why = res.msg; break; }
         if (res.ok) Object.assign(ents, res.ents); else why = res.msg;
       }
       return { ok: !why, ents, msg: why };

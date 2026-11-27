@@ -2,7 +2,7 @@
 import { planet } from '../data/planets';
 import { worldGen, type WorldGen } from '../world/gen';
 import { advance, createLoop } from './loop';
-import { missingCasings, newMach, statuses } from './machines';
+import { multiCheck, newMach, statuses } from './machines';
 import { apply } from './player';
 import type { FromSim, ToSim } from './protocol';
 import { TPS, type GameState } from './state';
@@ -41,7 +41,7 @@ function frame() {
 
 function postWatch() {
   if (!state || !gen || !watch) return;
-  post({ t: 'mach', key: watch, m: state.ents[watch] ? state.mach[watch] ?? newMach() : null, miss: missingCasings(state.ents, gen.w, watch) });
+  post({ t: 'mach', key: watch, m: state.ents[watch] ? state.mach[watch] ?? newMach() : null, ...multiCheck(state.ents, gen.w, watch) });
 }
 
 self.onmessage = (e: MessageEvent<ToSim>) => {

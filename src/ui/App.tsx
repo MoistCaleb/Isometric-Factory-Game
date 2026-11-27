@@ -4,7 +4,7 @@ import type { Game } from '../game';
 import { LEVEL_MAX, LEVEL_MIN, type Act, type Renderer, type View } from '../render/renderer';
 import * as store from '../save/store';
 import type { MachView, SimStats } from '../sim/client';
-import { controllerAt } from '../sim/machines';
+import { controllerInStorey } from '../sim/machines';
 import type { ActResult, SlotRef } from '../sim/player';
 import { nearSide, STRUCT, type BaseKind } from '../sim/build';
 import { BuildBar } from './BuildBar';
@@ -99,7 +99,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
     renderer.onTile = (x, y, level, fx, fy) => {
       const say = (m: string) => push(m, true);
       if (act === 'view') {
-        const k = level >= 0 ? controllerAt(renderer.entities, renderer.width, x, y, level) : null;
+        const k = level >= 0 ? controllerInStorey(renderer.entities, renderer.width, x, y, level) : null;
         return k ? openMach(k) : undefined;
       }
       if (act === 'mine' && mineTool === 'prospect') return game.sim.cmd({ k: 'prospect', x, y });

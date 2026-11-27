@@ -48,7 +48,7 @@
 | src/sim/machines.ts | P2d machines: `Mach` per controller ent (recipe, inp/fuel/out bags, tank, heat, prog, status `MS`), `stepMachines`, `machCmd` (mrec/mload/mfuel/mtake/munload/mdump/crank/mfill), multiblock `controllerAt`/`missingCasings`, `refund` on demolish |
 | src/sim/veins.ts | discovery: `pickSample` (hint), `know`, `prospect` (survey); mining ore → exposed |
 | src/sim/build.ts | place/addBase/demolish, `edgeKey` (s/e edges stored as neighbour n/w), `nearSide` |
-| src/sim/ | state (GameState v7: inv/tools, ents `x,y,f`, base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/sim/ | state (GameState v8: inv/tools, ents `x,y,b` (block level), base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
@@ -65,7 +65,7 @@
 - Tools `tool:<type>:<material>`. Fluids: chemical id or `molten:<material>` (144 L/ingot).
 - Hand recipes: machine `hand`, ticks 0, `tools` worn. Machine conflicts need `circuit`. Hand recipes are picked from a list (no grid), so they never conflict.
 - Mineral refs: material id, chemical id, `m:<mineral>`, `later:<x>`.
-- Storey f: 0 = ground, 1–8 up (view level > 0). Render Y = f.
+- Storey f: 0 = ground, 1–8 up (view level > 0); a storey = `STOREY` = 3 blocks. Ents keyed by block level `x,y,b` (storey ⌊b/3⌋), base parts by storey `x,y,f,p`. Render Y = b (storey base = 3f).
 - Water: `Surface.depth` = water layers (seabed at z = depth); ocean ≤8, trenches ≤22; no ore in water; under-water blocks unminable (offshore rigs later).
 - World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`, picked samples `x,y,s`). Vein id `cx.cy.slot`.
 - Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
@@ -78,7 +78,7 @@
 - X-ray ore view is a dev toggle; real reveal = samples/outcrops/digging/prospecting (P2f).
 - TODO: offshore mining rig (tier + recipe) to reach seabed/trench ores.
 - TODO: machine art pass — current P2d voxel models look poor; redo models (detail, per-state visuals e.g. fire/smoke when working).
-- TODO: multi-storey multiblocks — patterns span storeys (e.g. 3×3×3 coke oven/PBF), casings on upper storeys without needing floors; rotation.
+- TODO: multiblock rotation.
 - TODO: chunk loader design (keep chunks loaded off-screen for automation); sim will tick loaded chunks only.
 - **P2 Primitive** in progress:
   - [x] P2a mining mode, inventory, tool slots/wear, pits render

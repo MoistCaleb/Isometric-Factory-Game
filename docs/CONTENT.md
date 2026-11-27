@@ -263,13 +263,13 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - **Fuels** (flame K, burn s): straw 800/3 · stick 900/5 · plank 1000/15 · log 1000/60 · charcoal 1500/80 · coal 1600/80 · coke 2000/160. Machine max heat caps it.
 - **Clay (hand):** clay ball → unfired brick; 5 balls → unfired crucible; 2 balls + knife → unfired ingot/plate/head mold; 2 balls + brick dust → 2 unfired fire bricks. **Pit kiln** fires them (≥900 K; fire brick ≥1050 K → needs charcoal).
 - **Quern** (crank): brick → brick dust, cobble → gravel → sand, crushed ore → impure dust.
-- **Charcoal Pile** (controller + 8 Soil Covers): 8 logs → 4 charcoal + ash (50%) + 200 L wood tar, 120 s.
-- **Coal:** coal ore + hammer → 2 coal lumps (hand). **Coke Oven** (controller + 8 Fire Brick Walls): coal → coke + 250 L creosote, 45 s.
+- **Charcoal Pile** (3×3×2 mound: controller + 17 Soil Covers, 2 dirt each): 8 logs → 4 charcoal + ash (50%) + 200 L wood tar, 120 s.
+- **Coal:** coal ore + hammer → 2 coal lumps (hand). **Coke Oven** (3×3×3, hollow centre: controller + 25 Fire Brick Walls, 2 fire bricks each): coal → coke + 250 L creosote, 45 s.
 - **Clay Furnace:** dust/ore → ingot at ≥ the metal's melting point (copper needs charcoal; tin works on wood); 2 sand + ash → glass pane (1300 K); 3 resin + small sulfur dust → rubber sheet.
 - **Crucible Hearth** (clay crucible + 4 bricks, tank 1152 L): melt ingots, alloy 3 copper + 1 tin → 576 L molten bronze, cast with a kept mold (ingot, plate, any tool head ≤1400 K).
-- **Bloomery** (controller + 4 Bloomery Walls, plus shape): 2 iron ore (hematite/magnetite/limonite, raw or crushed) + 2 charcoal → iron bloom + slag, ≥1300 K, 60 s. **Stone Anvil** (strike ×10, hammer): bloom → wrought iron ingot (+50% slag).
+- **Bloomery** (plus-shaped base + 2-block chimney: controller + 6 Bloomery Walls): 2 iron ore (hematite/magnetite/limonite, raw or crushed) + 2 charcoal → iron bloom + slag, ≥1300 K, 60 s. **Stone Anvil** (strike ×10, hammer): bloom → wrought iron ingot (+50% slag).
 - **Lime Kiln:** crushed/dust calcite → quicklime (CO₂ vents), ≥1100 K.
-- **Primitive Blast Furnace** (controller + 8 Fire Brick Walls, ≥1800 K → coke fuel): wrought iron + 2 coke → steel + slag (120 s), or + 1 coke + quicklime (60 s).
+- **Primitive Blast Furnace** (3×3×4 open-top shaft, reaches storey 1: controller + 32 Fire Brick Walls, ≥1800 K → coke fuel): wrought iron + 2 coke → steel + slag (120 s), or + 1 coke + quicklime (60 s).
 
 ### Steam age
 **Hulls:**

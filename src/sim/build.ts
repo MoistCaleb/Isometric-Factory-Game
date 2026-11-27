@@ -7,7 +7,7 @@ import { Water, type WorldGen } from '../world/gen';
 import type { ActResult } from './player';
 import { count, give, take } from './player';
 import { newMach, refund } from './machines';
-import { EDGE, FLOORS, type BasePart, type GameState } from './state';
+import { EDGE, FLOORS, STOREY, type BasePart, type GameState } from './state';
 
 export const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
 export type Side = 'n' | 'e' | 's' | 'w';
@@ -39,19 +39,44 @@ function groundBlock(s: GameState, gen: WorldGen, x: number, y: number, needFoun
   return null;
 }
 
-export function place(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, f: number, r: number): ActResult {
+/** Why block level b can't take a structure (null = fine): ground rules at b = 0; above that a floor (storey base),
+ * a structure directly below, or one beside it at the same level (bridging). */
+function support(s: GameState, gen: WorldGen, x: number, y: number, b: number): string | null {
+  if (b === 0) return groundBlock(s, gen, x, y, true);
+  if ((b % STOREY === 0 && s.base[`${x},${y},${b / STOREY},f`]) || s.ents[`${x},${y},${b - 1}`]) return null;
+  return [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !!s.ents[`${gen.wrapX(x + dx)},${y + dy},${b}`]) ? null
+    : 'Needs a floor, a structure below, or one beside it';
+}
+
+/** Place at an exact block level (multiblock auto-fill). */
+export function placeAt(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, b: number, r: number): ActResult {
   const x = gen.wrapX(xIn), st = STRUCT.get(id.replace(/^struct:/, ''));
   if (!st) return { ok: false, msg: 'Not placeable' };
-  const item = `struct:${st.id}`, key = `${x},${y},${f}`;
-  if (f < 0 || f > FLOORS) return { ok: false, msg: 'Build on the surface or upper floors' };
+  const item = `struct:${st.id}`, key = `${x},${y},${b}`;
+  if (b < 0 || b >= (FLOORS + 1) * STOREY) return { ok: false, msg: 'Too high' };
   if (!count(s, item)) return { ok: false, msg: `No ${st.name} in inventory` };
   if (s.ents[key]) return { ok: false, msg: 'Occupied' };
-  const why = f === 0 ? groundBlock(s, gen, x, y, true) : !s.base[`${x},${y},${f},f`] ? 'Upper storeys need a floor (Base Build)' : null;
+  const why = support(s, gen, x, y, b);
   if (why) return { ok: false, msg: why };
   take(s, item, 1);
   s.ents[key] = { s: st.id, r: mod(r, 4) };
   if (st.machine) s.mach[key] = newMach();
   return { ok: true, ents: { [key]: s.ents[key] } };
+}
+
+/** Top structure key at a tile within storey f (null if none). */
+export function topInStorey(ents: GameState['ents'], x: number, y: number, f: number): string | null {
+  for (let b = f * STOREY + STOREY - 1; b >= f * STOREY; b--) if (ents[`${x},${y},${b}`]) return `${x},${y},${b}`;
+  return null;
+}
+
+/** Machine Build on storey f: stacks on top of what's already there (up to 3 blocks per storey). */
+export function place(s: GameState, gen: WorldGen, id: string, xIn: number, y: number, f: number, r: number): ActResult {
+  const x = gen.wrapX(xIn);
+  if (f < 0 || f > FLOORS) return { ok: false, msg: 'Build on the surface or upper floors' };
+  const top = topInStorey(s.ents, x, y, f), b = top ? +top.split(',')[2] + 1 : f * STOREY;
+  if (b >= (f + 1) * STOREY) return { ok: false, msg: 'Storey is full here (3 blocks)' };
+  return placeAt(s, gen, id, x, y, b, r);
 }
 
 export function addBase(s: GameState, gen: WorldGen, kind: BaseKind, xIn: number, y: number, f: number, side?: Side): ActResult {
@@ -73,12 +98,13 @@ export function addBase(s: GameState, gen: WorldGen, kind: BaseKind, xIn: number
 
 /** Remove what's at a tile: structure first, else the base part under the pointer (edge if near one). */
 export function demolish(s: GameState, gen: WorldGen, xIn: number, y: number, f: number, side?: Side): ActResult {
-  const x = gen.wrapX(xIn), key = `${x},${y},${f}`, e = s.ents[key];
-  if (e) {
-    const st = STRUCT.get(e.s), back = refund(s, key);
+  const x = gen.wrapX(xIn), key = `${x},${y},${f}`, ek = topInStorey(s.ents, x, y, f), e = ek ? s.ents[ek] : undefined;
+  if (ek && e) {
+    if (s.ents[`${x},${y},${+ek.split(',')[2] + 1}`]) return { ok: false, msg: 'Remove what is above it first' };
+    const st = STRUCT.get(e.s), back = refund(s, ek);
     if (!back.ok || give(s, `struct:${e.s}`, 1)) return { ok: false, msg: 'Inventory full', gained: back.gained };
-    delete s.ents[key];
-    return { ok: true, ents: { [key]: null }, gained: [...back.gained, { id: `struct:${e.s}`, n: 1 }], msg: st ? undefined : 'Removed' };
+    delete s.ents[ek];
+    return { ok: true, ents: { [ek]: null }, gained: [...back.gained, { id: `struct:${e.s}`, n: 1 }], msg: st ? undefined : 'Removed' };
   }
   const order: string[] = [];
   if (side) order.push(edgeKey(x, y, f, side, gen.w));

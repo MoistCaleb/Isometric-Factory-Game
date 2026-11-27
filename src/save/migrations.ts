@@ -17,6 +17,11 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   5: (s) => ({ ...s, version: 6, veins: {} }),
   // P2d: machine state (created lazily for already-placed machines).
   6: (s) => ({ ...s, version: 7, mach: {} }),
+  // Storeys are 3 blocks tall: ent/machine keys move from storey f to block level 3f.
+  7: (s) => {
+    const rekey = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o ?? {}).map(([k, v]) => { const [x, y, f] = k.split(','); return [`${x},${y},${+f * 3}`, v]; }));
+    return { ...s, version: 8, ents: rekey(s.ents as Record<string, unknown>), mach: rekey(s.mach as Record<string, unknown>) };
+  },
 };
 
 export function migrate(raw: Raw): GameState {

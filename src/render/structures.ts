@@ -2,8 +2,8 @@
 // anything relevant changes (counts stay small in P2; per-chunk split later if needed).
 // Near-side walls render low (unless Base Build); roofs on the viewed storey go see-through when zoomed in.
 import * as THREE from 'three';
-import { STRUCTURES, type Box } from '../data/structures';
-import type { Ent } from '../sim/state';
+import { MULTI_PARTS, STRUCTURES, type Box } from '../data/structures';
+import { STOREY, type Ent } from '../sim/state';
 
 const MODELS = new Map(STRUCTURES.map((s) => [s.id, s.model]));
 const TOP = new Map(STRUCTURES.map((s) => [s.id, Math.max(...s.model.map((b) => b[4])) / 16]));
@@ -44,12 +44,13 @@ class Boxes {
   }
 }
 
-/** Edge part (wall/window/door) along x (n edge) or z (w edge) starting at (x, z), height h. */
+/** Edge part (wall/window/door) along x (n edge) or z (w edge) starting at (x, z), height h (< 1 = cut-away low wall). */
 function edge(bx: Boxes, x: number, y: number, z: number, along: 'x' | 'z', v: number, h: number) {
   const seg = (a0: number, a1: number, y0: number, y1: number, col: number) => along === 'x'
-    ? bx.add(x + a0, y + y0, z - WALL_T / 2, x + a1, y + y1, z + WALL_T / 2, col)
-    : bx.add(x - WALL_T / 2, y + y0, z + a0, x + WALL_T / 2, y + y1, z + a1, col);
-  if (v === 1 || h < 1) return seg(0, 1, 0, h, v === 3 ? C.door : C.wall);
+    ? bx.add(x + a0, y + y0 * H, z - WALL_T / 2, x + a1, y + y1 * H, z + WALL_T / 2, col)
+    : bx.add(x - WALL_T / 2, y + y0 * H, z + a0, x + WALL_T / 2, y + y1 * H, z + a1, col);
+  const H = h < 1 ? 1 : h;
+  if (v === 1 || h < 1) return seg(0, 1, 0, h < 1 ? h : 1, v === 3 ? C.door : C.wall);
   if (v === 2) { seg(0, 1, 0, 0.35, C.wall); seg(0, 1, 0.35, 0.75, C.window); seg(0, 1, 0.75, 1, C.wall); return; }
   seg(0, 0.2, 0, 1, C.wall); seg(0.8, 1, 0, 1, C.wall); seg(0.2, 0.8, 0.85, 1, C.wall); seg(0.25, 0.75, 0, 0.82, C.door);
 }
@@ -71,34 +72,37 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
   const th = Math.PI / 4 + v.rot * (Math.PI / 2), camZ = Math.cos(th) > 0, camX = Math.sin(th) > 0;
   const wx = (x: number) => v.cx + mod(x - v.cx + v.w / 2, v.w) - v.w / 2;
   const near = (x: number, y: number) => Math.abs(wx(x) - v.cx) < v.radius && Math.abs(y - v.cy) < v.radius;
-  const used = (x: number, y: number, f: number) => !!v.base[`${mod(x, v.w)},${y},${f},f`] || !!v.ents[`${mod(x, v.w)},${y},${f}`];
+  const used = (x: number, y: number, f: number) => !!v.base[`${mod(x, v.w)},${y},${f},f`] || [0, 1, 2].some((i) => !!v.ents[`${mod(x, v.w)},${y},${f * STOREY + i}`]);
+  /** Render base height of a structure at block level b (on a floor slab at a storey base). */
+  const baseY = (x: number, y: number, b: number) => b + (b % STOREY === 0 && v.base[`${x},${y},${b / STOREY},f`] ? SLAB : 0);
   for (const [k, e] of Object.entries(v.ents)) {
-    const [x, y, f] = k.split(',').map(Number);
-    if (f > v.top || !near(x, y)) continue;
+    const [x, y, b] = k.split(',').map(Number), f = Math.floor(b / STOREY);
+    // Multiblocks show full height whatever the view level (they're one machine).
+    if ((f > v.top && !MULTI_PARTS.has(e.s)) || !near(x, y)) continue;
     const m = MODELS.get(e.s);
-    const y0 = f + (v.base[`${x},${y},${f},f`] ? SLAB : 0);
+    const y0 = baseY(x, y, b);
     if (m) solid.model(m, wx(x), y0, y, e.r);
     const col = MS_COL[v.ms?.[k] ?? 0];
-    if (col) { const h = y0 + (TOP.get(e.s) ?? 0.5) + 0.15; solid.add(wx(x) + 0.42, h, y + 0.42, wx(x) + 0.58, h + 0.16, y + 0.58, col); }
+    if (col) { const h = y0 + (TOP.get(e.s) ?? 0.5) + 0.15, X = wx(+x), Y = +y; solid.add(X + 0.42, h, Y + 0.42, X + 0.58, h + 0.16, Y + 0.58, col); }
   }
   for (const [k, id] of Object.entries(v.ghosts ?? {})) {
-    const [x, y, f] = k.split(',').map(Number), m = MODELS.get(id);
-    if (m && near(x, y) && f <= v.top) ghost.model(m, wx(x), f + (v.base[`${x},${y},${f},f`] ? SLAB : 0), y, 0, 0xffffff);
+    const [x, y, b] = k.split(',').map(Number), m = MODELS.get(id);
+    if (m && near(x, y)) ghost.model(m, wx(x), baseY(x, y, b), y, 0, 0xffffff);
   }
   for (const [k, val] of Object.entries(v.base)) {
     const p = k.split(','), x = +p[0], y = +p[1], f = +p[2], part = p[3];
     if (f > v.top || !near(x, y)) continue;
-    const X = wx(x);
-    if (part === 'f') solid.add(X, f, y, X + 1, f + SLAB, y + 1, f === 0 ? C.found : C.floor);
-    else if (part === 'l') { solid.add(X + 0.45, f, y + 0.45, X + 0.55, f + 0.55, y + 0.55, C.post); solid.add(X + 0.38, f + 0.55, y + 0.38, X + 0.62, f + 0.75, y + 0.62, C.light); }
+    const X = wx(x), Y = f * STOREY, R = Y + STOREY;
+    if (part === 'f') solid.add(X, Y, y, X + 1, Y + SLAB, y + 1, f === 0 ? C.found : C.floor);
+    else if (part === 'l') { solid.add(X + 0.45, Y, y + 0.45, X + 0.55, Y + 0.55, y + 0.55, C.post); solid.add(X + 0.38, Y + 0.55, y + 0.38, X + 0.62, Y + 0.75, y + 0.62, C.light); }
     else if (part === 'r') {
-      if (f < v.top || v.zoomedOut) solid.add(X, f + 1, y, X + 1, f + 1 + SLAB * 1.5, y + 1, C.roof);
-      else glass.add(X, f + 1, y, X + 1, f + 1 + SLAB, y + 1, C.roof);
+      if (f < v.top || v.zoomedOut) solid.add(X, R, y, X + 1, R + SLAB * 1.5, y + 1, C.roof);
+      else glass.add(X, R, y, X + 1, R + SLAB, y + 1, C.roof);
     } else {
       // Low when the tile behind it (away from the camera) is in use — keeps rooms visible.
       const far = part === 'n' ? (camZ ? used(x, y - 1, f) : used(x, y, f)) : camX ? used(x - 1, y, f) : used(x, y, f);
-      const h = v.baseMode || f < v.top ? 1 : far ? LOW : 1;
-      edge(solid, X, f, y, part === 'n' ? 'x' : 'z', val, h);
+      const h = v.baseMode || f < v.top ? STOREY : far ? LOW : STOREY;
+      edge(solid, X, Y, y, part === 'n' ? 'x' : 'z', val, h);
     }
   }
   return [solid.geometry(), glass.geometry(), ghost.geometry()];
@@ -110,12 +114,12 @@ export function ghostGeometry(g: { kind: 'struct'; id: string; r: number } | { k
   if (g.kind === 'struct') bx.model(MODELS.get(g.id) ?? [[1, 0, 1, 15, 8, 15, 0xffffff]], 0, 0, 0, g.r, 0xffffff);
   else if (g.kind === 'demolish') bx.add(-0.02, 0, -0.02, 1.02, 0.5, 1.02, 0xff4030);
   else if (g.part === 'floor') bx.add(0, 0, 0, 1, SLAB, 1, 0xffffff);
-  else if (g.part === 'roof') bx.add(0, 1, 0, 1, 1 + SLAB, 1, 0xffffff);
+  else if (g.part === 'roof') bx.add(0, STOREY, 0, 1, STOREY + SLAB, 1, 0xffffff);
   else if (g.part === 'light') bx.add(0.38, 0, 0.38, 0.62, 0.75, 0.62, 0xffffff);
   else {
     const v = g.part === 'window' ? 2 : g.part === 'door' ? 3 : 1;
     const s = g.side;
-    edge(bx, s === 'e' ? 1 : 0, 0, s === 's' ? 1 : 0, s === 'n' || s === 's' ? 'x' : 'z', v, 1);
+    edge(bx, s === 'e' ? 1 : 0, 0, s === 's' ? 1 : 0, s === 'n' || s === 's' ? 'x' : 'z', v, STOREY);
   }
   return bx.geometry();
 }

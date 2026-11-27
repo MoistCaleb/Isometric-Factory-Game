@@ -3,8 +3,8 @@
 import * as THREE from 'three';
 import { planet, type PlanetDef } from '../data/planets';
 import type { SimClient } from '../sim/client';
-import { TPS, timeOfDay, type GameState } from '../sim/state';
-import { nearSide, STRUCT } from '../sim/build';
+import { STOREY, TPS, timeOfDay, type GameState } from '../sim/state';
+import { nearSide, STRUCT, topInStorey } from '../sim/build';
 import { B, BLOCKS, isOre } from '../world/blocks';
 import { LAYERS, Tree, Water, worldGen, type WorldGen } from '../world/gen';
 import { planetMap } from '../world/map';
@@ -256,6 +256,14 @@ export class Renderer {
     this.structsGlass.geometry.dispose(); this.structsGlass.geometry = b;
   }
 
+  /** Ghost height: structures stack on what's already in the storey. */
+  private ghostY(x: number, y: number) {
+    const base = Math.max(0, this.view.level) * STOREY;
+    if (this.ghost?.kind !== 'struct') return base;
+    const top = topInStorey(this.ents, mod(x, this.p.w), y, Math.max(0, this.view.level));
+    return top ? +top.split(',')[2] + 1 : base;
+  }
+
   private updateGhost() {
     const v = this.view, c = this.cursor, g = this.ghost;
     const on = !!(c && g && v.level >= 0 && (this.act === 'build' || this.act === 'base' || this.act === 'demolish'));
@@ -269,7 +277,7 @@ export class Renderer {
       this.ghostMesh.geometry = ghostGeometry(g!.kind === 'base' ? { kind: 'base', part: g!.part, side } : g!);
     }
     const wx = v.x + mod(c!.x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2;
-    this.ghostMesh.position.set(Math.floor(wx), v.level + 0.01, c!.y);
+    this.ghostMesh.position.set(Math.floor(wx), this.ghostY(c!.x, c!.y) + 0.01, c!.y);
   }
 
   // ---------- chunks ----------
@@ -338,7 +346,7 @@ export class Renderer {
 
   private updateIsoCam() {
     const v = this.view, c = this.isoCam, a = this.aspect;
-    const th = Math.PI / 4 + v.rot * (Math.PI / 2), ly = v.level, D = 500;
+    const th = Math.PI / 4 + v.rot * (Math.PI / 2), ly = this.levelY, D = 500;
     c.left = -v.zoom * a; c.right = v.zoom * a; c.top = v.zoom; c.bottom = -v.zoom;
     c.position.set(v.x + D * Math.cos(ELEV) * Math.sin(th), ly + D * Math.sin(ELEV), v.y + D * Math.cos(ELEV) * Math.cos(th));
     c.lookAt(v.x, ly, v.y);
@@ -370,7 +378,10 @@ export class Renderer {
   }
 
   /** Ground point (plane y = ly) under NDC coords in iso view. */
-  private groundAt(nx: number, ny: number, ly = this.view.level): THREE.Vector3 | null {
+  /** Render Y of the view level's ground plane (storeys are STOREY blocks tall; below ground 1 per layer). */
+  private get levelY() { return this.view.level > 0 ? this.view.level * STOREY : this.view.level; }
+
+  private groundAt(nx: number, ny: number, ly = this.levelY): THREE.Vector3 | null {
     this.ray.setFromCamera(new THREE.Vector2(nx, ny), this.isoCam);
     const out = new THREE.Vector3();
     return this.ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0, 1, 0), -ly), out);
@@ -441,7 +452,7 @@ export class Renderer {
       this.updateGhost();
       this.updateVeins(this.veinIso, Math.max(0, -v.level), Math.min(v.level, 0) + 0.04, 1);
       this.grid.visible = v.level > 0;
-      if (this.grid.visible) this.grid.position.set(Math.round(v.x), v.level, Math.round(v.y));
+      if (this.grid.visible) this.grid.position.set(Math.round(v.x), this.levelY, Math.round(v.y));
       this.r.render(this.iso, this.isoCam);
     } else if (v.mode === 'map') {
       this.updateMapCam();
@@ -655,9 +666,9 @@ export class Renderer {
     const place = sf.ice ? 'Polar ice cap' : sf.water === Water.Ocean ? `${sf.depth > 8 ? 'Ocean trench' : 'Ocean'}, depth ${sf.depth}` : sf.water === Water.River ? `River (${sf.biome}), depth ${sf.depth}` : sf.water === Water.Lake ? `Lake (${sf.biome}), depth ${sf.depth}` : `${sf.biome[0].toUpperCase()}${sf.biome.slice(1)}${sf.volcanic ? ', volcanic' : ''}`;
     const head = `${x}, ${y} · ${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'} · ${place}`;
     if (v.mode !== 'iso') return head;
-    if (v.level > 0) { const e = this.ents[`${x},${y},${v.level}`]; return `${head}\nStorey ${v.level}${e ? ` · ${STRUCT.get(e.s)?.name ?? e.s}` : this.base[`${x},${y},${v.level},f`] ? ' · Floor' : ''}`; }
+    if (v.level > 0) { const tk = topInStorey(this.ents, x, y, v.level), e = tk ? this.ents[tk] : undefined; return `${head}\nStorey ${v.level}${e ? ` · ${STRUCT.get(e.s)?.name ?? e.s}` : this.base[`${x},${y},${v.level},f`] ? ' · Floor' : ''}`; }
     const z = Math.max(0, -v.level);
-    const ent = z === 0 ? this.ents[`${x},${y},0`] : undefined;
+    const tk0 = z === 0 ? topInStorey(this.ents, x, y, 0) : null, ent = tk0 ? this.ents[tk0] : undefined;
     if (ent) return `${head}\n${STRUCT.get(ent.s)?.name ?? ent.s}`;
     let b = this.diffs[`${x},${y},${z}`];
     let extra = '';

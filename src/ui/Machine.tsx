@@ -52,6 +52,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
         <button onClick={onClose} title="Close (Esc)">✕</button>
       </div>
 
+      {view!.blocked.length > 0 && <div class="dim">Inner chamber must be empty: clear {view!.blocked.length} tile(s) above the controller.</div>}
       {view!.miss.length > 0 && casing && (
         <div class="row">
           <span class="dim grow">Multiblock: {view!.miss.length} × {casing.name} missing (ghosted) · have {count(inv, `struct:${casing.id}`)}</span>
