@@ -104,6 +104,7 @@ describe('machines', () => {
     expect(put(0, 1).ents).toHaveProperty(`${at.x},${at.y},3`); // on the stack
     expect(put(1, 1).ents).toHaveProperty(`${at.x + 1},${at.y},3`); // bridged
     expect(apply(s, gen, { k: 'demolish', x: at.x, y: at.y, f: 0 }).ok).toBe(false);
+    expect([s.flags.place, s.flags.stack, s.flags.upper]).toEqual([5, 2, 2]); // tutorial flags
   });
 
   it('migrates v7 ent keys to block levels', () => {

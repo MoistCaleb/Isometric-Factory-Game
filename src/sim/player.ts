@@ -9,8 +9,10 @@ import { LAYERS, Tree, type WorldGen } from '../world/gen';
 import { addBase, builtOn, demolish, place, type BaseKind, type Side } from './build';
 import { next } from './rng';
 import { machCmd, type MachCmd } from './machines';
+import { checkQuests, questCmd, type QuestCmd } from './quests';
 import { know, pickSample, prospect } from './veins';
-import { KNOW, type Ent, type GameState, type Slot } from './state';
+import { KNOW, STOREY, type Ent, type GameState, type Slot } from './state';
+import { UI_FLAGS } from '../data/quests';
 
 export const STACK = 64;
 /** Just the inventory part of the state (the UI checks craftability against its copy). */
@@ -27,6 +29,9 @@ export type Cmd =
   | { k: 'demolish'; x: number; y: number; f: number; side?: Side }
   | { k: 'prospect'; x: number; y: number }
   | MachCmd
+  | QuestCmd
+  /** Tutorial flag for UI-only actions (camera, panels). */
+  | { k: 'flag'; id: (typeof UI_FLAGS)[number] }
   /** Dev kit (Debug menu): structures, casings, a few P2d test materials. */
   | { k: 'devkit' };
 
@@ -44,6 +49,8 @@ export interface ActResult {
   base?: Record<string, number | null>;
   /** Vein knowledge raised (vein id → KNOW level). */
   veins?: Record<string, number>;
+  /** Quest state changes (id → QDONE/QCLAIMED). */
+  quests?: Record<string, number>;
 }
 
 // ---------- inventory ----------
@@ -262,7 +269,28 @@ export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: n
   return collect(s, drops, { ok: true, target: def.name, msg: [found && `Exposed: ${found}`, broke].filter(Boolean).join(' · ') || undefined, changes, veins });
 }
 
+/** Apply a command, recording tutorial action flags on success (data/quests). */
 export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
+  const r = run(s, gen, c);
+  if (r.ok) { for (const f of flagsOf(c, r)) s.flags[f] = (s.flags[f] ?? 0) + 1; checkQuests(s); }
+  return r;
+}
+
+const SIM_FLAGS = new Set(['craft', 'move', 'base', 'demolish', 'prospect', 'mload', 'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim']);
+function flagsOf(c: Cmd, r: ActResult): string[] {
+  if (c.k === 'flag') return [];
+  const out: string[] = SIM_FLAGS.has(c.k) ? [c.k] : [];
+  const ch = Object.keys(r.changes ?? {});
+  if (c.k === 'mine') {
+    if (ch.some((k) => k.endsWith(',s'))) out.push('sample');
+    else if (ch.some((k) => k.endsWith(',t')) && !ch.some((k) => !k.endsWith(',t'))) out.push('chop');
+    else if (ch.length) out.push('mine');
+  }
+  if (c.k === 'place') for (const k of Object.keys(r.ents ?? {})) { const b = +k.split(',')[2]; out.push('place'); if (b % STOREY) out.push('stack'); if (b >= STOREY) out.push('upper'); }
+  return out;
+}
+
+function run(s: GameState, gen: WorldGen, c: Cmd): ActResult {
   switch (c.k) {
     case 'mine': return mine(s, gen, c.x, c.y, c.z);
     case 'move': return move(s, c.a, c.b);
@@ -273,6 +301,8 @@ export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
     case 'prospect': return prospect(s, gen, c.x, c.y);
     case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': return machCmd(s, gen, c);
+    case 'qclaim': case 'open': return questCmd(s, c);
+    case 'flag': if ((UI_FLAGS as readonly string[]).includes(c.id)) s.flags[c.id] = (s.flags[c.id] ?? 0) + 1; return { ok: true };
     case 'devkit': {
       const kit: [string, number][] = [...registry().items.filter((i) => i.kind === 'structure').map((i): [string, number] => [i.id, /wall|cover/.test(i.id) ? 64 : 1]),
         ['tool:prospector:bronze', 1], ['tool:hammer:stone', 1], ['lump:charcoal', 32], ['log:wood', 16], ['unfired_brick:clay', 8], ['ingot:copper', 6], ['ingot:tin', 2], ['mold_ingot:clay', 1]];

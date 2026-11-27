@@ -84,9 +84,9 @@ function Card({ r, inv, onLook, onCraft }: { r: Recipe; inv: Inv; onLook: (l: Lo
   );
 }
 
-interface Props { inv: Inv; look: Look | null; onLook: (l: Look | null) => void; onCraft: (id: string, n: number) => void; onClose: () => void }
+interface Props { inv: Inv; look: Look | null; onLook: (l: Look | null) => void; onCraft: (id: string, n: number) => void; onClose: () => void; onFlag?: (f: 'search' | 'bookmark') => void }
 
-export function Recipes({ inv, look, onLook, onCraft, onClose }: Props) {
+export function Recipes({ inv, look, onLook, onCraft, onClose, onFlag }: Props) {
   const reg = registry();
   const [q, setQ] = useState('');
   const [craftable, setCraftable] = useState(true);
@@ -99,7 +99,7 @@ export function Recipes({ inv, look, onLook, onCraft, onClose }: Props) {
   };
   const toggleMark = (id: string) => {
     const m = marks.includes(id) ? marks.filter((x) => x !== id) : [id, ...marks];
-    setMarks(m); save('bookmarks', m);
+    setMarks(m); save('bookmarks', m); onFlag?.('bookmark');
   };
 
   const results = useMemo(() => {
@@ -125,7 +125,7 @@ export function Recipes({ inv, look, onLook, onCraft, onClose }: Props) {
       <div class="rhead row">
         {look && <button onClick={() => go(null)} title="Back to search">←</button>}
         <input type="search" placeholder="Search  #form $material @machine t:tier -exclude" value={q}
-          onInput={(e) => { setQ((e.target as HTMLInputElement).value); onLook(null); }} />
+          onInput={(e) => { setQ((e.target as HTMLInputElement).value); onLook(null); onFlag?.('search'); }} />
         {!look && <label class="dim"><input type="checkbox" checked={craftable} onChange={() => setCraftable(!craftable)} /> craftable</label>}
         <button onClick={onClose} title="Close (C)">✕</button>
       </div>

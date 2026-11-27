@@ -111,3 +111,30 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .bar { position: relative; height: 8px; background: #20252c; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin: 4px 0; }
 .bar > div { height: 100%; background: #5a9ad8; }
 .bar > i { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }
+/* Quest book (P2e) */
+.quests { position: absolute; top: 52px; left: 12px; right: 12px; bottom: calc(64px + env(safe-area-inset-bottom, 0)); max-width: 980px; margin: 0 auto;
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.quests .tabs button { font-size: 12px; padding: 3px 8px; }
+.qbody { flex: 1; display: flex; flex-direction: column; min-height: 0; }
+.qtree { overflow: auto; flex: 1 1 55%; min-height: 120px; border-bottom: 1px solid var(--line); }
+.qedge { fill: none; stroke: #4a5260; stroke-width: 2; }
+.qedge.on { stroke: var(--acc); }
+.qnode { position: absolute; font-size: 12px; line-height: 1.15; padding: 2px 6px; border-radius: 6px; text-align: center; white-space: normal;
+  background: #262c34; border: 1px solid var(--line); color: var(--fg); }
+.qnode.locked { color: #6a7280; background: #1f242a; }
+.qnode.open { border-color: #8090a0; }
+.qnode.done { border-color: var(--acc); box-shadow: 0 0 8px var(--acc); }
+.qnode.claimed { border-color: #40a050; background: #23302a; }
+.qnode.sel { outline: 2px solid #fff; }
+.qinfo { overflow: auto; flex: 1 1 45%; padding: 8px 12px; }
+.qinfo h3 { margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+.qtask { gap: 8px; margin: 2px 0; }
+.qtask .ok { color: #60d070; }
+.top .badge { background: var(--acc); color: #000; border-radius: 8px; padding: 0 5px; font-size: 11px; margin-left: 4px; }
+@media (max-height: 500px) {
+  .qbody { flex-direction: row; }
+  .qtree { flex: 1 1 60%; border-bottom: 0; border-right: 1px solid var(--line); }
+  .qinfo { flex: 0 0 min(300px, 40%); }
+}
+.qtext { margin: 4px 0; line-height: 1.4; }
+.qtext b { color: var(--acc); font-weight: 600; }

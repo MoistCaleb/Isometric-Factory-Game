@@ -106,7 +106,8 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Click-gather in Mining mode; tools wear.
 - **Recipe browser**: search with `#tag $material @machine t:tier -exclude`; recipes/uses; long-press = recipes, double-tap = uses (R/U on desktop); bookmarks; history.
 - **Planner/ratio calculator** → can emit a blueprint sketch.
-- **Quest book** (visual tree per tier) with **loot crate** rewards; doubles as tutorial.
+- **Quest book** (visual tree per tier chapter, **L**) with **loot crate** rewards; it **is the tutorial**: every mechanic (controls, mining, inventory, recipe book, building modes, machines, fuel/heat, crank, multiblocks, storeys, veins, saves) is explained by the quest that first needs it. Tasks: hold items, build structures, or do an action once (action flags, tracked in the save). Quests unlock when their prerequisites are done; completion is checked every second and after each command; rewards are claimed by hand.
+- **Loot crates** per tier: open from the bag; 3 weighted rolls, 5% chance a roll uses the next tier's table; deterministic from the save RNG.
 - HUD: top (power, pollution, time/weather, alerts) · bottom (mode bar, 9 tools, inventory) · right (Z-slider). Alerts fly camera to source. Overlays: pollution, power, pipes, veins, hazards. Statistics graphs.
 - Controls: pinch/scroll zoom, drag/WASD pan, **4-way rotation**, long-press/right-click info.
 - **Pause** + real-time only (no fast-forward). **No offline progress** (game stops when closed).

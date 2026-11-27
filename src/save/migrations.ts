@@ -22,6 +22,8 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
     const rekey = (o: Record<string, unknown>) => Object.fromEntries(Object.entries(o ?? {}).map(([k, v]) => { const [x, y, f] = k.split(','); return [`${x},${y},${+f * 3}`, v]; }));
     return { ...s, version: 8, ents: rekey(s.ents as Record<string, unknown>), mach: rekey(s.mach as Record<string, unknown>) };
   },
+  // P2e: quest book.
+  8: (s) => ({ ...s, version: 9, quests: {}, flags: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

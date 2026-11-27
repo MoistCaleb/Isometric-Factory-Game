@@ -12,7 +12,7 @@ export type ToSim =
 
 export type FromSim =
   | { t: 'ready' }
-  | { t: 'stats'; tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number; ms: Record<string, number> }
+  | { t: 'stats'; tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number; ms: Record<string, number>; q: Record<string, number>; fl: Record<string, number> }
   /** Watched machine (null = gone) + missing multiblock casing keys. */
   | { t: 'mach'; key: string; m: Mach | null; miss: string[]; blocked: string[] }
   | { t: 'snapshot'; id: number; state: GameState }

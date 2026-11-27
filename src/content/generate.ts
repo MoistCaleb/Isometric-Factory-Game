@@ -6,7 +6,8 @@ import { MATERIALS, type MaterialDef } from '../data/materials';
 import { MINERALS, type MineralDef } from '../data/minerals';
 import { MISC_ITEMS } from '../data/misc';
 import { STRUCTURES } from '../data/structures';
-import type { TierId } from '../data/tiers';
+import { TIER_NAME, type TierId } from '../data/tiers';
+import { CRATE_TIERS, crateId } from '../data/loot';
 import type { FluidDef, ItemDef, Recipe, Stack } from './types';
 
 export const INGOT_L = 144;
@@ -64,6 +65,7 @@ export function generate(): Generated {
   }
   for (const c of CHEMICALS) fluids.push({ id: c.id, name: c.name, color: c.color, phase: c.phase, hazards: c.hazards });
   for (const mi of MISC_ITEMS) addItem({ ...mi, kind: 'misc' });
+  for (const t of CRATE_TIERS) addItem({ id: crateId(t), name: `${TIER_NAME[t]} Loot Crate`, kind: 'misc', color: 0x9a6a30 });
 
   // ---- material templates ----
   for (const m of MATERIALS) {

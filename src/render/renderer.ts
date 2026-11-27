@@ -55,6 +55,8 @@ export class Renderer {
   onHover?: (text: string | null) => void;
   act: Act = 'view';
   /** Click on a tile in iso view with a non-view action. level = view level (−depth or storey); fx/fy = point inside the tile. */
+  /** Called when the user pans (drag or keys). */
+  onPan?: () => void;
   /** Tile click; `block` = structure block under the pointer (`x,y,b`), if one was hit. */
   onTile?: (x: number, y: number, level: number, fx: number, fy: number, block?: string) => void;
   ghost: Ghost | null = null;
@@ -569,6 +571,7 @@ export class Renderer {
     if (k.has('KeyW') || k.has('ArrowUp')) f++;
     if (k.has('KeyS') || k.has('ArrowDown')) f--;
     if (!r && !f) return;
+    this.onPan?.();
     if (v.mode === 'iso') {
       const th = Math.PI / 4 + v.rot * (Math.PI / 2), sp = v.zoom * 1.5 * dt;
       v.x += (Math.cos(th) * r - Math.sin(th) * f) * sp;
@@ -591,6 +594,7 @@ export class Renderer {
       const g = this.groundAt(nx, ny);
       if (!g) return;
       v.x += d.grab.x - g.x; v.y = clamp(v.y + d.grab.z - g.z, 0, this.p.h);
+      this.onPan?.();
     } else if (v.mode === 'map') {
       const upp = (2 * v.mapZoom) / this.canvas.clientHeight;
       v.x -= dx * upp; v.y = clamp(v.y - dy * upp, 0, this.p.h);

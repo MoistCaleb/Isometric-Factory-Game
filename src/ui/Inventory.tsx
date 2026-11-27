@@ -59,13 +59,15 @@ interface Props {
   onSel: (r: SlotRef | null) => void;
   onMove: (a: SlotRef, b: SlotRef) => void;
   onTrash: (a: SlotRef) => void;
+  /** Use an item (loot crates). */
+  onOpen: (id: string) => void;
   onToggle: () => void;
   onLook: (l: Look) => void;
   recipesOpen: boolean;
   onRecipes: () => void;
 }
 
-export function Inventory({ inv, tools, open, sel, onSel, onMove, onTrash, onToggle, onLook, recipesOpen, onRecipes }: Props) {
+export function Inventory({ inv, tools, open, sel, onSel, onMove, onTrash, onOpen, onToggle, onLook, recipesOpen, onRecipes }: Props) {
   const tap = (r: SlotRef, sl: Slot | null) => {
     if (!sel) { if (sl) onSel(r); return; }
     if (sel.box === r.box && sel.i === r.i) return onSel(null);
@@ -83,6 +85,7 @@ export function Inventory({ inv, tools, open, sel, onSel, onMove, onTrash, onTog
           <div class="row bagbar">
             <span class="dim">{sel ? 'Tap a slot to move' : 'Tap an item to pick it up'}</span>
             <span class="grow" />
+            {sel && (sel.box === 'inv' ? inv : tools)[sel.i]?.id.startsWith('crate:') && <button class="primary" onClick={() => { onOpen((sel.box === "inv" ? inv : tools)[sel.i]!.id); onSel(null); }}>🎁 Open</button>}
             {sel && <button onClick={() => { onTrash(sel); onSel(null); }} title="Destroy stack">🗑</button>}
           </div>
         </div>

@@ -1,0 +1,252 @@
+// Quest book (DESIGN §8, CONTENT §11f). Hand-written; doubles as the tutorial: every mechanic is explained by the quest
+// that first needs it. Quests unlock when all `req` are done.
+// Tasks: `have` = hold n (summed over ids, inventory + tool slots) · `build` = n placed structures · `flag` = an action
+// done at least once (FLAGS; set by the sim for commands, by the UI for camera/panels).
+import type { TierId } from './tiers';
+
+/** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
+ * mdump open claim. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
+export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
+  'bookmark', 'journal', 'overlay', 'machine'] as const;
+
+export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
+  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim'] as const;
+
+export type QuestTask =
+  | { k: 'have'; ids: string[]; n: number; label?: string }
+  | { k: 'build'; id: string; n: number }
+  | { k: 'flag'; id: string; label: string };
+export interface QuestDef {
+  id: string; chapter: TierId; title: string;
+  /** Paragraphs; **bold** marks controls and key terms. */
+  text: string[];
+  req: string[];
+  tasks: QuestTask[];
+  /** Loot crates by tier + direct items. */
+  reward: { crates?: [TierId, number][]; items?: [string, number][] };
+}
+
+const have = (id: string, n = 1): QuestTask => ({ k: 'have', ids: [id], n });
+const any = (ids: string[], n: number, label: string): QuestTask => ({ k: 'have', ids, n, label });
+const build = (id: string, n = 1): QuestTask => ({ k: 'build', id, n });
+const flag = (id: string, label: string): QuestTask => ({ k: 'flag', id, label });
+const P1: QuestDef['reward'] = { crates: [['P', 1]] }, P2: QuestDef['reward'] = { crates: [['P', 2]] };
+
+export const QUESTS: QuestDef[] = [
+  // ---- Getting started ----
+  { id: 'welcome', chapter: 'P', title: 'Overseer', req: [], reward: P1,
+    text: [
+      'You are the **overseer**: no body, no enemies — just a planet and your hands. Start with sticks and stones; finish among the stars.',
+      '**Pan** by dragging (or **WASD** / arrow keys). **Zoom** with the mouse wheel, a pinch, or **+ / −**.',
+      'This book is your guide. Each quest explains what it needs the first time you need it. Finished quests glow — tap them and **Claim** the reward.',
+    ],
+    tasks: [flag('pan', 'Pan the camera'), flag('zoom', 'Zoom in or out')] },
+  { id: 'crates', chapter: 'P', title: 'Loot Crates', req: ['welcome'], reward: { items: [['log:wood', 8]] },
+    text: [
+      'Quest rewards come as **loot crates**. Open your bag (🎒, **I** or **Tab**), tap a crate, then **🎁 Open**. Each holds three random useful stacks for its tier — and rarely a lucky item from the next tier.',
+      'Crates need a few free slots to open.',
+    ],
+    tasks: [flag('open', 'Open a loot crate')] },
+  { id: 'camera', chapter: 'P', title: 'Turn the World', req: ['welcome'], reward: P1,
+    text: [
+      '**Rotate** the view in 90° steps with **Q / E** or the ⟲ ⟳ buttons.',
+      'The slider on the right is the **level bar**. Down (▼, **[** or **PgDn**) slices into the ground layer by layer — layer 0 is the surface, bedrock is layer 25. Up (▲, **]** or **PgUp**) shows your building storeys. ⌂ returns to the surface.',
+      'On desktop, hovering a tile names what is there.',
+    ],
+    tasks: [flag('rotate', 'Rotate the view'), flag('level_down', 'Look below ground'), flag('level_up', 'Look at an upper storey')] },
+  { id: 'maps', chapter: 'P', title: 'The Big Picture', req: ['camera'], reward: P1,
+    text: [
+      '**Map** (**M**) shows the whole planet flat; **Globe** (**G**) shows it as a sphere. Tap anywhere to fly there.',
+      'Planets are finite: walk east long enough and you are back where you started. The poles are ice and cannot be built on. Deep ocean hides ores you cannot reach yet.',
+    ],
+    tasks: [flag('map', 'Open the map'), flag('globe', 'Open the globe')] },
+  { id: 'time', chapter: 'P', title: 'Day, Night and Weather', req: ['camera'], reward: P1,
+    text: [
+      'A day lasts 20 minutes; nights are dark. Weather shifts between calm, wind and rain (top bar).',
+      '**Pause** with **Space** or ❚❚. There is no fast-forward and nothing runs while the game is closed.',
+      'The game **autosaves** every 5 minutes and when you leave, keeping rolling backups. The ☰ menu saves manually and exports/imports save files.',
+    ],
+    tasks: [flag('pause', 'Pause the game')] },
+
+  // ---- Hands and tools ----
+  { id: 'gather', chapter: 'P', title: 'Sticks and Stones', req: ['welcome'], reward: P1,
+    text: [
+      'Switch to **Mining** (⛏ on the left, or **X**) and tap the ground. Each tap is one hit; tougher blocks take several (the counter shows progress).',
+      'By hand you dig soil slowly. **Grass** drops dirt and sometimes **plant fiber** or **straw**. **Gravel** is the best place to find **flint shards**; dirt, silt and sand give them rarely.',
+      'Tapping a tree with bare hands snaps off **sticks** (and fiber) — felling it needs an axe.',
+    ],
+    tasks: [flag('mine', 'Dig a block'), have('shard:flint', 3), have('stick:wood', 4), have('fiber', 4)] },
+  { id: 'inventory', chapter: 'P', title: 'Pockets', req: ['gather'], reward: P1,
+    text: [
+      'Your inventory is **global**: 27 bag slots plus 9 **tool slots** (the bar at the bottom). Stacks hold 64.',
+      'Open the bag with 🎒, **I** or **Tab**. Tap an item to pick it up, tap another slot to move, swap or merge. Tool slots hold tools only. 🗑 destroys the picked stack.',
+    ],
+    tasks: [flag('bag', 'Open the bag'), flag('move', 'Move an item')] },
+  { id: 'recipes', chapter: 'P', title: 'The Recipe Book', req: ['gather'], reward: P1,
+    text: [
+      'Open it with 📖 or **C**. Search by name, or filter: **#form** (#plate), **$material** ($copper), **@machine** (@pit_kiln), **t:tier**, **-word** to exclude.',
+      'Tap an item to see how it is **made**; double-tap for what it is **used in**. Anywhere in the game: **long-press** an item for recipes, **double-tap** for uses — or hover it and press **R / U** on desktop.',
+      '★ bookmarks an item; recent lookups are kept as history. Hand recipes have **Craft** buttons — tools listed on a recipe are worn, not used up.',
+    ],
+    tasks: [flag('search', 'Search for something'), flag('uses', 'Look up what an item is used in'), flag('craft', 'Craft anything by hand')] },
+  { id: 'flint_tools', chapter: 'P', title: 'Knapping', req: ['recipes', 'inventory'], reward: P2,
+    text: [
+      'Knap 3 flint shards into a pickaxe or axe head (1 for a knife), then bind it to a stick with fiber.',
+      'Tools land in the tool slots and **wear** with use (the bar under the slot); at zero they break. The best tool of the right kind is used automatically, and better tools work faster.',
+      '**Shovels** speed up soil, **pickaxes** break stone, **axes** fell trees, **knives** cut clay shapes.',
+    ],
+    tasks: [any(['tool:pickaxe:flint', 'tool:axe:flint', 'tool:shovel:flint', 'tool:knife:flint'], 3, 'Any 3 flint tools')] },
+  { id: 'stone', chapter: 'P', title: 'Into the Rock', req: ['flint_tools'], reward: P1,
+    text: [
+      'With a pickaxe, stone breaks into **cobblestone**. You can only dig a block that is open from **above or beside** — dig down, then outward.',
+      'Use the level bar to look into your pit. Rock gets harder with depth: a pick mines **hardness up to its level + 1** (flint is level 0). Water-covered ground cannot be dug.',
+    ],
+    tasks: [have('cobble:stone', 12)] },
+  { id: 'timber', chapter: 'P', title: 'Timber', req: ['flint_tools'], reward: P1,
+    text: [
+      'An axe fells a whole tree for **logs** and some sticks. Turn logs into **planks** by hand (a saw doubles the yield later).',
+      'Wood is also your first fuel.',
+    ],
+    tasks: [flag('chop', 'Fell a tree'), have('log:wood', 8), have('plank:wood', 8)] },
+  { id: 'hammer', chapter: 'P', title: 'Stone Hammer', req: ['stone'], reward: P1,
+    text: [
+      'Cobblestone + stick + fiber makes a **stone hammer**. It crushes ore by hand (ore → crushed ore), flattens ingots into plates, and is needed to build querns and anvils.',
+    ],
+    tasks: [have('tool:hammer:stone')] },
+  { id: 'clay', chapter: 'P', title: 'Mud Between the Toes', req: ['gather'], reward: P1,
+    text: [
+      '**Clay** sits beside rivers, lakes and coasts. Each clay block gives 2 balls. A shovel makes it quick.',
+      'Every primitive machine starts as shaped clay.',
+    ],
+    tasks: [have('ball:clay', 16)] },
+  { id: 'samples', chapter: 'P', title: 'Shiny Rocks', req: ['gather'], reward: P1,
+    text: [
+      'Coloured pebbles on the ground are **ore samples**. Tap one in Mining to pick it up — it means a **vein** lies nearby underground. Bare rock showing ore colour is an **outcrop**.',
+      'The **vein overlay** (◎ **O**) draws what you know on the world: a circle for a hint, an outline once you have mined into it. The **vein journal** (◎ Veins, **J**) lists them and flies you there.',
+    ],
+    tasks: [flag('sample', 'Pick up an ore sample'), flag('overlay', 'Toggle the vein overlay'), flag('journal', 'Open the vein journal')] },
+
+  // ---- Building ----
+  { id: 'pit_kiln', chapter: 'P', title: 'Placing Things', req: ['clay', 'timber'], reward: P1,
+    text: [
+      'Machines are crafted as items first, then placed. Craft a **Pit Kiln**, switch to **Machine Build** (🏭, **B**), pick it on the bar and tap a tile. **F** rotates. The white ghost shows where it goes.',
+      'Ground must be dry and clear — fell trees first. On water, lay a **foundation** (Base Build) before building.',
+    ],
+    tasks: [build('pit_kiln')] },
+  { id: 'fire', chapter: 'P', title: 'Fire!', req: ['pit_kiln'], reward: P2,
+    text: [
+      'In **View** mode (👁, **V**) tap a machine to open its panel. **Pick a recipe**, **Load** inputs from your inventory, and add **fuel**.',
+      'Fuel sets the flame: straw 800 K · sticks 900 K · planks and logs 1000 K · charcoal 1500 K · coal 1600 K · coke 2000 K. A machine heats up to the lesser of its fuel and its own limit, and only burns fuel while it has work. The marker on the heat bar is what the recipe needs.',
+      'The light above a machine: **green** working, **yellow** waiting (input, fuel, heat), **red** a problem, **blue** needs your hand. **Collect** the output when done.',
+      'Shape clay into unfired bricks and fire them.',
+    ],
+    tasks: [flag('machine', 'Open a machine'), flag('mfuel', 'Add fuel'), flag('mtake', 'Collect output'), have('brick:brick', 12)] },
+  { id: 'base_build', chapter: 'P', title: 'A Roof Overhead', req: ['pit_kiln'], reward: P1,
+    text: [
+      '**Base Build** (🧱, **N**) is free and cosmetic: floors and foundations, walls, windows and doors, roofs and lights. Walls snap to the tile edge nearest your tap.',
+      'Walls on the side facing you drop low so you can see inside; zoomed in, the roof of the level you view turns see-through.',
+    ],
+    tasks: [flag('base', 'Place a base part')] },
+  { id: 'demolish', chapter: 'P', title: 'Second Thoughts', req: ['pit_kiln'], reward: P1,
+    text: [
+      '**Demolition** (💥, **Z**) removes the top structure on a tile and refunds it — with anything still inside a machine. With no structure it removes base parts; tap near an edge to target a wall.',
+      'You cannot remove a block that holds something up.',
+    ],
+    tasks: [flag('demolish', 'Demolish something')] },
+  { id: 'storeys', chapter: 'P', title: 'Going Up', req: ['base_build'], reward: P1,
+    text: [
+      'A **storey** is 3 blocks tall. Small machines are one block; tap the same tile again to **stack** another on top (up to 3 per storey).',
+      'To build on an upper storey, raise the level bar first. A block up high needs support: a **floor** at that storey, a block **below** it, or a block **beside** it at the same height (bridging).',
+    ],
+    tasks: [flag('stack', 'Stack a block on another'), flag('upper', 'Build on an upper storey')] },
+
+  // ---- Fire and metal ----
+  { id: 'charcoal', chapter: 'P', title: 'Smoulder', req: ['fire'], reward: P2,
+    text: [
+      'The **Charcoal Pile** is a **multiblock**: a controller plus casing blocks in a set shape — here a 3×3 mound, 2 high, of **soil covers**. Open the controller: missing casings show as ghosts, and **Auto-fill** places them from your inventory, bottom up.',
+      'Multiblocks always show at full height and can be tapped on any visible part. If the shape breaks, the machine stops.',
+      'It burns its own load: 8 logs → 4 charcoal, sometimes ash, plus **wood tar** in its tank. Tanks fill up and stall the machine — **Dump** pours them out for now.',
+    ],
+    tasks: [build('charcoal_pit'), flag('mfill', 'Auto-fill a multiblock'), have('lump:charcoal', 16)] },
+  { id: 'clay_furnace', chapter: 'P', title: 'Hotter', req: ['fire'], reward: P1,
+    text: [
+      'The **Clay Furnace** reaches 1400 K. Copper melts at 1358 K — wood (1000 K) cannot get there; charcoal can. Tin melts at just 505 K.',
+      'A yellow **too cold** status means: better fuel.',
+    ],
+    tasks: [build('clay_furnace')] },
+  { id: 'ore', chapter: 'P', title: 'Red and White Metal', req: ['clay_furnace', 'charcoal', 'samples', 'hammer'], reward: P2,
+    text: [
+      'Copper: **native copper** and green **malachite**. Tin: dark **cassiterite**. Follow samples to their veins and dig in.',
+      'Ore smelts straight into ingots in the clay furnace if the metal melts low enough. Crushing ore with the hammer first and washing it later gives purer material.',
+    ],
+    tasks: [have('ingot:copper', 6), have('ingot:tin', 2)] },
+  { id: 'molds', chapter: 'P', title: 'Molds', req: ['fire', 'flint_tools'], reward: P1,
+    text: [
+      'Cut clay into **molds** with a knife: ingot, plate and tool-head molds. Fire them in the pit kiln. Shape 5 clay into an unfired **crucible** too.',
+      'Molds are kept when you cast — one mold lasts forever.',
+    ],
+    tasks: [have('mold_ingot:clay'), have('crucible:clay')] },
+  { id: 'bronze', chapter: 'P', title: 'The Bronze Age', req: ['ore', 'molds'], reward: P2,
+    text: [
+      'The **Crucible Hearth** melts metal into its tank. Load 3 copper + 1 tin to alloy 576 L of molten **bronze** (144 L = one ingot).',
+      'Then pick a casting recipe: with an ingot mold loaded, the tank pours into ingots. Plate and head molds cast plates and tool heads directly.',
+    ],
+    tasks: [build('crucible'), have('ingot:bronze', 4)] },
+  { id: 'bronze_tools', chapter: 'P', title: 'Sharper', req: ['bronze'], reward: P1,
+    text: [
+      'Bronze tools are level 1: faster and longer-lasting, and a bronze pick reaches deeper rock. Hammer ingots into **plates**; plates + hammer + file make heads — or cast heads in the crucible.',
+    ],
+    tasks: [any(['tool:pickaxe:bronze', 'tool:axe:bronze', 'tool:shovel:bronze', 'tool:hammer:bronze', 'tool:file:bronze'], 2, 'Any 2 bronze tools')] },
+  { id: 'prospector', chapter: 'P', title: 'Listening to Rock', req: ['bronze_tools'], reward: P1,
+    text: [
+      'The **prospector\'s hammer** surveys every vein within 24 tiles, down to layer 8. In Mining, switch to 🔍 (**P**) and tap. Surveyed veins are filled in on the overlay with their full extent.',
+    ],
+    tasks: [have('tool:prospector:bronze'), flag('prospect', 'Prospect')] },
+  { id: 'quern_sluice', chapter: 'P', title: 'Grind and Wash', req: ['bronze', 'hammer'], reward: P1,
+    text: [
+      'Some machines run on muscle. The **Quern** grinds (gravel → sand, brick → brick dust); the **Sluice Box** washes crushed ore into purified ore and must sit **next to water**.',
+      'Load them and press **⟳ Crank** — each press is one second of work.',
+    ],
+    tasks: [build('quern'), build('sluice'), flag('crank', 'Crank a machine')] },
+  { id: 'lime', chapter: 'P', title: 'Quicklime', req: ['clay_furnace', 'hammer'], reward: P1,
+    text: [
+      'Crushed **calcite** burns into **quicklime** in a **Lime Kiln** (needs 1100 K — charcoal). Carbon dioxide vents to the air.',
+      'Quicklime is a flux: it makes steel faster later.',
+    ],
+    tasks: [build('lime_kiln'), have('dust:quicklime', 4)] },
+  { id: 'glass', chapter: 'P', title: 'Clear as Sand', req: ['clay_furnace', 'charcoal'], reward: P1,
+    text: [
+      'Sand and wood ash melt into **glass** at 1300 K in the clay furnace. Ash comes from the charcoal pile.',
+    ],
+    tasks: [have('pane:glass', 4)] },
+  { id: 'bloomery', chapter: 'P', title: 'Bog Iron', req: ['bronze'], reward: P2,
+    text: [
+      'Iron melts at 1811 K — far beyond any clay furnace. Instead, a **Bloomery** reduces iron ore with charcoal into a spongy **bloom**. Iron ores: limonite (bog iron), hematite, magnetite.',
+      'It is a multiblock: a plus-shaped base of **bloomery walls** around the controller, plus a 2-block chimney.',
+    ],
+    tasks: [build('bloomery'), have('iron_bloom', 2)] },
+  { id: 'wrought_iron', chapter: 'P', title: 'Hammer Time', req: ['bloomery'], reward: P2,
+    text: [
+      'Beat the slag out of a bloom on a **Stone Anvil**: load it and press **🔨 Strike**. You need a hammer, and each finished piece wears it.',
+    ],
+    tasks: [build('stone_anvil'), have('ingot:wrought_iron', 4)] },
+  { id: 'fire_bricks', chapter: 'P', title: 'Refractory', req: ['quern_sluice'], reward: P1,
+    text: [
+      'Grind bricks to dust in the quern, mix with clay into unfired **fire bricks**, and fire them at 1050 K — wood is not hot enough, charcoal is.',
+      'Fire bricks survive the heat that cracks ordinary brick.',
+    ],
+    tasks: [have('fire_brick:fireclay', 24)] },
+  { id: 'coke_oven', chapter: 'P', title: 'Coke', req: ['fire_bricks', 'ore'], reward: P2,
+    text: [
+      'Coal ore cracks into coal lumps under the hammer. A **Coke Oven** bakes coal into **coke** (2000 K fuel) and creosote.',
+      'It is a full storey: 3×3×3 of fire brick walls with an **empty chamber** in the middle. Anything inside the chamber stops it.',
+    ],
+    tasks: [build('coke_oven'), have('lump:coke', 8)] },
+  { id: 'steel', chapter: 'P', title: 'Steel', req: ['coke_oven', 'wrought_iron', 'storeys'], reward: { crates: [['P', 2], ['S', 1]] },
+    text: [
+      'The **Primitive Blast Furnace** is a 3×3 shaft of fire brick walls, 4 blocks tall — it reaches into the storey above — with an open top. It needs 1800 K: only coke burns hot enough.',
+      'Feed it wrought iron and coke (quicklime halves the time) for **steel** — the gate to the Steam age.',
+    ],
+    tasks: [build('primitive_blast_furnace'), have('ingot:steel', 4)] },
+];
+export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

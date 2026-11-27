@@ -13,6 +13,9 @@ import { hoverItem, Inventory } from './Inventory';
 import { Recipes, type Look } from './Recipes';
 import { Machine } from './Machine';
 import { Veins } from './Veins';
+import { claimable, Quests } from './Quests';
+import { QUEST, type UI_FLAGS } from '../data/quests';
+import { QDONE } from '../sim/quests';
 
 const ACTS: [Act, string, string, boolean][] = [
   ['view', '👁', 'View (V)', true],
@@ -24,6 +27,11 @@ const ACTS: [Act, string, string, boolean][] = [
 
 interface Feed { id: number; text: string; err?: boolean }
 let feedId = 0;
+/** Last quest state seen (completion toasts). */
+let lastQ: Record<string, number> | null = null;
+/** Tutorial flags already sent this session. */
+const sentFlags = new Set<string>();
+let lastView: View | null = null, lastPaused: boolean | null = null;
 
 export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [view, setView] = useState<View>({ ...renderer.view });
@@ -48,10 +56,12 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [, setVeinTick] = useState(0);
   const [machKey, setMachKey] = useState<string | null>(null);
   const [machView, setMachView] = useState<MachView | null>(null);
+  const [qbook, setQbook] = useState(false);
   const openMach = (k: string | null) => {
     setMachKey(k); setMachView(null); game.sim.watch(k);
     if (k) { setJournal(false); setBook(false); setBag(false); setMenu(false); } else renderer.setGhosts({});
   };
+  const flag = (id: (typeof UI_FLAGS)[number]) => { if (!sentFlags.has(id)) { sentFlags.add(id); game.sim.cmd({ k: 'flag', id }); } };
   const openLook = (l: Look) => { setLook(l); setBook(true); setBag(false); setMenu(false); setSel(null); };
 
   const refresh = () => store.list().then(setSaves).catch(() => setSaves([]));
@@ -61,7 +71,13 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
     setTimeout(() => setFeed((l) => l.filter((x) => x !== f)), 2200);
   };
   useEffect(() => {
-    game.sim.onStats = (st) => { setStats(st); renderer.setStatuses(st.ms); };
+    game.sim.onStats = (st) => {
+      setStats(st); renderer.setStatuses(st.ms);
+      if (st.q && lastQ) for (const [id, v] of Object.entries(st.q)) if (v === QDONE && !lastQ[id]) push(`Quest complete: ${QUEST.get(id)?.title ?? id} — claim it in the quest book (L)`);
+      if (st.q) lastQ = st.q;
+      if (lastPaused === false && st.paused) flag('pause');
+      lastPaused = st.paused;
+    };
     game.sim.onMach = (mv) => {
       setMachView(mv);
       const casing = mv.m && renderer.entities[mv.key] ? STRUCT.get(renderer.entities[mv.key].s)?.multi?.casing : undefined;
@@ -81,7 +97,19 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       for (const g of r.gained ?? []) push(`+${g.n} ${reg.item(g.id)?.name ?? g.id}`);
       if (r.msg) push(r.msg, !r.ok);
     };
-    renderer.onView = setView;
+    renderer.onPan = () => flag('pan');
+    renderer.onView = (v) => {
+      setView(v);
+      const p = lastView;
+      lastView = { ...v };
+      if (!p) return;
+      if (v.mode !== p.mode) { if (v.mode === 'map') flag('map'); if (v.mode === 'globe') flag('globe'); return; }
+      if (v.zoom !== p.zoom || v.mapZoom !== p.mapZoom) flag('zoom');
+      if (v.rot !== p.rot) flag('rotate');
+      if (v.level < p.level && v.level < 0) flag('level_down');
+      if (v.level > p.level && v.level > 0) flag('level_up');
+      if (v.veins && !p.veins) flag('overlay');
+    };
     renderer.onHover = setHover;
     refresh();
   }, [game, renderer]);
@@ -133,11 +161,17 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (e.code === 'KeyF') setRot((r) => (r + 1) % 4);
       if (e.code === 'KeyO') renderer.toggleVeins();
       if (e.code === 'KeyJ') setJournal((j) => !j);
+      if (e.code === 'KeyL') setQbook((q) => !q);
       if (e.code === 'KeyP') { pickAct('mine'); setMineTool((m) => (m === 'prospect' ? 'dig' : 'prospect')); }
     };
     addEventListener('keydown', key);
     return () => removeEventListener('keydown', key);
   }, [game]);
+
+  useEffect(() => { if (bag) flag('bag'); }, [bag]);
+  useEffect(() => { if (journal) flag('journal'); }, [journal]);
+  useEffect(() => { if (machKey) flag('machine'); }, [machKey]);
+  useEffect(() => { if (look?.tab === 'uses') flag('uses'); }, [look]);
 
   const reg = registry();
   const pick = () => {
@@ -163,8 +197,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button class={iso ? 'on' : ''} onClick={() => renderer.setMode('iso')}>Local</button>
         <button class={view.mode === 'map' ? 'on' : ''} onClick={() => renderer.setMode('map')} title="M">Map</button>
         <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
+        <button class={qbook ? 'on' : ''} onClick={() => { setQbook(!qbook); setMenu(false); }} title="Quest book (L)">📜 Quests{claimable(stats.q) > 0 && <span class="badge">{claimable(stats.q)}</span>}</button>
         <button class={journal ? 'on' : ''} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎ Veins</button>
-        <button onClick={() => { setMenu(!menu); setBook(false); setJournal(false); }} title="Esc">☰</button>
+        <button onClick={() => { setMenu(!menu); setBook(false); setJournal(false); setQbook(false); }} title="Esc">☰</button>
       </div>
       {menu && (
         <div class="panel">
@@ -208,7 +243,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           ))}
         </div>
       )}
-      {iso && !menu && !book && !bag && act === 'mine' && (
+      {iso && !menu && !book && !bag && !qbook && act === 'mine' && (
         <div class="buildbar">
           <button class={mineTool === 'dig' ? 'on' : ''} onClick={() => setMineTool('dig')} title="Dig (tap to mine; picks up ore samples)">⛏ <span class="lbl">dig</span></button>
           <button class={mineTool === 'prospect' ? 'on' : ''} disabled={!inv.tools.some((t) => t?.id.startsWith('tool:prospector'))}
@@ -220,15 +255,15 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <Veins gen={renderer.world} list={renderer.veinList} at={view} overlay={view.veins} onOverlay={() => renderer.toggleVeins()}
           onFly={(x, y) => { renderer.flyTo(x, y); setJournal(false); }} onClose={() => setJournal(false)} />
       )}
-      {iso && !menu && !book && !bag && (act === 'build' || act === 'base' || act === 'demolish') && (
+      {iso && !menu && !book && !bag && !qbook && (act === 'build' || act === 'base' || act === 'demolish') && (
         <BuildBar act={act} inv={inv.inv} buildId={buildId} onBuildId={setBuildId} rot={rot} onRot={() => setRot((r) => (r + 1) % 4)}
           baseKind={baseKind} onBaseKind={setBaseKind} onBook={() => { setLook(null); setBook(true); setBag(false); }} />
       )}
-      {machKey && !book && !menu && !journal && renderer.entities[machKey] && (
+      {machKey && !book && !menu && !journal && !qbook && renderer.entities[machKey] && (
         <Machine ent={renderer.entities[machKey]} view={machView?.key === machKey ? machView : null} inv={inv}
           onCmd={(c) => game.sim.cmd(c)} onLook={openLook} onClose={() => openMach(null)} />
       )}
-      {iso && !menu && !book && !journal && !(machKey && renderer.entities[machKey]) && (
+      {iso && !menu && !book && !journal && !qbook && !(machKey && renderer.entities[machKey]) && (
         <div class="zbar">
           <span class="zlabel">{levelName(view.level)}</span>
           <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>
@@ -239,10 +274,14 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         </div>
       )}
       <Inventory inv={inv.inv} tools={inv.tools} open={bag} sel={sel} onSel={setSel}
-        onMove={(a, b) => game.sim.cmd({ k: 'move', a, b })} onTrash={(a) => game.sim.cmd({ k: 'trash', a })}
+        onMove={(a, b) => game.sim.cmd({ k: 'move', a, b })} onTrash={(a) => game.sim.cmd({ k: 'trash', a })} onOpen={(id) => game.sim.cmd({ k: 'open', id })}
         onToggle={() => { setBag(!bag); setBook(false); setSel(null); }} onLook={openLook}
         recipesOpen={book} onRecipes={() => { setBook(!book); setBag(false); setMenu(false); }} />
-      {book && <Recipes inv={inv} look={look} onLook={setLook} onCraft={(recipe, n) => game.sim.cmd({ k: 'craft', recipe, n })} onClose={() => setBook(false)} />}
+      {qbook && !menu && (
+        <Quests quests={stats.q ?? {}} flags={stats.fl ?? {}} inv={inv} ents={renderer.entities} onClaim={(id) => game.sim.cmd({ k: 'qclaim', id })}
+          onLook={(l) => { setQbook(false); openLook(l); }} onClose={() => setQbook(false)} />
+      )}
+      {book && <Recipes inv={inv} look={look} onLook={setLook} onCraft={(recipe, n) => game.sim.cmd({ k: 'craft', recipe, n })} onClose={() => setBook(false)} onFlag={flag} />}
       <div class="feed">
         {dig && <div class="dig">⛏ {dig}</div>}
         {feed.map((f) => <div key={f.id} class={f.err ? 'err' : ''}>{f.text}</div>)}

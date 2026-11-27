@@ -3,7 +3,7 @@ import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 import type { Mach } from './machines';
 
-export const STATE_VERSION = 8;
+export const STATE_VERSION = 9;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;
@@ -59,6 +59,10 @@ export interface GameState {
   veins: Record<string, number>;
   /** Machine state by controller ent key `x,y,b` (P2d). */
   mach: Record<string, Mach>;
+  /** Quest progress (P2e): id → 1 done, reward unclaimed · 2 claimed. */
+  quests: Record<string, number>;
+  /** Tutorial action flags (data/quests FLAGS) → times done. */
+  flags: Record<string, number>;
 }
 
 export const emptyInv = () => ({ inv: Array<Slot | null>(INV_SIZE).fill(null), tools: Array<Slot | null>(TOOL_SLOTS).fill(null) });
@@ -68,6 +72,6 @@ export const newWeather = (): Weather => ({ wind: 0.3, rain: 0, tWind: 0.3, tRai
 export function newGame(seed: number = (Math.random() * 2 ** 32) >>> 0): GameState {
   return {
     version: STATE_VERSION, seed, planet: 'earth', tick: 0, rng: seed, playSeconds: 0,
-    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {},
+    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {}, quests: {}, flags: {},
   };
 }

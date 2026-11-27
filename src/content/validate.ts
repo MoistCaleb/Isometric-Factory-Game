@@ -6,6 +6,9 @@ import { MACHINES } from '../data/machines';
 import { MATERIALS } from '../data/materials';
 import { MINERALS } from '../data/minerals';
 import { WORLD_FLUIDS, WORLD_ITEMS } from '../data/misc';
+import { CRATE_TIERS, crateId, LOOT } from '../data/loot';
+import { QUEST, QUESTS, SIM_FLAGS, UI_FLAGS } from '../data/quests';
+import { STRUCTURES } from '../data/structures';
 import { TIERS } from '../data/tiers';
 import { BIOMES, VEINS } from '../data/veins';
 import { byproductStack, mineralDust } from './generate';
@@ -93,8 +96,33 @@ export function validate(reg: Registry): Report {
     else keys.set(k, r.id);
   }
 
-  // ---- coverage (warnings) ----
+  // ---- quests + loot ----
   const reach = reachable(reg);
+  const structs = new Set(STRUCTURES.map((x) => x.id));
+  dupes('quest', QUESTS.map((q) => q.id));
+  for (const q of QUESTS) {
+    for (const r of q.req) if (!QUEST.has(r)) err(`quest ${q.id}: unknown req ${r}`);
+    for (const t of q.tasks) {
+      if (t.k === 'build') { if (!structs.has(t.id)) err(`quest ${q.id}: unknown structure ${t.id}`); else if (!reach.has(`struct:${t.id}`)) err(`quest ${q.id}: struct:${t.id} unobtainable`); }
+      else if (t.k === 'flag') { if (![...UI_FLAGS, ...SIM_FLAGS].includes(t.id as never)) err(`quest ${q.id}: unknown flag ${t.id}`); }
+      else for (const id of t.ids) { if (!reg.item(id)) err(`quest ${q.id}: unknown item ${id}`); else if (t.ids.length === 1 && !reach.has(id)) err(`quest ${q.id}: ${id} unobtainable`); }
+    }
+    for (const [id] of q.reward.items ?? []) if (!reg.item(id)) err(`quest ${q.id}: unknown reward ${id}`);
+    for (const [t] of q.reward.crates ?? []) if (!LOOT[t]) err(`quest ${q.id}: no ${t} crate`);
+  }
+  const depth = new Map<string, number>(), seen = new Set<string>();
+  const d = (id: string): number => {
+    if (depth.has(id)) return depth.get(id)!;
+    if (seen.has(id)) { err(`quest cycle at ${id}`); return 0; }
+    seen.add(id);
+    const v = 1 + Math.max(-1, ...(QUEST.get(id)?.req ?? []).map(d));
+    depth.set(id, v);
+    return v;
+  };
+  QUESTS.forEach((q) => d(q.id));
+  for (const [t, list] of Object.entries(LOOT)) for (const e of list ?? []) if (!reg.item(e.id)) err(`loot ${t}: unknown item ${e.id}`);
+
+  // ---- coverage (warnings) ----
   const unreachable = reg.items.filter((i) => !reach.has(i.id)).map((i) => i.id);
   if (unreachable.length) warnings.push(`${unreachable.length} items not yet obtainable: ${summarize(unreachable)}`);
 
@@ -123,7 +151,8 @@ const summarize = (ids: string[], n = 12) => ids.slice(0, n).join(', ') + (ids.l
 
 /** Items reachable from world sources via recipes (tools must be reachable too). Machines are not yet gated. */
 export function reachable(reg: Registry): Set<string> {
-  const have = new Set<string>([...WORLD_ITEMS, ...WORLD_FLUIDS, ...reg.items.filter((i) => i.form === 'ore').map((i) => i.id)]);
+  // Crates come from quest rewards.
+  const have = new Set<string>([...WORLD_ITEMS, ...CRATE_TIERS.map(crateId), ...WORLD_FLUIDS, ...reg.items.filter((i) => i.form === 'ore').map((i) => i.id)]);
   const tools = new Set<string>();
   const addTools = () => { for (const i of reg.items) if (i.tool && have.has(i.id)) tools.add(i.tool.type); };
   addTools();

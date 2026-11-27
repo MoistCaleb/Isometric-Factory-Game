@@ -46,16 +46,17 @@
 | src/content/registry.ts | `registry()` lookup: item/fluid/recipesFor/usesOf |
 | src/sim/player.ts | inventory (give/take/move, 27+9 tool slots, stack 64), tool wear, hand `craft`/`missing`, mining (`mine`: exposure rule, hits/tool speed, drops, pick reach H≤T+1, tree chop); `Cmd` → worker `apply` → `act` reply |
 | src/sim/machines.ts | P2d machines: `Mach` per controller ent (recipe, inp/fuel/out bags, tank, heat, prog, status `MS`), `stepMachines`, `machCmd` (mrec/mload/mfuel/mtake/munload/mdump/crank/mfill), multiblock `controllerAt`/`missingCasings`, `refund` on demolish |
+| src/sim/quests.ts | P2e quest book: `checkQuests` (unlocked + tasks met → 1 done; 2 claimed), `taskProgress`, `questCmd` (qclaim, open crate); data in data/quests (QUESTS, action FLAGS) + data/loot (tables, `crate:<tier>`) |
 | src/sim/veins.ts | discovery: `pickSample` (hint), `know`, `prospect` (survey); mining ore → exposed |
 | src/sim/build.ts | place/addBase/demolish, `edgeKey` (s/e edges stored as neighbour n/w), `nearSide` |
-| src/sim/ | state (GameState v8: inv/tools, ents `x,y,b` (block level), base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/sim/ | state (GameState v9: inv/tools, ents `x,y,b` (block level), base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), quests, flags (tutorial actions), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
 | src/render/veins.ts | vein overlay (hint circles / outlines / fills), `knownVeins`, `veinsAtTile` |
 | src/render/structures.ts | structures + base parts as one vertex-coloured mesh around the camera; ghost preview |
 | src/render/chunks.ts | 32×32 chunk mesh for one layer slice + instanced trees; renderer builds only chunks overlapping the viewport ground quad (`rectInQuad`), frees off-screen ones after ~1.5 s |
-| src/ui/ | Preact App (top bar incl. view buttons, menu, modebar left, Z-bar right, feed), Inventory (hotbar + bag), Recipes (browser + hand crafting), Machine (panel, live via `sim.watch`), Veins (journal), style.css, format |
+| src/ui/ | Preact App (top bar incl. view buttons, menu, modebar left, Z-bar right, feed), Inventory (hotbar + bag), Recipes (browser + hand crafting), Machine (panel, live via `sim.watch`), Quests (book, L), Veins (journal), style.css, format |
 | tests/ | vitest: content, sim, save, world |
 | tools/mapdump.ts | `npm run map -- <seed> <out.png>`: planet PNG with spawn marker |
 | .github/workflows/deploy.yml | test+build every push; Pages deploy on `main` |
@@ -86,4 +87,5 @@
   - [x] P2c placeable structures (`struct:*`), Machine Build / Base Build / Demolition, storeys, foundations
   - [x] P2f vein discovery: ore samples, outcrops, true-block reveal, prospector's hammer, vein overlay (O) + journal (J)
   - [x] P2d primitive machines + multiblocks: fuel/heat, crank, self-burning; pit kiln, clay furnace, crucible hearth, lime kiln, quern, sluice, anvil; charcoal pile, bloomery, coke oven, PBF (ring/plus casings, ghost + auto-fill); machine panel; status icons
-  - [ ] P2e quest book v1 + loot crates
+  - [x] P2e quest book v1 (Primitive chapter = full tutorial, action flags) + loot crates
+- New mechanic ⇒ add/extend the quest that teaches it (data/quests.ts); UI-only actions go in `UI_FLAGS`.

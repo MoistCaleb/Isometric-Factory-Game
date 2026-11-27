@@ -463,7 +463,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 ---
 
 ## 11f. Quest book outline (chapters → key milestones)
-1. **Primitive:**
+1. **Primitive** (implemented, `src/data/quests.ts`, 34 quests). Tutorial branch first: overseer (pan/zoom) → loot crates, camera (rotate, levels), maps, time/pause/saves; then hands (gather, pockets, recipe book), then:
    - gather flint/sticks/fiber
    - flint tools
    - crafting station
@@ -480,9 +480,9 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - coke oven
    - PBF steel
    - quern & sluice
-   - rubber
    - glass
 2. **Steam:**
+   - rubber (needs sulfur: not reachable in Primitive)
    - first boiler (explosion warning quest)
    - bronze/lead pipes
    - each steam machine
