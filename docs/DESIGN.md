@@ -33,10 +33,11 @@ Content details live in [CONTENT.md](CONTENT.md).
 
 ## 3. World
 - **Finite planets.** Surface = rectangle that **wraps east–west**; north/south edges are **polar ice caps** (unbuildable).
-- Home planet: **4096 × 2048 tiles**, ~26 depth layers. Other bodies sized relative to it.
+- Home planet **Earth**: **4096 × 2048 tiles**; other bodies use real names and real relative radii (see CONTENT §11g), ~26 depth layers. Other bodies sized relative to it.
 - Saved as **seed + diffs** (only player changes stored).
 - Layers: Surface 0 · Soil 1–2 · Stone 3–8 · Deep 9–16 · Abyssal 17–24 · Bedrock 25.
 - **Flat terrain** (no hills). Rivers, lakes, oceans. Biomes: plains, forest, swamp, desert, tundra, jungle, ocean.
+- **Oceans/lakes are buildable with foundations** (placed on water tiles; machines then sit on them normally). Enables offshore pumps.
 - **Ores are buried.** Must **scan** (prospector's hammer → steam thumper → electric scanners → survey drones) and **excavate** (hand shovel/pick → steam excavator → electric rigs → large mining multiblock → deep core drill).
 - Overburden (dirt/stone/gravel) is a resource.
 - Veins: GT-style mixed deposits (3–4 minerals), depth band + biome bias + rarity, **finite**.

@@ -89,7 +89,7 @@ Items marked `(?)` are open for review.
 | 45 | Potassium | K | 337 | LV | D | |
 | 46 | Sodium | Na | 371 | LV | D | |
 | 47 | Lithium | Li | 454 | MV | B | batteries |
-| 48 | Electrum | AgAu | ~1300 | LV | B W F | |
+| 48 | Vanadium Steel | Fe+V+C | ~1700 | LV | B G T | LV tool steel (historically real, pre-chromium) |
 | 49 | Chromium | Cr | 2180 | MV | B | |
 | 50 | Kanthal | FeCrAl | ~1800 | MV | B W | MV coil |
 | 51 | Chrome-Vanadium Steel | Fe+Cr+V | ~1700 | MV | B G T | MV tool steel |
@@ -102,6 +102,8 @@ Items marked `(?)` are open for review.
 | 58 | Tungsten | W | 3695 | EHV | B W | |
 | 59 | Tungsten Steel | Fe+W | ~3000 | EHV | B X PF | EHV coil/casing |
 | 60 | Platinum | Pt | 2041 | EHV | B W F | catalysts |
+
+| 61 | Arsenic | As | 887 (sublimes) | LV | D | toxic; waste from cobaltite/sperrylite, used for **GaAs** (HV high-efficiency solar, LEDs) |
 
 Later (outlined): Uranium, Thorium, Diamond (synthetic), rare earths, superconductors.
 
@@ -157,7 +159,7 @@ Later (outlined): Uranium, Thorium, Diamond (synthetic), rare earths, supercondu
 | Sperrylite | PtAs₂ | 5 | Platinum | Arsenic waste, Nickel, Platinum |
 | Uraninite | UO₂ | 5 | Uranium (later) | Lead, Radium(later), Thorium(later) |
 
-(Arsenic = waste-only chemical, toxic; must be stabilized/stored. `(?)` whether to add it as a material later.)
+Arsenic is a full material (#61): toxic dust, hazardous to store, but useful in **gallium arsenide** wafers at HV. Excess must be stabilized.
 
 ### Veins (25)
 Depth: Soil 1–2 · Stone 3–8 · Deep 9–16 · Abyssal 17–24.
@@ -216,15 +218,16 @@ Distance: rare veins are weighted away from spawn.
 | Treetap | planks + stick | sticky resin from rubber trees |
 | Prospector's Hammer | bronze head + stick | scan small radius, to stone depth |
 | Bronze Pick / Hammer / Saw / File / Wrench / Knife / Shovel | bronze tool head + stick (heads cast in molds or filed) | Pick: **H1** |
-| Steel tools (+ Screwdriver, Wire Cutter) | steel heads | Pick: **H2** |
-| Chrome-Vanadium tools | MV | Pick: **H3** |
-| Tungsten Carbide tools | HV | Pick: **H4** |
+| Steel tools (+ Screwdriver, Wire Cutter) | steel heads (PBF steel) | Pick: **H2** |
+| Vanadium Steel tools | LV | Pick: **H3** |
+| Chrome-Vanadium Steel tools | MV | Pick: **H4** |
+| Tungsten Carbide tools | HV | Pick: **H5** |
 | Electric Drill / Chainsaw / Scanner | LV+ (battery) | Same tier as the material of the drill head |
 
-**Hand-pick reach:** P bronze → H1 · S/P steel → H2 · LV Cr-V → H3 (`?` Cr-V is MV material; LV pick of Vanadium Steel instead?) · MV WC → H4.
+**Hand-pick reach rule:** a pick made of a tier-T material mines hardness ≤ T+1. Bronze (P) → H1 · Steel (S) → H2 · Vanadium Steel (LV) → H3 · Cr-V Steel (MV) → H4 · WC (HV) → H5.
 
 ### Crafting Station (P, placeable)
-- 3×3 grid plus a **tool rack** of 6 slots: tools placed there are used by recipes and wear down. `(?)` Rack vs. using your 9 tool slots.
+- 3×3 grid. Recipes use tools from **your 9 tool slots**, and those tools wear down. Missing tools are highlighted in the recipe.
 - Hand recipes:
   - log → 2 planks (4 with saw)
   - plank → 2 sticks (4 with saw)
@@ -538,13 +541,15 @@ Distance: rare veins are weighted away from spawn.
 
 ---
 
-## 11g. Planets (starting system, outline; names are placeholders)
-| Body | Size | Unlock | Traits | Signature resources |
-|---|---|---|---|---|
-| Home `(name?)` | 1.0× | start | Earth-like, all biomes | Everything above |
-| Moon | 0.25× | EHV | No atmosphere (sealed machines), low gravity | Ilmenite-rich regolith, anorthite (Al), **helium-3** |
-| Inner hot planet | 0.4× | SV | Volcanic, high heat, sulfuric atmosphere | Sulfur, tungsten, platinum group |
-| Red planet | 0.5× | SV | Thin CO₂ atmosphere, cold, dust storms | Iron oxides, perchlorates, water ice, deuterium |
-| Ice moon (of gas giant) | 0.3× | PV | Subsurface ocean, extreme cold | Deuterium/tritium sources, ammonia ice |
-| Gas giant | — (no surface) | PV | Orbital harvesting only | H₂, He, He-3 |
-| Asteroid belt | many tiny | QV | Mining stations | Platinum group, exotic late materials |
+## 11g. Planets (starting system, real names; size = real radius relative to Earth)
+| Body | Size | Map (tiles) | Unlock | Traits | Signature resources |
+|---|---|---|---|---|---|
+| **Earth** (home) | 1.0× | 4096×2048 | start | All biomes, oceans | Everything above |
+| **Moon** | 0.27× | 1106×553 | EHV | No atmosphere (sealed machines), low gravity | Ilmenite regolith, anorthite (Al), **helium-3** |
+| **Mars** | 0.53× | 2171×1085 | SV | Thin CO₂ atmosphere, cold, dust storms | Iron oxides, perchlorates, water ice, deuterium |
+| **Mercury** | 0.38× | 1556×778 | SV | No atmosphere, extreme day/night heat | Sulfur, iron-rich core ores, tungsten |
+| **Venus** | 0.95× | 3891×1946 | PV | Crushing pressure, ~740 K surface, H₂SO₄ clouds | Sulfuric acid (free), platinum group, tungsten |
+| **Europa** | 0.25× | 1024×512 | PV | Ice shell, subsurface ocean, radiation | Deuterium/tritium sources, water, salts |
+| **Titan** | 0.40× | 1638×819 | PV | Dense N₂ atmosphere, methane lakes | Methane/ethane lakes (free hydrocarbons), N₂ |
+| **Jupiter** | — (no surface) | orbital | PV | Orbital harvesting only | H₂, He, He-3 |
+| **Asteroid Belt** | many tiny | small fixed maps | QV | Mining stations | Platinum group, exotic late materials |
