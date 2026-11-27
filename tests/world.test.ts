@@ -4,7 +4,7 @@ import { migrate } from '../src/save/migrations';
 import { newGame, STATE_VERSION } from '../src/sim/state';
 import { step } from '../src/sim/step';
 import { B, BLOCKS, ORE_BASE } from '../src/world/blocks';
-import { LAYERS, Water, WorldGen } from '../src/world/gen';
+import { LAYERS, VEIN_CELL, VEIN_RMAX, VEIN_SLOTS, Water, WorldGen } from '../src/world/gen';
 
 const earth = planet('earth');
 const gen = new WorldGen(12345, earth);
@@ -42,6 +42,18 @@ describe('world gen', () => {
     }
     expect(n).toBeGreaterThan(2000);
     expect(n).toBeLessThan(4000);
+  });
+  it('grid veins: one spot per cell, one per depth slot, inside the cell', () => {
+    for (let cy = 5; cy < 25; cy++) for (let cx = 0; cx < 40; cx++) {
+      const vs = gen.veinsInCell(cx, cy);
+      expect(new Set(vs.map((v) => `${v.x},${v.y}`)).size).toBeLessThanOrEqual(1);
+      for (const v of vs) {
+        expect(Math.abs(v.x - (cx * VEIN_CELL + 32))).toBeLessThanOrEqual(8);
+        expect(Math.max(v.a, v.b)).toBeLessThanOrEqual(VEIN_RMAX);
+        expect(VEIN_SLOTS.some(([a, b]) => v.z0 >= a && v.z1 <= b)).toBe(true);
+      }
+      if (vs.length === 2) expect(vs[0].z1).toBeLessThan(vs[1].z0);
+    }
   });
   it('ore blocks belong to their vein', () => {
     let hits = 0;

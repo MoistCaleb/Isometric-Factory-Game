@@ -60,7 +60,7 @@
 - Hand recipes: machine `hand`, ticks 0, `tools` worn. Machine conflicts need `circuit`. Hand conflicts resolved by grid shape (P2).
 - Mineral refs: material id, chemical id, `m:<mineral>`, `later:<x>`.
 - World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`).
-- Vein cells 64×64, ≤2 veins each (~2.9k on Earth); ore per block = richness.
+- Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
 - Scripts: `npm run dev | test | validate | build | map`.
 
 ## Status

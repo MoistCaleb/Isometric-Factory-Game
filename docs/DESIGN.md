@@ -41,6 +41,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - **Ores are buried.** Must **scan** (prospector's hammer → steam thumper → electric scanners → survey drones) and **excavate** (hand shovel/pick → steam excavator → electric rigs → large mining multiblock → deep core drill).
 - Overburden (dirt/stone/gravel) is a resource.
 - Veins: GT-style mixed deposits (3–4 minerals), depth band + biome bias + rarity, **finite**.
+- **Vein grid** (GT-style, seeded): one vein spot per 64×64 cell (center ±8 tiles), with 4 depth slots — soil 1–2, stone 3–8, deep 9–16, abyssal 17–24 — each holding one weighted-random vein or empty. Veins never overlap; learning the spacing makes prospecting systematic.
 - Ore **hardness** = tier index (Primitive 0 … EHV 5). A drill of tier T mines hardness ≤ T. A **hand pickaxe** reaches one tier higher (first samples of each tier's ores are always hand-mined). Hand mining also has a small chance of **rich ore / gem / lodestone** drops machines never give.
 - **Day/night** (affects solar) and **weather** (wind strength, rain, acid rain from pollution).
 - **Zoom:** surface → region map → **3D globe** → star system (pick planets, send ships).

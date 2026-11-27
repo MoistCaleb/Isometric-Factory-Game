@@ -195,7 +195,7 @@ Distance: rare veins are weighted away from spawn.
 | 25 | Platinum Reef | Sperrylite 40, Pentlandite 40, Chromite 20 | 18–24 | any | VR |
 
 ### Scale and other features
-- **Vein sizes:** C 4–8k ore · U 3–6k · R 2–4k · VR 1–3k. About 2–4k veins planet-wide (tunable).
+- **Vein sizes:** C 4–8k ore · U 3–6k · R 2–4k · VR 1–3k. About 2–4k veins planet-wide (tunable); placed on the vein grid (DESIGN §3).
 - **Non-vein features:**
   - clay soil along rivers
   - surface flint and loose stone

@@ -11,6 +11,11 @@ export const Tree = { None: 0, Broadleaf: 1, Conifer: 2, Jungle: 3, Cactus: 4 } 
 export type Tree = (typeof Tree)[keyof typeof Tree];
 export const LAYERS = { surface: 0, soil: [1, 2], stone: [3, 8], deep: [9, 16], abyssal: [17, 24], bedrock: 25 } as const;
 export const VEIN_CELL = 64;
+export const VEIN_JITTER = 8;
+/** Max ellipse radius: (CELL/2 − JITTER) minus edge-noise bulge (~8%) → no overlaps. */
+export const VEIN_RMAX = 22;
+/** Depth slots per vein spot: [top, bottom, fill chance]. Soil only fills where a biome-biased soil vein fits. */
+export const VEIN_SLOTS: [number, number, number][] = [[1, 2, 0.5], [3, 8, 0.6], [9, 16, 0.5], [17, 24, 0.15]];
 const SEA = 0.05;
 
 export interface Surface { biome: Biome; water: Water; ice: boolean; volcanic: boolean; coast: boolean; river: number; temp: number; moist: number }
@@ -107,7 +112,11 @@ export class WorldGen {
   get cellsX() { return Math.ceil(this.w / VEIN_CELL); }
   get cellsY() { return Math.ceil(this.h / VEIN_CELL); }
 
-  /** Veins whose center lies in vein cell (cx, cy). ~1.5 per cell (CONTENT: 2–4k on Earth). */
+  /**
+   * GT-style grid: every vein cell has one vein spot (center ± jitter) with depth slots (soil/stone/deep/abyssal);
+   * each slot holds one weighted-random vein or is empty.
+   * Radii stay < half the spacing so veins never overlap. ~2.9k veins on Earth.
+   */
   veinsInCell(cxIn: number, cy: number): VeinInst[] {
     const cx = mod(cxIn, this.cellsX);
     if (cy < 0 || cy >= this.cellsY) return [];
@@ -116,27 +125,27 @@ export class WorldGen {
     if (list) return list;
     list = [];
     const s = this.seed + 100;
-    for (let k = 0; k < 2; k++) {
-      if (hash01(s, cx, cy, k * 16) > 0.75) continue;
-      const x = Math.min(this.w - 1, cx * VEIN_CELL + Math.floor(hash01(s, cx, cy, k * 16 + 1) * VEIN_CELL));
-      const y = Math.min(this.h - 1, cy * VEIN_CELL + Math.floor(hash01(s, cx, cy, k * 16 + 2) * VEIN_CELL));
-      const sf = this.surface(x, y);
-      if (sf.ice) continue;
-      const def = pickVein(sf, hash01(s, cx, cy, k * 16 + 3));
-      if (!def) continue;
-      const [d0, d1] = def.depth;
-      const zc = d0 + Math.floor(hash01(s, cx, cy, k * 16 + 4) * (d1 - d0 + 1));
+    const half = VEIN_CELL / 2;
+    const x = Math.min(this.w - 1, cx * VEIN_CELL + half + Math.round((hash01(s, cx, cy, 1) - 0.5) * 2 * VEIN_JITTER));
+    const y = Math.min(this.h - 1, cy * VEIN_CELL + half + Math.round((hash01(s, cx, cy, 2) - 0.5) * 2 * VEIN_JITTER));
+    const sf = this.surface(x, y);
+    if (!sf.ice) VEIN_SLOTS.forEach(([b0, b1, fill], k) => {
+      const h = (n: number) => hash01(s, cx, cy, 16 + k * 16 + n);
+      if (h(0) > fill) return;
+      const def = pickVein(sf, h(1), b0, b1);
+      if (!def) return;
+      const d0 = Math.max(def.depth[0], b0), d1 = Math.min(def.depth[1], b1);
+      const zc = d0 + Math.floor(h(2) * (d1 - d0 + 1));
       const z0 = Math.max(d0, zc - 1), z1 = Math.min(d1, zc + 1);
       const [s0, s1] = RARITY_SIZE[def.rarity];
-      const size = (s0 + (s1 - s0) * hash01(s, cx, cy, k * 16 + 5)) * (def.sizeMul ?? 1);
-      const rich = 4 + Math.floor(hash01(s, cx, cy, k * 16 + 6) * 5); // ore per block
-      const area = size / rich / (z1 - z0 + 1);
-      const ecc = 0.6 + hash01(s, cx, cy, k * 16 + 7) * 0.8;
-      const r = Math.sqrt(area / Math.PI);
-      const a = Math.min(30, r * Math.sqrt(ecc)), b = Math.min(30, r / Math.sqrt(ecc));
-      const richness = Math.max(1, Math.round(size / (Math.PI * a * b * (z1 - z0 + 1))));
-      list.push({ id: `${cx}.${cy}.${k}`, def, x, y, z0, z1, a, b, rot: hash01(s, cx, cy, k * 16 + 8) * Math.PI, richness, seed: hash(s, cx, cy, k) });
-    }
+      const size = (s0 + (s1 - s0) * h(3)) * (def.sizeMul ?? 1);
+      const rich = 4 + Math.floor(h(4) * 5); // ore per block
+      const r = Math.sqrt(size / rich / (z1 - z0 + 1) / Math.PI);
+      const ecc = 0.6 + h(5) * 0.8;
+      const a = Math.min(VEIN_RMAX, r * Math.sqrt(ecc)), bb = Math.min(VEIN_RMAX, r / Math.sqrt(ecc));
+      const richness = Math.max(1, Math.round(size / (Math.PI * a * bb * (z1 - z0 + 1))));
+      list!.push({ id: `${cx}.${cy}.${k}`, def, x, y, z0, z1, a, b: bb, rot: h(6) * Math.PI, richness, seed: hash(s, cx, cy, k) });
+    });
     this.cells.set(key, list);
     return list;
   }
@@ -154,7 +163,7 @@ export class WorldGen {
     for (const v of this.veinsAround(x, y)) {
       if (z < v.z0 || z > v.z1) continue;
       const dx = this.dx(x, v.x), dy = y - v.y;
-      if (Math.abs(dx) > 31 || Math.abs(dy) > 31) continue;
+      if (Math.abs(dx) > VEIN_RMAX + 2 || Math.abs(dy) > VEIN_RMAX + 2) continue;
       const c = Math.cos(v.rot), s = Math.sin(v.rot);
       const u = (dx * c + dy * s) / v.a, t = (-dx * s + dy * c) / v.b;
       const edge = (hash01(v.seed, x, y, z) - 0.5) * 0.35;
@@ -198,8 +207,9 @@ export class WorldGen {
   }
 }
 
-function pickVein(sf: Surface, r: number): VeinDef | undefined {
+function pickVein(sf: Surface, r: number, b0: number, b1: number): VeinDef | undefined {
   const ws = VEINS.map((v) => {
+    if (v.depth[1] < b0 || v.depth[0] > b1) return 0;
     let m = 0;
     for (const b of v.bias) {
       if (b === 'any') m = Math.max(m, 1);
