@@ -58,7 +58,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [machView, setMachView] = useState<MachView | null>(null);
   const [qbook, setQbook] = useState(false);
   const openMach = (k: string | null) => {
-    setMachKey(k); setMachView(null); game.sim.watch(k);
+    setMachKey(k); setMachView(null); game.sim.watch(k); renderer.setSelected(k);
     if (k) { setJournal(false); setBook(false); setBag(false); setMenu(false); } else renderer.setGhosts({});
   };
   const flag = (id: (typeof UI_FLAGS)[number]) => { if (!sentFlags.has(id)) { sentFlags.add(id); game.sim.cmd({ k: 'flag', id }); } };

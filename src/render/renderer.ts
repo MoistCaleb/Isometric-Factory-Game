@@ -10,6 +10,7 @@ import { LAYERS, Tree, Water, worldGen, type WorldGen } from '../world/gen';
 import { planetMap } from '../world/map';
 import { buildChunk, CH, disposeChunk } from './chunks';
 import { buildStructs, ghostGeometry } from './structures';
+import { PATTERNS } from '../data/structures';
 import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
 
@@ -80,6 +81,9 @@ export class Renderer {
   private ms: Record<string, number> = {};
   private msSig = '';
   private ghosts: Record<string, string> = {};
+  /** Selected machine (open panel): pulsing outline around it / its whole multiblock, drawn through everything. */
+  private selKey: string | null = null;
+  private sel = new THREE.Group();
   private ghostSig = '';
   private seed = 0;
   private frameNo = 0;
@@ -128,7 +132,13 @@ export class Renderer {
     this.iso.add(this.terrain, this.hemi, this.sun, this.sun.target);
     (this.grid.material as THREE.Material).transparent = true;
     (this.grid.material as THREE.Material).opacity = 0.25;
-    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh, this.multiGhost);
+    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh, this.multiGhost, this.sel);
+    {
+      const box = new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0.5);
+      const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0xffd040, transparent: true, depthTest: false }));
+      const fill = new THREE.Mesh(box, new THREE.MeshBasicMaterial({ color: 0xffd040, transparent: true, opacity: 0.12, depthWrite: false }));
+      edges.renderOrder = 10; this.sel.add(fill, edges); this.sel.visible = false;
+    }
     this.structs.frustumCulled = this.structsGlass.frustumCulled = this.ghostMesh.frustumCulled = this.multiGhost.frustumCulled = false;
 
     const N = 2500;
@@ -242,6 +252,8 @@ export class Renderer {
   setGhosts(g: Record<string, string>) {
     if (JSON.stringify(g) !== JSON.stringify(this.ghosts)) { this.ghosts = g; this.structVer++; }
   }
+  /** Highlight the machine whose panel is open (null clears). */
+  setSelected(key: string | null) { this.selKey = key; }
   get entities() { return this.ents; }
   get width() { return this.p.w; }
 
@@ -281,6 +293,23 @@ export class Renderer {
     }
     const wx = v.x + mod(c!.x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2;
     this.ghostMesh.position.set(Math.floor(wx), this.ghostY(c!.x, c!.y) + 0.01, c!.y);
+  }
+
+  private updateSelected(now: number) {
+    const k = this.selKey, e = k ? this.ents[k] : undefined;
+    this.sel.visible = !!e && this.view.level >= 0;
+    if (!e || !this.sel.visible) return;
+    const [x, y, b] = k!.split(',').map(Number), m = STRUCT.get(e.s)?.multi;
+    let x0 = 0, x1 = 1, y0 = 0, y1 = 1, b1 = 1;
+    for (const [dx, dy, db] of m ? PATTERNS[m.pattern].cells : []) {
+      x0 = Math.min(x0, dx); x1 = Math.max(x1, dx + 1); y0 = Math.min(y0, dy); y1 = Math.max(y1, dy + 1); b1 = Math.max(b1, db + 1);
+    }
+    const v = this.view, wx = v.x + mod(x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2, pad = 0.06;
+    this.sel.position.set(Math.floor(wx) + x0 - pad, b - pad, y + y0 - pad);
+    this.sel.scale.set(x1 - x0 + 2 * pad, b1 + 2 * pad, y1 - y0 + 2 * pad);
+    const pulse = 0.55 + 0.45 * Math.sin(now / 250);
+    ((this.sel.children[1] as THREE.LineSegments).material as THREE.LineBasicMaterial).opacity = pulse;
+    ((this.sel.children[0] as THREE.Mesh).material as THREE.MeshBasicMaterial).opacity = 0.08 + 0.1 * pulse;
   }
 
   // ---------- chunks ----------
@@ -453,6 +482,7 @@ export class Renderer {
       this.updateSky(now, dt);
       this.updateStructs();
       this.updateGhost();
+      this.updateSelected(now);
       this.updateVeins(this.veinIso, Math.max(0, -v.level), Math.min(v.level, 0) + 0.04, 1);
       this.grid.visible = v.level > 0;
       if (this.grid.visible) this.grid.position.set(Math.round(v.x), this.levelY, Math.round(v.y));
