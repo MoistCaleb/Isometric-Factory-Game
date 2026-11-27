@@ -27,7 +27,7 @@ function frame() {
   if (now - lastStats > 250 && state) {
     lastStats = now;
     tpsWindow = tpsWindow.filter((t) => now - t < 1000);
-    post({ t: 'stats', tick: state.tick, tps: paused ? 0 : tpsWindow.length, paused, mspt: msptAvg });
+    post({ t: 'stats', tick: state.tick, tps: paused ? 0 : tpsWindow.length, paused, mspt: msptAvg, wind: state.weather.wind, rain: state.weather.rain });
   }
 }
 

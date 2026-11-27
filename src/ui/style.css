@@ -22,3 +22,15 @@ button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f2
 .toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 6px; }
 .toast.err { border-color: #c04040; }
+.zbar { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 6px; }
+.zbar input[type=range] { writing-mode: vertical-lr; direction: rtl; height: 200px; width: 28px; accent-color: var(--acc); }
+.zlabel { position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--panel);
+  border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
+.viewbar { position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0)); display: flex; gap: 6px; }
+button.on { border-color: var(--acc); color: var(--acc); }
+.hover { position: absolute; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0)); max-width: calc(100% - 260px); white-space: pre-line;
+  background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; font-size: 12px; pointer-events: none; }
+@media (max-width: 600px) { .hover { bottom: 60px; max-width: calc(100% - 24px); } }
+.top span { white-space: nowrap; }
+@media (max-width: 600px) { .top .tps { display: none; } .top { gap: 8px; } }

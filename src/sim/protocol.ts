@@ -8,6 +8,6 @@ export type ToSim =
 
 export type FromSim =
   | { t: 'ready' }
-  | { t: 'stats'; tick: number; tps: number; paused: boolean; mspt: number }
+  | { t: 'stats'; tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number }
   | { t: 'snapshot'; id: number; state: GameState }
   | { t: 'error'; message: string };

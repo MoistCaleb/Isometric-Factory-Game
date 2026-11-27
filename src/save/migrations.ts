@@ -1,9 +1,12 @@
 // Versioned save migrations: MIGRATIONS[v] upgrades a v-state to v+1.
-import { STATE_VERSION, type GameState } from '../sim/state';
+import { planet } from '../data/planets';
+import { newWeather, STATE_VERSION, type GameState } from '../sim/state';
+import { worldGen } from '../world/gen';
 
 type Raw = Record<string, unknown> & { version: number };
 export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
-  // 1: (s) => ({ ...s, version: 2, newField: default }),
+  // P1: world spawn, weather, diffs.
+  1: (s) => ({ ...s, version: 2, spawn: worldGen(s.seed as number, planet(s.planet as string)).findSpawn(), weather: newWeather(), diffs: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

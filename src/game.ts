@@ -12,6 +12,8 @@ export class Game {
   private userPaused = false;
   onChange?: () => void;
   onToast?: (msg: string, err?: boolean) => void;
+  /** Fired when a world is (re)loaded so the renderer can regenerate. */
+  onWorld?: (s: GameState) => void;
 
   async boot() {
     let state: GameState | undefined;
@@ -33,6 +35,7 @@ export class Game {
 
   private start(state: GameState) {
     this.sim.load(state);
+    this.onWorld?.(state);
     if (!this.userPaused) this.sim.resume();
     this.onChange?.();
   }

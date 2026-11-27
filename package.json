@@ -9,7 +9,8 @@
     "preview": "vite preview",
     "test": "vitest run",
     "typecheck": "tsc --noEmit",
-    "validate": "tsx tools/validate.ts"
+    "validate": "tsx tools/validate.ts",
+    "map": "tsx tools/mapdump.ts"
   },
   "dependencies": {
     "preact": "^11.2.0",

@@ -39,16 +39,19 @@
 ## Code map
 | Path | What |
 |---|---|
-| src/data/ | raw content tables: tiers, forms (flags→forms, tool types), materials, chemicals, minerals, veins, machines (ids only), misc + world sources |
+| src/data/ | raw content tables: tiers, forms (flags→forms, tool types), materials, chemicals, minerals, veins, machines (ids only), misc + world sources, planets |
+| src/world/ | noise (hash, x-wrapping fbm), blocks (terrain + ORE_BASE+mineral), gen (`WorldGen`: surface/terrain/block/ore/tree/veins/findSpawn), map (planet raster) |
 | src/content/generate.ts | items/fluids/templated recipes from data; ore chain; tools |
 | src/content/validate.ts | errors (fail build) + coverage warnings; `reachable()` from world sources |
 | src/content/registry.ts | `registry()` lookup: item/fluid/recipesFor/usesOf |
-| src/sim/ | state (GameState, TPS=20, DAY_TICKS=20 min), step (systems go here), loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/sim/ | state (GameState v2: spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
-| src/render/scene.ts | P0 placeholder iso scene |
+| src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
+| src/render/chunks.ts | 32×32 chunk mesh for one layer slice + instanced trees |
 | src/ui/ | Preact App (top bar, menu), style.css, format |
-| tests/ | vitest: content, sim, save |
+| tests/ | vitest: content, sim, save, world |
+| tools/mapdump.ts | `npm run map -- <seed> <out.png>`: planet PNG with spawn marker |
 | .github/workflows/deploy.yml | test+build every push; Pages deploy on `main` |
 
 ## Conventions
@@ -56,9 +59,12 @@
 - Tools `tool:<type>:<material>`. Fluids: chemical id or `molten:<material>` (144 L/ingot).
 - Hand recipes: machine `hand`, ticks 0, `tools` worn. Machine conflicts need `circuit`. Hand conflicts resolved by grid shape (P2).
 - Mineral refs: material id, chemical id, `m:<mineral>`, `later:<x>`.
-- Scripts: `npm run dev | test | validate | build`.
+- World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`).
+- Vein cells 64×64, ≤2 veins each (~2.9k on Earth); ore per block = richness.
+- Scripts: `npm run dev | test | validate | build | map`.
 
 ## Status
-- **P0 done** (scaffold, PWA, worker loop, saves/backups, content pipeline + validator).
+- **P0 done**. **P1 done** (planet gen, chunk render, camera, Z-slider, day/night, weather, map + globe).
 - Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
-- Next: **P1 World**.
+- X-ray ore view is a dev toggle; real reveal = scanning (P2+).
+- Next: **P2 Primitive**.

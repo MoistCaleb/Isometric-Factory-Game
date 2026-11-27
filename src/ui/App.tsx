@@ -1,11 +1,14 @@
 import { useEffect, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Game } from '../game';
+import { LEVEL_MAX, LEVEL_MIN, type Renderer, type View } from '../render/renderer';
 import * as store from '../save/store';
 import type { SimStats } from '../sim/client';
-import { bytes, duration, gameClock } from './format';
+import { bytes, duration, gameClock, levelName, weatherText } from './format';
 
-export function App({ game }: { game: Game }) {
+export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
+  const [view, setView] = useState<View>({ ...renderer.view });
+  const [hover, setHover] = useState<string | null>(null);
   const [stats, setStats] = useState<SimStats>(game.sim.stats);
   const [menu, setMenu] = useState(false);
   const [saves, setSaves] = useState<store.SaveMeta[]>([]);
@@ -16,8 +19,10 @@ export function App({ game }: { game: Game }) {
     game.sim.onStats = setStats;
     game.onChange = refresh;
     game.onToast = (msg, err) => { setToast({ msg, err }); setTimeout(() => setToast(null), 2500); };
+    renderer.onView = setView;
+    renderer.onHover = setHover;
     refresh();
-  }, [game]);
+  }, [game, renderer]);
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -42,7 +47,8 @@ export function App({ game }: { game: Game }) {
       <div class="top">
         <button onClick={() => game.togglePause()} title="Space">{stats.paused ? '▶' : '❚❚'}</button>
         <span>{gameClock(stats.tick)}</span>
-        <span class="dim">{stats.paused ? 'Paused' : `${stats.tps} TPS · ${stats.mspt.toFixed(2)} ms`}</span>
+        <span>{weatherText(stats)}</span>
+        <span class="dim tps">{stats.paused ? 'Paused' : `${stats.tps} TPS · ${stats.mspt.toFixed(2)} ms`}</span>
         <span class="grow" />
         <button onClick={() => setMenu(!menu)} title="Esc">☰</button>
       </div>
@@ -72,10 +78,32 @@ export function App({ game }: { game: Game }) {
           <div class="row">
             <button onClick={() => confirm('Start a new world? Current world is backed up first.') && game.newGame()}>New world</button>
           </div>
+          <h3>Debug</h3>
+          <div class="row">
+            <label><input type="checkbox" checked={view.xray} onChange={() => renderer.toggleXray()} /> X-ray ores (dev)</label>
+          </div>
           <h3>Content</h3>
           <div class="dim">{reg.items.length} items · {reg.fluids.length} fluids · {reg.recipes.length} recipes</div>
         </div>
       )}
+      {view.mode === 'iso' && (
+        <div class="zbar">
+          <span class="zlabel">{levelName(view.level)}</span>
+          <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>
+          <input type="range" min={LEVEL_MIN} max={LEVEL_MAX} step={1} value={view.level}
+            onInput={(e) => renderer.setLevel(Number((e.target as HTMLInputElement).value))} />
+          <button onClick={() => renderer.setLevel(view.level - 1)} title="[ / PgDn">▼</button>
+          <button onClick={() => renderer.setLevel(0)} title="Surface">⌂</button>
+        </div>
+      )}
+      <div class="viewbar">
+        {view.mode === 'iso' && <button onClick={() => renderer.rotate(-1)} title="Q">⟲</button>}
+        {view.mode === 'iso' && <button onClick={() => renderer.rotate(1)} title="E">⟳</button>}
+        <button class={view.mode === 'iso' ? 'on' : ''} onClick={() => renderer.setMode('iso')}>Local</button>
+        <button class={view.mode === 'map' ? 'on' : ''} onClick={() => renderer.setMode('map')} title="M">Map</button>
+        <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
+      </div>
+      {hover && <div class="hover">{hover}</div>}
       {toast && <div class={`toast ${toast.err ? 'err' : ''}`}>{toast.msg}</div>}
     </>
   );
