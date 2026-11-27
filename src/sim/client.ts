@@ -5,7 +5,7 @@ import type { Mach } from './machines';
 import type { GameState, Slot } from './state';
 
 export interface SimStats { tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number; ms?: Record<string, number>; q?: Record<string, number>; fl?: Record<string, number> }
-export interface MachView { key: string; m: Mach | null; miss: string[]; blocked: string[] }
+export interface MachView { key: string; m: Mach | null; miss: [string, string][]; blocked: string[]; need: string[] }
 
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });

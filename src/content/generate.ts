@@ -360,6 +360,7 @@ function primitive(hand: Ctx['hand'], mach: Ctx['mach']) {
 /** Steam age parts + machine recipes not covered by the material templates (CONTENT §11c, P3a). */
 function steam(hand: Ctx['hand'], mach: Ctx['mach']) {
   hand([s('plate:bronze', 8), s('brick:brick', 4)], [s('hull:bronze')], ['hammer', 'wrench']);
+  hand([s('plate:steel', 8), s('fire_brick:fireclay', 4)], [s('hull:steel')], ['hammer', 'wrench']);
   hand([s('plate:bronze'), s('rod:bronze'), s('small_gear:bronze')], [s('piston:bronze')], ['hammer']);
   hand([s('plate:steel', 3), s('ingot:steel')], [s('grinder_head:steel')], ['hammer', 'file']);
   // Alloy smelter: bronze straight to ingots (no crucible + mold).

@@ -11,6 +11,7 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'iron_bloom', name: 'Iron Bloom', color: 0x6a5a50 },
   // Steam parts (CONTENT §11c Steam age).
   { id: 'hull:bronze', name: 'Bronze Hull', color: 0xc98b3a },
+  { id: 'hull:steel', name: 'Steel Hull', color: 0x707478 },
   { id: 'piston:bronze', name: 'Bronze Piston', color: 0xb07a30 },
   { id: 'grinder_head:steel', name: 'Steel Grinder Head', color: 0x707478 },
 ];

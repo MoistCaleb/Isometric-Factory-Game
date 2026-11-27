@@ -9,11 +9,12 @@ import { BOILER_WATER, BOOM_K, FACE, FUELS, ITEM_EVERY, MACHINE, STEAM_BUF, type
 import { PIPES, STRUCTURES } from '../data/structures';
 import { registry } from '../content/registry';
 import type { WorldGen } from '../world/gen';
-import { BAG as BAG_N, controllerAt, explode, newMach, type Mach } from './machines';
+import { BAG as BAG_N, controllerAt, explode, hatchOf, newMach, type Mach } from './machines';
 import type { GameState } from './state';
 
-/** A machine side touching the network: controller key, its face index, the pipe block it touches. */
-export interface Link { ctl: string; face: number; via: string }
+/** A machine side touching the network: controller key, its face index, the pipe block it touches; through a hatch
+ * (P3d) the direction is fixed by the hatch. */
+export interface Link { ctl: string; face: number; via: string; hatch?: 'in' | 'out' }
 export interface Net { keys: string[]; item: boolean; rate: number; cap: number; links: Link[]; dist: Map<string, Map<string, number>> }
 
 /** Bumped whenever structures are placed/removed: networks are rebuilt lazily. */
@@ -51,7 +52,11 @@ export function networks(ents: GameState['ents'], w: number): Net[] {
         if (ne.s === e.s) { if (!seen.has(nk!)) { seen.add(nk!); todo.push(nk!); } return; }
         if (PIPES.has(ne.s)) return;
         const [x, y, b] = nk!.split(',').map(Number), ctl = controllerAt(ents, w, x, y, b), face = i ^ 1;
-        if (ctl && !links.has(`${ctl}|${face}`)) links.set(`${ctl}|${face}`, { ctl, face, via: cur });
+        if (!ctl) return;
+        // Multiblocks with hatches connect only through matching hatches (fluid hatches on fluid pipes, buses on item pipes).
+        const h = hatchOf(ne.s), lk = `${ctl}|${face}|${h ?? ''}`;
+        if (h ? h === 'item_in' ? !pd.item : !!pd.item : !!SH.get(ents[ctl].s)) return;
+        if (!links.has(lk)) links.set(lk, { ctl, face, via: cur, hatch: h ? (h === 'fluid_out' ? 'out' : 'in') : undefined });
       });
     }
     nets.push({ keys, item: !!pd.item, rate: pd.rate, cap: pd.cap * keys.length, dist: new Map(),
@@ -62,6 +67,8 @@ export function networks(ents: GameState['ents'], w: number): Net[] {
 }
 
 const SM = new Map(STRUCTURES.map((st) => [st.id, st.machine ?? '']));
+/** Structures that only connect through hatches. */
+const SH = new Map(STRUCTURES.map((st) => [st.id, !!st.multi?.hatches]));
 const defOf = (s: GameState, ctl: string): MachineDef | undefined => MACHINE.get(SM.get(s.ents[ctl]?.s ?? '') ?? '');
 const mode = (m: Mach, face: number) => m.faces?.[face] ?? FACE.auto;
 const canIn = (m: Mach, face: number) => { const f = mode(m, face); return f === FACE.auto || f === FACE.in; };
@@ -72,14 +79,14 @@ const canOut = (m: Mach, face: number, def: MachineDef) => {
 };
 const isStore = (def?: MachineDef) => def?.run === 'store' || def?.run === 'tank';
 
-/** Attached machines with the sides allowed by `ok`, one entry per controller. */
-function attached(s: GameState, net: Net, ok: (m: Mach, face: number, def: MachineDef) => boolean) {
+/** Attached machines that take in (or give out) on a linked side, one entry per controller. */
+function attached(s: GameState, net: Net, dir: 'in' | 'out') {
   const out: { ctl: string; m: Mach; def: MachineDef; via: string }[] = [], done = new Set<string>();
   for (const l of net.links) {
     const def = defOf(s, l.ctl);
     if (!def || done.has(l.ctl)) continue;
     const m = (s.mach[l.ctl] ??= newMach());
-    if (!ok(m, l.face, def)) continue;
+    if (l.hatch ? l.hatch !== dir : dir === 'in' ? !canIn(m, l.face) : !canOut(m, l.face, def)) continue;
     done.add(l.ctl); out.push({ ctl: l.ctl, m, def, via: l.via });
   }
   return out;
@@ -100,7 +107,7 @@ export const tooHot = (def: MachineDef, id: string) => !!def.cold && (id === 'st
 
 /** Room a machine has for fluid `id` → [current, cap, setter]. */
 function want(m: Mach, def: MachineDef, id: string): [number, number, (n: number) => void] | null {
-  if (def.run === 'boiler') return id === 'water' ? [m.water ?? 0, BOILER_WATER, (n) => { m.water = n; }] : null;
+  if (def.run === 'boiler') return id === 'water' ? [m.water ?? 0, def.waterTank ?? BOILER_WATER, (n) => { m.water = n; }] : null;
   if ((def.run === 'steam' || def.steam) && id === 'steam') return [m.steam ?? 0, STEAM_BUF, (n) => { m.steam = n; }];
   const setTank = (n: number) => { m.tank = n > 0 ? { id, n } : undefined; };
   if (def.run === 'tank') return (m.tank && m.tank.id !== id) || tooHot(def, id) ? null : [m.tank?.n ?? 0, def.tank ?? 0, setTank];
@@ -116,7 +123,7 @@ function stepFluid(s: GameState, net: Net) {
   // A network keeps its fluid even when empty (no steam backflow into a drained water line). Merged networks with
   // different fluids keep the larger one (the rest is lost).
   for (const [f, v] of Object.entries(byId)) if (!id || v > n) { id = f; n = v; }
-  const outs = attached(s, net, canOut), ins = attached(s, net, canIn);
+  const outs = attached(s, net, 'out'), ins = attached(s, net, 'in');
   const push = (list: typeof outs) => {
     for (const { m, def } of list) {
       const o = offer(m, def);
@@ -164,7 +171,7 @@ export function accepts(m: Mach, def: MachineDef, id: string): [number, Record<s
   const r = m.rec ? registry().recipe(m.rec) : undefined;
   if (r?.inputs.some((i) => i.id === id)) return [Math.max(0, BAG_N - (m.inp[id] ?? 0)), m.inp];
   if (r?.keep?.includes(id)) return [m.inp[id] ? 0 : 1, m.inp];
-  if ((def.run === 'fuel' || def.run === 'boiler') && FUELS[id]) return [Math.max(0, BAG_N - (m.fuel[id] ?? 0)), m.fuel];
+  if ((def.run === 'fuel' || def.run === 'boiler') && !def.solar && FUELS[id]) return [Math.max(0, BAG_N - (m.fuel[id] ?? 0)), m.fuel];
   return null;
 }
 
@@ -184,9 +191,9 @@ function distFrom(net: Net, from: string, w: number): Map<string, number> {
 }
 
 function stepItems(s: GameState, net: Net, w: number) {
-  const sinks = attached(s, net, canIn);
+  const sinks = attached(s, net, 'in');
   if (!sinks.length) return;
-  for (const src of attached(s, net, canOut)) {
+  for (const src of attached(s, net, 'out')) {
     let left = net.rate;
     const d = distFrom(net, src.via, w);
     const near = sinks.filter((t) => t.ctl !== src.ctl).sort((a, b) => (d.get(a.via) ?? 1e9) - (d.get(b.via) ?? 1e9));

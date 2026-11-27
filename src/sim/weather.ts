@@ -1,6 +1,6 @@
 // Planet weather (DESIGN §3): wind strength + rain, eased toward randomly rolled fronts. Acid rain: P5.
 import { next } from './rng';
-import { TPS, type GameState } from './state';
+import { TPS, timeOfDay, type GameState } from './state';
 
 const EASE = 1 / (TPS * 90); // ~90 s to settle
 
@@ -14,4 +14,10 @@ export function stepWeather(s: GameState): void {
   w.wind += (w.tWind - w.wind) * EASE * 3;
   w.rain += (w.tRain - w.rain) * EASE * 3;
   if (w.rain < 0.002 && w.tRain === 0) w.rain = 0;
+}
+
+/** Sunlight 0–1 (solar, P3d): follows the sun's height (as the renderer lights it), dimmed by rain. */
+export function sunlight(s: GameState): number {
+  const elev = Math.sin((timeOfDay(s.tick) - 0.25) * Math.PI * 2);
+  return Math.min(1, Math.max(0, elev * 1.5)) * (1 - s.weather.rain * 0.7);
 }

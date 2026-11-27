@@ -6,7 +6,7 @@ import * as store from '../save/store';
 import type { MachView, SimStats } from '../sim/client';
 import { controllerAt, controllerInStorey } from '../sim/machines';
 import type { ActResult, SlotRef } from '../sim/player';
-import { nearSide, STRUCT, type BaseKind } from '../sim/build';
+import { nearSide, type BaseKind } from '../sim/build';
 import { BuildBar } from './BuildBar';
 import { bytes, duration, gameClock, levelName, weatherText } from './format';
 import { hoverItem, Inventory } from './Inventory';
@@ -80,8 +80,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
     };
     game.sim.onMach = (mv) => {
       setMachView(mv);
-      const casing = mv.m && renderer.entities[mv.key] ? STRUCT.get(renderer.entities[mv.key].s)?.multi?.casing : undefined;
-      renderer.setGhosts(casing ? Object.fromEntries(mv.miss.map((k) => [k, casing])) : {});
+      renderer.setGhosts(mv.m && renderer.entities[mv.key] ? Object.fromEntries(mv.miss) : {});
     };
     game.onChange = refresh;
     game.onToast = (msg, err) => { setToast({ msg, err }); setTimeout(() => setToast(null), 2500); };

@@ -2,14 +2,15 @@
 // anything relevant changes (counts stay small in P2; per-chunk split later if needed).
 // Near-side walls render low (unless Base Build); roofs on the viewed storey go see-through when zoomed in.
 import * as THREE from 'three';
-import { MULTI_PARTS, PIPES, STRUCTURES, type Box } from '../data/structures';
+import { MULTI_PARTS, PIPES, STRUCTURES, multiCells, type Box } from '../data/structures';
 import { STOREY, type Ent } from '../sim/state';
 
 const MODELS = new Map(STRUCTURES.map((s) => [s.id, s.model]));
+const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
 const TOP = new Map(STRUCTURES.map((s) => [s.id, Math.max(...s.model.map((b) => b[4])) / 16]));
 /** Status icon colour by machine status (sim/machines MS): idle none · working · no input · full · cold · incomplete · no water ·
- * crank · no fuel · no steam · dry · no water in · surveyed · mined out. */
-const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040, 0xe8c040, 0xff2020, 0xe8c040, 0x40a0ff, 0xe04030];
+ * crank · no fuel · no steam · dry · no water in · surveyed · mined out · no sun. */
+const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040, 0xe8c040, 0xff2020, 0xe8c040, 0x40a0ff, 0xe04030, 0xe8c040];
 const COLOR = new Map(STRUCTURES.map((s) => [s.id, s.color]));
 /** Pipe arms toward the 6 neighbours: [dx, dy(row), db, box in 16ths]. */
 const ARMS: [number, number, number, Box][] = [
@@ -126,7 +127,12 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
 /** Ghost preview geometry for the build cursor. */
 export function ghostGeometry(g: { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string; side: string } | { kind: 'demolish' }): THREE.BufferGeometry {
   const bx = new Boxes();
-  if (g.kind === 'struct') bx.model(MODELS.get(g.id) ?? [[1, 0, 1, 15, 8, 15, 0xffffff]], 0, 0, 0, g.r, 0xffffff);
+  if (g.kind === 'struct') {
+    bx.model(MODELS.get(g.id) ?? [[1, 0, 1, 15, 8, 15, 0xffffff]], 0, 0, 0, g.r, 0xffffff);
+    // Multiblock controller: show the whole footprint as it will face (P3d rotation).
+    const st = STRUCT.get(g.id);
+    if (st?.multi) for (const { c: [dx, dy, db] } of multiCells(st, g.r)) bx.add(dx + 0.1, db + 0.1, dy + 0.1, dx + 0.9, db + 0.9, dy + 0.9, 0xffffff);
+  }
   else if (g.kind === 'demolish') bx.add(-0.02, 0, -0.02, 1.02, 0.5, 1.02, 0xff4030);
   else if (g.part === 'floor') bx.add(0, 0, 0, 1, SLAB, 1, 0xffffff);
   else if (g.part === 'roof') bx.add(0, STOREY, 0, 1, STOREY + SLAB, 1, 0xffffff);

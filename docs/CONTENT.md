@@ -274,16 +274,16 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 ### Steam age
 **Hulls:**
 - **Bronze Hull** = 8 bronze plates + wrench + bricks
-- **Steel Hull** = high-pressure versions, faster, more steam
+- **Steel Hull** = 8 steel plates + 4 fire bricks (hammer + wrench): high-pressure versions, faster, more steam
 
 **Boilers:**
 
 | Machine | Key parts | Notes |
 |---|---|---|
 | Small Bronze Boiler | bronze hull + 8 bricks + clay furnace | burns fuel items; 12 L/tick steam at 500 K |
-| Solar Boiler | bronze hull + glass + silver plate | weak, daytime |
-| High-Pressure Steel Boiler | steel hull | 2.5× steam |
-| Large Boiler (multiblock) | bronze/steel casings, fire boxes | Steam gate multiblock |
+| Solar Boiler | bronze hull + 4 glass + 2 silver plates | ≤6 L/tick by daylight (450 K), less in rain, none at night; no fuel |
+| High-Pressure Steel Boiler | steel hull + 8 fire bricks + 2 bronze pipes | 600 K, 30 L/tick (2.5×), fuel 2× as fast |
+| Large Boiler (multiblock) | controller: steel hull + 8 fire bricks + 4 bronze pipes; 3×3×3 behind it: 8 steel firebox casings (2 steel plates + 4 fire bricks), 16 bronze plated bricks (4 bronze plates + 4 bricks) around 2 bronze pipe casings; input + output hatch required, input bus optional | Steam gate multiblock: 800 K, 120 L/tick, fuel 8× as fast |
 
 **Steam machines:**
 
@@ -501,9 +501,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - P3c: ore ladder (s_ladder), compressor, rubber (treetap + sulfur), extractor, steam pump
    - steam thumper (s_thumper)
    - steam excavator (s_excavator)
-   - high-pressure boilers
-   - Large Boiler
-   - steel hull
+   - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
 3. **LV:**
    - lodestone magnet
    - first motor

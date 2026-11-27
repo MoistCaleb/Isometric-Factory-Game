@@ -6,12 +6,12 @@ import { MINERALS } from './minerals';
 import type { TierId } from './tiers';
 
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
- * mdump open claim mface cput tap thump. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
+ * mdump open claim mface cput tap thump lboiler. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
   'bookmark', 'journal', 'overlay', 'machine'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
-  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump'] as const;
+  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -361,5 +361,31 @@ export const QUESTS: QuestDef[] = [
       'Build it over a surveyed vein (the overlay, **O**, shows where).',
     ],
     tasks: [build('steam_excavator'), any(ores('ore'), 64, 'Any ore')] },
+  // ---- P3d: high pressure, sunshine, the Large Boiler ----
+  { id: 's_steel_hull', chapter: 'S', title: 'Steel Hull', req: ['s_boiler'], reward: S1,
+    text: [
+      'Bronze is soft. A **Steel Hull** (8 steel plates + 4 fire bricks, hammer + wrench) holds far more pressure — the base of every high-pressure machine and of the Large Boiler.',
+      'Steel comes from the primitive blast furnace. It is slow: start stockpiling now.',
+    ],
+    tasks: [have('hull:steel')] },
+  { id: 's_hp_boiler', chapter: 'S', title: 'High Pressure', req: ['s_steel_hull'], reward: S1,
+    text: [
+      'The **High-Pressure Steel Boiler** (steel hull + 8 fire bricks + 2 bronze pipes) runs hotter (600 K) and makes **2.5×** the steam of the small boiler — 30 L/tick — but burns fuel twice as fast.',
+      'Everything else is the same: water in, steam out, and never let it run dry while hot.',
+    ],
+    tasks: [build('hp_boiler')] },
+  { id: 's_solar', chapter: 'S', title: 'Sunshine', req: ['s_boiler'], reward: S1,
+    text: [
+      'The **Solar Boiler** (bronze hull + 4 glass panes + 2 silver plates) burns nothing: sunlight heats it. It is weak (6 L/tick at most), makes nothing at night and less in rain, but it never needs feeding.',
+      'It still boils water, so it still explodes if water hits it while it is dry and hot.',
+    ],
+    tasks: [build('solar_boiler')] },
+  { id: 's_large_boiler', chapter: 'S', title: 'Large Boiler', req: ['s_hp_boiler', 's_items'], reward: S2,
+    text: [
+      'The **Large Boiler** is the steam age\'s great machine: **120 L/tick** of steam at 800 K, burning fuel 8× as fast as a small boiler. Its controller (steel hull + 8 fire bricks + 4 bronze pipes) sits at the **front** of a 3×3×3 block: a floor of 8 **Steel Firebox Casings**, then two layers of **Bronze Plated Bricks** around a **Bronze Pipe Casing** core.',
+      '**Rotation:** press **F** (or ↻ in the build bar) before placing — the ghost shows the whole footprint and which way the front faces. The structure is built **behind** the controller.',
+      '**Hatches:** big multiblocks don\'t take pipes on just any casing. Any **outer** casing can be swapped for a hatch: a **Bronze Input Hatch** (water in), a **Bronze Output Hatch** (steam out) and, if you like, a **Bronze Input Bus** (fuel by item pipe). It needs at least one input and one output hatch. Place the hatches first, then **Auto-fill** the rest.',
+    ],
+    tasks: [build('large_boiler'), flag('lboiler', 'Run a complete Large Boiler')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

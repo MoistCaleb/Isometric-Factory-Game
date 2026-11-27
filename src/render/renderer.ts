@@ -10,7 +10,7 @@ import { LAYERS, Tree, Water, worldGen, type WorldGen } from '../world/gen';
 import { planetMap } from '../world/map';
 import { buildChunk, CH, disposeChunk } from './chunks';
 import { buildStructs, ghostGeometry } from './structures';
-import { PATTERNS } from '../data/structures';
+import { multiCells } from '../data/structures';
 import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
 
@@ -299,9 +299,9 @@ export class Renderer {
     const k = this.selKey, e = k ? this.ents[k] : undefined;
     this.sel.visible = !!e && this.view.level >= 0;
     if (!e || !this.sel.visible) return;
-    const [x, y, b] = k!.split(',').map(Number), m = STRUCT.get(e.s)?.multi;
+    const [x, y, b] = k!.split(',').map(Number), st = STRUCT.get(e.s);
     let x0 = 0, x1 = 1, y0 = 0, y1 = 1, b1 = 1;
-    for (const [dx, dy, db] of m ? PATTERNS[m.pattern].cells : []) {
+    for (const { c: [dx, dy, db] } of st?.multi ? multiCells(st, e.r) : []) {
       x0 = Math.min(x0, dx); x1 = Math.max(x1, dx + 1); y0 = Math.min(y0, dy); y1 = Math.max(y1, dy + 1); b1 = Math.max(b1, db + 1);
     }
     const v = this.view, wx = v.x + mod(x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2, pad = 0.06;

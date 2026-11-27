@@ -7,7 +7,7 @@ import { AMBIENT_K, BOIL_K, BOILER_RATE, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, D
   THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
-import { PATTERNS, STRUCTURES, type Cell, type StructDef } from '../data/structures';
+import { PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
 import { placeAt } from './build';
 import { accepts, topoChanged } from './pipes';
@@ -16,6 +16,7 @@ import { STACK, bestTool, blockAt, count, give, take, wear } from './player';
 import { next } from './rng';
 import { KNOW, STOREY, type GameState } from './state';
 import { know, survey } from './veins';
+import { sunlight } from './weather';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -39,10 +40,10 @@ export interface Mach {
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
-  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it'];
+  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -70,8 +71,9 @@ export function machineAt(ents: GameState['ents'], key: string): { st: StructDef
   return st && def ? { st, def } : null;
 }
 
-const PATTERN_LIST = Object.values(PATTERNS);
-const cellKey = (w: number, x: number, y: number, f: number, [dx, dy, df]: Cell) => `${mod(x + dx, w)},${y + dy},${f + df}`;
+const MULTIS = STRUCTURES.filter((st) => st.multi);
+const HATCH = new Map(STRUCTURES.filter((st) => st.hatch).map((st) => [st.id, st.hatch!]));
+const cellKey = (w: number, x: number, y: number, f: number, [dx, dy, df]: number[]) => `${mod(x + dx, w)},${y + dy},${f + df}`;
 
 /** Controller for what's at a tile on storey f (top block first). */
 export function controllerInStorey(ents: GameState['ents'], w: number, x: number, y: number, f: number): string | null {
@@ -86,27 +88,47 @@ export function controllerAt(ents: GameState['ents'], w: number, x: number, y: n
   if (machineAt(ents, key)) return key;
   const e = ents[key];
   if (!e) return null;
-  for (const p of PATTERN_LIST) for (const [dx, dy, df] of p.cells) {
-    if (f - df < 0) continue;
-    const k = `${mod(x - dx, w)},${y - dy},${f - df}`, st = STRUCT.get(ents[k]?.s ?? '');
-    if (st?.multi?.casing === e.s && PATTERNS[st.multi.pattern] === p) return k;
+  for (const st of MULTIS) for (let r = 0; r < 4; r++) for (const { c: [dx, dy, df], id, hatch } of multiCells(st, r)) {
+    if (f - df < 0 || (id !== e.s && !(hatch && st.multi!.hatches!.includes(e.s)))) continue;
+    const k = `${mod(x - dx, w)},${y - dy},${f - df}`, c = ents[k];
+    if (c?.s === st.id && c.r === r) return k;
   }
   return null;
 }
 
-/** Multiblock check: pattern tiles lacking their casing, and chamber tiles that must be empty. */
-export function multiCheck(ents: GameState['ents'], w: number, key: string): { miss: string[]; blocked: string[] } {
-  const st = STRUCT.get(ents[key]?.s ?? ''), m = st?.multi;
-  if (!m) return { miss: [], blocked: [] };
-  const [x, y, f] = parse(key), p = PATTERNS[m.pattern];
+export interface MultiCheck {
+  /** Pattern tiles lacking their casing: [key, structure id], bottom-up. */
+  miss: [string, string][];
+  /** Chamber tiles that must be empty. */
+  blocked: string[];
+  /** Required hatches not present (structure ids). */
+  need: string[];
+}
+const NO_MULTI: MultiCheck = { miss: [], blocked: [], need: [] };
+/** Multiblock check (rotated with the controller); hatches count as casings on outer tiles. */
+export function multiCheck(ents: GameState['ents'], w: number, key: string): MultiCheck {
+  const ctl = ents[key], st = STRUCT.get(ctl?.s ?? ''), m = st?.multi;
+  if (!m) return NO_MULTI;
+  const [x, y, f] = parse(key), miss: [string, string][] = [], hatches = new Set<string>();
+  // Bottom-up, outer before centre, so auto-fill always has support.
+  const cells = multiCells(st, ctl.r).sort((a, b) => a.c[2] - b.c[2] || Math.abs(b.c[0]) + Math.abs(b.c[1]) - Math.abs(a.c[0]) - Math.abs(a.c[1]));
+  for (const { c, id, hatch } of cells) {
+    const k = cellKey(w, x, y, f, c), s = ents[k]?.s;
+    if (s === id) continue;
+    if (hatch && s && m.hatches!.includes(s)) { hatches.add(s); continue; }
+    miss.push([k, id]);
+  }
   return {
-    // Bottom-up, outer before centre, so auto-fill always has support.
-    miss: [...p.cells].sort((a, b) => a[2] - b[2] || Math.abs(b[0]) + Math.abs(b[1]) - Math.abs(a[0]) - Math.abs(a[1]))
-      .map((c) => cellKey(w, x, y, f, c)).filter((k) => ents[k]?.s !== m.casing),
-    blocked: p.hollow.map((c) => cellKey(w, x, y, f, c)).filter((k) => ents[k]),
+    miss,
+    blocked: PATTERNS_HOLLOW(st).map((c) => cellKey(w, x, y, f, rotCell(c, ctl.r))).filter((k) => ents[k]),
+    need: (m.need ?? []).filter((h) => !hatches.has(h)),
   };
 }
+const PATTERNS_HOLLOW = (st: StructDef) => PATTERNS[st.multi!.pattern].hollow as Cell[];
+const incomplete = (mc: MultiCheck) => mc.miss.length + mc.blocked.length + mc.need.length > 0;
 export const missingCasings = (ents: GameState['ents'], w: number, key: string) => multiCheck(ents, w, key).miss;
+/** Hatch kind of a structure id (P3d). */
+export const hatchOf = (id: string) => HATCH.get(id);
 
 const waterCache = new Map<string, boolean>();
 function nearWater(gen: WorldGen, key: string): boolean {
@@ -142,8 +164,7 @@ function hasRoom(m: Mach, r: Recipe, def: MachineDef): boolean {
 /** Why the machine can't progress right now (null = ready). Doesn't touch fuel/heat. */
 function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef, r?: Recipe): number | null {
   if (!r) return MS.idle;
-  const mc = multiCheck(s.ents, gen.w, key);
-  if (mc.miss.length || mc.blocked.length) return MS.incomplete;
+  if (incomplete(multiCheck(s.ents, gen.w, key))) return MS.incomplete;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
   if (!hasInputs(m, r)) return MS.noInput;
   if (!hasRoom(m, r, def)) return MS.full;
@@ -166,8 +187,13 @@ export function stepMachines(s: GameState, gen: WorldGen) {
   for (const [key, m] of Object.entries(s.mach)) {
     const ma = machineAt(s.ents, key);
     if (!ma) { delete s.mach[key]; continue; }
-    const { def } = ma, r = recipeOf(m.rec);
-    if (def.run === 'boiler') { stepBoiler(m, def); continue; }
+    const { def, st } = ma, r = recipeOf(m.rec);
+    if (def.run === 'boiler') {
+      if (st.multi && incomplete(multiCheck(s.ents, gen.w, key))) { m.heat += (AMBIENT_K - m.heat) * BOILER_RATE; m.st = MS.incomplete; continue; }
+      stepBoiler(s, m, def);
+      if (st.multi && m.st === MS.working) s.flags.lboiler = (s.flags.lboiler ?? 0) + 1;
+      continue;
+    }
     if (def.run === 'store' || def.run === 'tank') continue;
     if (def.run === 'pump') {
       const room = (def.tank ?? 0) - (m.tank?.n ?? 0);
@@ -260,17 +286,19 @@ function stepDig(s: GameState, gen: WorldGen, key: string, m: Mach, def: Machine
   simEvents.push({ ok: true, sim: true, changes: { [k]: B.air }, veins, msg: veins ? `Excavator exposed: ${hit!.vein.def.name}` : undefined });
 }
 
-/** Boiler (DESIGN §6): fuel heats it (slowly) toward the flame, capped; above boiling it turns water into steam in its tank. */
-function stepBoiler(m: Mach, def: MachineDef) {
+/** Boiler (DESIGN §6): fuel heats it (slowly) toward the flame, capped; above boiling it turns water into steam in its tank.
+ * Solar boilers (P3d) heat toward their cap by daylight instead. */
+function stepBoiler(s: GameState, m: Mach, def: MachineDef) {
   const cap = def.tank ?? 0, max = def.maxHeatK ?? BOIL_K + 1, steam = m.tank?.n ?? 0;
-  if (m.burn <= 0 && steam < cap) {
+  if (def.solar) { m.burn = 0; m.burnK = AMBIENT_K + (max - AMBIENT_K) * sunlight(s); if (m.burnK > BOIL_K) m.burn = 1; }
+  else if (m.burn <= 0 && steam < cap) {
     const fuel = Object.keys(m.fuel).sort((a, c) => FUELS[c][0] - FUELS[a][0])[0];
     if (fuel) { [m.burnK, m.burn] = FUELS[fuel]; if (!--m.fuel[fuel]) delete m.fuel[fuel]; }
   }
   const target = m.burn > 0 ? Math.min(m.burnK, max) : AMBIENT_K;
   m.heat += (target - m.heat) * BOILER_RATE;
-  if (m.burn > 0) m.burn--;
-  if (m.heat < BOIL_K) { m.dry = false; m.st = m.burn > 0 ? MS.cold : MS.noFuel; return; }
+  if (m.burn > 0) m.burn = def.solar ? 0 : Math.max(0, m.burn - (def.fuelUse ?? 1));
+  if (m.heat < BOIL_K) { m.dry = false; m.st = steam >= cap ? MS.full : m.burn > 0 || (def.solar && target > BOIL_K) ? MS.cold : def.solar ? MS.noSun : MS.noFuel; return; }
   if (m.dry) { m.st = MS.dry; return; }
   if ((m.water ?? 0) <= 1e-6) { m.water = 0; m.dry = true; m.st = MS.dry; return; }
   const n = Math.min((def.rate ?? 0) * (m.heat - BOIL_K) / (max - BOIL_K), cap - steam, m.water! * STEAM_PER_WATER);
@@ -352,7 +380,7 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       return { ok: true, msg: r.inputs.length ? `Loaded ×${done}` : undefined };
     }
     case 'mfuel': {
-      if (def.run !== 'fuel' && def.run !== 'boiler') return { ok: false, msg: 'Burns no fuel' };
+      if ((def.run !== 'fuel' && def.run !== 'boiler') || def.solar) return { ok: false, msg: 'Burns no fuel' };
       if (!FUELS[c.id]) return { ok: false, msg: 'Not a fuel' };
       const n = Math.min(c.n, count(s, c.id), BAG - (m.fuel[c.id] ?? 0));
       if (n <= 0) return { ok: false, msg: count(s, c.id) ? 'Fuel bag full' : `No ${name(c.id)}` };
@@ -397,15 +425,15 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       return { ok: true, msg: msg ?? (made.length ? `Made ${made.join(', ')}` : undefined) };
     }
     case 'mfill': {
-      const miss = missingCasings(s.ents, gen.w, c.key), casing = st.multi?.casing;
-      if (!casing || !miss.length) return { ok: true };
+      const miss = missingCasings(s.ents, gen.w, c.key);
+      if (!st.multi || !miss.length) return { ok: true };
       const ents: NonNullable<ActResult['ents']> = {};
       let why: string | undefined;
-      for (const k of miss) {
+      for (const [k, id] of miss) {
         const [x, y, f] = parse(k);
         if (s.ents[k]) { why = 'Something else is in the way'; continue; }
-        const res = placeAt(s, gen, `struct:${casing}`, x, y, f, 0);
-        if (!res.ok && res.msg?.startsWith('No ')) { why = res.msg; break; }
+        const res = placeAt(s, gen, `struct:${id}`, x, y, f, 0);
+        if (!res.ok && res.msg?.startsWith('No ')) { why = res.msg; continue; }
         if (res.ok) Object.assign(ents, res.ents); else why = res.msg;
       }
       return { ok: !why, ents, msg: why };

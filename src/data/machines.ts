@@ -25,6 +25,9 @@ export interface MachineDef {
   cold?: boolean;
   /** Steam L/tick for machines without recipes (steam pump, thumper, excavator). */
   steam?: number;
+  /** Boiler (P3d): burn ticks used per tick (bigger boilers eat fuel faster) · water tank (L, default BOILER_WATER) ·
+   * heated by daylight instead of fuel. */
+  fuelUse?: number; waterTank?: number; solar?: boolean;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
@@ -44,6 +47,9 @@ const ROWS: Row[] = [
   ['chest', 'Wooden Chest', 'P', undefined, { run: 'store', slots: 27 }],
   ['barrel', 'Wooden Barrel', 'P', undefined, { run: 'tank', tank: 16000, cold: true }],
   ['small_boiler', 'Small Bronze Boiler', 'S', 500, { run: 'boiler', rate: 12, tank: 16000 }],
+  ['hp_boiler', 'High-Pressure Steel Boiler', 'S', 600, { run: 'boiler', rate: 30, tank: 16000, fuelUse: 2 }],
+  ['solar_boiler', 'Solar Boiler', 'S', 450, { run: 'boiler', rate: 6, tank: 8000, solar: true }],
+  ['large_boiler', 'Large Boiler', 'S', 800, { run: 'boiler', rate: 120, tank: 32000, fuelUse: 8, waterTank: 32000 }],
   ['water_pump', 'Water Pump', 'S', undefined, { run: 'pump', rate: 10, tank: 8000, water: true }],
   ['steam_furnace', 'Steam Furnace', 'S', 1400, { run: 'steam' }],
   ['steam_macerator', 'Steam Macerator', 'S', undefined, { run: 'steam' }],

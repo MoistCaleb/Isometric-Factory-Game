@@ -44,13 +44,15 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
   const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun].includes(m.st as 2);
   const meter = (label: string, n: number, cap: number, col: string) => (
     <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
       <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
   );
   const fuels = Object.keys(FUELS).filter((id) => count(inv, id) > 0);
-  const casing = st.multi && STRUCT.get(st.multi.casing);
+  // Missing casings grouped by structure (P3d: several casing kinds) and required hatches.
+  const missBy = new Map<string, number>();
+  for (const [, id] of view!.miss) missBy.set(id, (missBy.get(id) ?? 0) + 1);
   const chest = def.run === 'store', barrel = def.run === 'tank', store = chest || barrel;
   const invIds = chest ? [...new Set(inv.inv.flatMap((sl) => (sl ? [sl.id] : [])))] : [];
   const faces = m.faces ?? [0, 0, 0, 0, 0, 0];
@@ -64,19 +66,21 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
       </div>
 
       {view!.blocked.length > 0 && <div class="dim">Inner chamber must be empty: clear {view!.blocked.length} tile(s) above the controller.</div>}
-      {view!.miss.length > 0 && casing && (
+      {view!.miss.length > 0 && (
         <div class="row">
-          <span class="dim grow">Multiblock: {view!.miss.length} × {casing.name} missing (ghosted) · have {count(inv, `struct:${casing.id}`)}</span>
+          <span class="dim grow">Multiblock — missing (ghosted): {[...missBy].map(([id, n]) => `${n} × ${STRUCT.get(id)?.name ?? id} (have ${count(inv, `struct:${id}`)})`).join(' · ')}</span>
           <button onClick={() => cmd({ k: 'mfill' })}>Auto-fill</button>
         </div>
       )}
+      {view!.need.length > 0 && <div class="dim">Needs hatches on its outer casing: {view!.need.map((id) => STRUCT.get(id)?.name ?? id).join(', ')}. Place them on ghosted outer tiles before Auto-fill, or swap out a top casing.</div>}
+      {st.multi?.hatches && <div class="dim">Pipes connect only through its hatches. Rotation: the controller's front faces the way you placed it.</div>}
 
       {boiler && (
         <>
           <h3>Water → Steam</h3>
-          {meter('Water', m.water ?? 0, BOILER_WATER, '#3070d0')}
+          {meter('Water', m.water ?? 0, def.waterTank ?? BOILER_WATER, '#3070d0')}
           {meter('Steam', m.tank?.n ?? 0, def.tank ?? 0, '#d0d0d0')}
-          <div class="dim">Up to {def.rate} L/tick of steam when hot. Pipe water in and steam out (bronze pipes). Never let it run dry while hot.</div>
+          <div class="dim">Up to {def.rate} L/tick of steam at {def.maxHeatK} K{def.fuelUse ? `, burning fuel ${def.fuelUse}× as fast` : ''}{def.solar ? ', heated by sunlight (none at night, less in rain)' : ''}. Pipe water in and steam out (bronze pipes). Never let it run dry while hot.</div>
         </>
       )}
       {(def.run === 'steam' || def.steam) && (
@@ -127,8 +131,8 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
           <h3>Heat</h3>
           <div class="bar"><div style={{ width: `${Math.min(100, (m.heat / (def.maxHeatK ?? 1)) * 100)}%`, background: m.heat >= need ? '#e08030' : '#806040' }} />
             <i style={{ left: `${(need / (def.maxHeatK ?? 1)) * 100}%` }} /></div>
-          <div class="dim">{Math.round(m.heat)} K · needs {need} K · max {def.maxHeatK} K{m.burn > 0 ? ` · burning ${Math.ceil(m.burn / 20)} s` : ''}</div>
-          <div class="io">
+          <div class="dim">{Math.round(m.heat)} K · needs {need} K · max {def.maxHeatK} K{m.burn > 0 && !def.solar ? ` · burning ${Math.ceil(m.burn / 20 / (def.fuelUse ?? 1))} s` : ''}</div>
+          {!def.solar && <><div class="io">
             {bag(m.fuel).map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}
             {!Object.keys(m.fuel).length && <span class="dim">No fuel loaded</span>}
           </div>
@@ -139,7 +143,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
               </button>
             ))}
             {!fuels.length && <span class="dim">Fuel: straw, sticks, planks, logs, charcoal, coal, coke</span>}
-          </div>
+          </div></>}
         </>
       )}
 

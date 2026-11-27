@@ -13,8 +13,8 @@ export type ToSim =
 export type FromSim =
   | { t: 'ready' }
   | { t: 'stats'; tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number; ms: Record<string, number>; q: Record<string, number>; fl: Record<string, number> }
-  /** Watched machine (null = gone) + missing multiblock casing keys. */
-  | { t: 'mach'; key: string; m: Mach | null; miss: string[]; blocked: string[] }
+  /** Watched machine (null = gone) + multiblock check (missing casings [key, id], blocked chamber, missing hatches). */
+  | { t: 'mach'; key: string; m: Mach | null; miss: [string, string][]; blocked: string[]; need: string[] }
   | { t: 'snapshot'; id: number; state: GameState }
   | { t: 'act'; res: ActResult; inv: (Slot | null)[]; tools: (Slot | null)[] }
   | { t: 'error'; message: string };
