@@ -83,7 +83,7 @@ export function validate(reg: Registry): Report {
   }
 
   // Machine recipe conflicts (GT-style: same machine + same input set, counts ignored → need distinct circuits).
-  // Hand recipes are disambiguated by grid shape (P2).
+  // Hand recipes are picked explicitly from a list, so they can't conflict.
   const keys = new Map<string, string>();
   for (const r of reg.recipes) {
     if (r.machine === 'hand') continue;

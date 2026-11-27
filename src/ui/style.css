@@ -63,3 +63,27 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .feed > div { background: var(--panel); border-radius: 4px; padding: 2px 8px; white-space: nowrap; }
 .feed .err { color: #f08080; }
 .feed .dig { color: var(--acc); }
+.recipes { position: absolute; top: 52px; right: 12px; bottom: calc(64px + env(safe-area-inset-bottom, 0)); width: min(560px, calc(100% - 24px));
+  display: flex; flex-direction: column; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; }
+.rhead { padding: 8px; border-bottom: 1px solid var(--line); flex-wrap: nowrap; }
+.rhead input[type=search] { flex: 1; min-width: 0; background: #20252c; color: var(--fg); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font: inherit; user-select: text; }
+.rhead label { white-space: nowrap; font-size: 12px; }
+.rbody { overflow: auto; padding: 8px; flex: 1; }
+.rbody h3 { margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
+.picks { display: flex; flex-wrap: wrap; gap: 4px; }
+.pick { display: inline-flex; align-items: center; gap: 6px; padding: 3px 8px; min-height: 28px; font-size: 12px; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; border: 1px solid #0006; flex: none; }
+.sw.big { width: 18px; height: 18px; }
+.ititle { gap: 8px; margin-bottom: 6px; }
+.ititle .grow { flex: 1; }
+.tabs { margin-bottom: 6px; }
+.card { border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; margin-bottom: 6px; }
+.cardhead { font-size: 11px; margin-bottom: 4px; }
+.tier { border: 1px solid var(--line); border-radius: 3px; padding: 0 4px; font-size: 10px; }
+.io { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; }
+.chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; background: #20252c; border: 1px solid var(--line); border-radius: 4px; padding: 2px 6px; cursor: pointer; }
+.chip.bad { border-color: #c04040; color: #f0a0a0; }
+.chip.tool { cursor: default; }
+.arrow { color: var(--acc); font-weight: 700; padding: 0 2px; }
+.craftrow { margin-top: 6px; font-size: 12px; }
+.craftrow button { min-height: 28px; padding: 3px 10px; }

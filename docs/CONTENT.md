@@ -227,7 +227,7 @@ Distance: rare veins are weighted away from spawn.
 **Hand-pick reach rule:** a pick made of a tier-T material mines hardness ≤ T+1. Bronze (P) → H1 · Steel (S) → H2 · Vanadium Steel (LV) → H3 · Cr-V Steel (MV) → H4 · WC (HV) → H5.
 
 ### Crafting Station (P, placeable)
-- 3×3 grid. Recipes use tools from **your 9 tool slots**, and those tools wear down. Missing tools are highlighted in the recipe.
+- Crafting panel (recipe browser): pick a hand recipe and craft ×1/×4/×16 from the global inventory (no grid; the player picks the recipe, so hand recipes never conflict). Recipes use tools from **your 9 tool slots**, and those tools wear down. Missing inputs/tools are highlighted in the recipe.
 - Hand recipes:
   - log → 2 planks (4 with saw)
   - plank → 2 sticks (4 with saw)

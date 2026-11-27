@@ -6,7 +6,8 @@ import * as store from '../save/store';
 import type { SimStats } from '../sim/client';
 import type { ActResult, SlotRef } from '../sim/player';
 import { bytes, duration, gameClock, levelName, weatherText } from './format';
-import { Inventory } from './Inventory';
+import { hoverItem, Inventory } from './Inventory';
+import { Recipes, type Look } from './Recipes';
 
 const ACTS: [Act, string, string, boolean][] = [
   ['view', '👁', 'View', true],
@@ -32,6 +33,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [sel, setSel] = useState<SlotRef | null>(null);
   const [feed, setFeed] = useState<Feed[]>([]);
   const [dig, setDig] = useState<string | null>(null);
+  const [book, setBook] = useState(false);
+  const [look, setLook] = useState<Look | null>(null);
+  const openLook = (l: Look) => { setLook(l); setBook(true); setBag(false); setMenu(false); setSel(null); };
 
   const refresh = () => store.list().then(setSaves).catch(() => setSaves([]));
   const push = (text: string, err?: boolean) => {
@@ -66,7 +70,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if ((e.target as HTMLElement)?.tagName === 'INPUT') return;
       if (e.code === 'Space' && e.target === document.body) { e.preventDefault(); game.togglePause(); }
       if (e.code === 'Escape') setMenu((m) => !m);
-      if (e.code === 'KeyI' || e.code === 'Tab') { e.preventDefault(); setBag((b) => !b); setSel(null); }
+      if (e.code === 'KeyI' || e.code === 'Tab') { e.preventDefault(); setBag((b) => !b); setBook(false); setSel(null); }
+      if (e.code === 'KeyC') { setBook((b) => !b); setBag(false); }
+      if ((e.code === 'KeyR' || e.code === 'KeyU') && hoverItem) openLook({ id: hoverItem, tab: e.code === 'KeyR' ? 'recipes' : 'uses' });
       if (e.code === 'KeyV') pickAct('view');
       if (e.code === 'KeyX') pickAct('mine');
     };
@@ -98,7 +104,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button class={iso ? 'on' : ''} onClick={() => renderer.setMode('iso')}>Local</button>
         <button class={view.mode === 'map' ? 'on' : ''} onClick={() => renderer.setMode('map')} title="M">Map</button>
         <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
-        <button onClick={() => setMenu(!menu)} title="Esc">☰</button>
+        <button onClick={() => { setMenu(!menu); setBook(false); }} title="Esc">☰</button>
       </div>
       {menu && (
         <div class="panel">
@@ -141,7 +147,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           ))}
         </div>
       )}
-      {iso && !menu && (
+      {iso && !menu && !book && (
         <div class="zbar">
           <span class="zlabel">{levelName(view.level)}</span>
           <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>
@@ -153,7 +159,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       )}
       <Inventory inv={inv.inv} tools={inv.tools} open={bag} sel={sel} onSel={setSel}
         onMove={(a, b) => game.sim.cmd({ k: 'move', a, b })} onTrash={(a) => game.sim.cmd({ k: 'trash', a })}
-        onToggle={() => { setBag(!bag); setSel(null); }} />
+        onToggle={() => { setBag(!bag); setBook(false); setSel(null); }} onLook={openLook}
+        recipesOpen={book} onRecipes={() => { setBook(!book); setBag(false); setMenu(false); }} />
+      {book && <Recipes inv={inv} look={look} onLook={setLook} onCraft={(recipe, n) => game.sim.cmd({ k: 'craft', recipe, n })} onClose={() => setBook(false)} />}
       <div class="feed">
         {dig && <div class="dig">⛏ {dig}</div>}
         {feed.map((f) => <div key={f.id} class={f.err ? 'err' : ''}>{f.text}</div>)}

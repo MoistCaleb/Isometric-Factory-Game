@@ -1,7 +1,7 @@
 // Player actions (DESIGN §3/§8): global inventory, tool slots + wear, click-gather mining.
 // Pure functions on GameState so they run in the worker and in tests.
 import { registry } from '../content/registry';
-import type { Stack } from '../content/types';
+import type { Recipe, Stack } from '../content/types';
 import type { ToolType } from '../data/forms';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
@@ -10,12 +10,15 @@ import { next } from './rng';
 import type { GameState, Slot } from './state';
 
 export const STACK = 64;
+/** Just the inventory part of the state (the UI checks craftability against its copy). */
+export type Inv = Pick<GameState, 'inv' | 'tools'>;
 export type SlotRef = { box: 'inv' | 'tools'; i: number };
 
 export type Cmd =
   | { k: 'mine'; x: number; y: number; z: number }
   | { k: 'move'; a: SlotRef; b: SlotRef }
-  | { k: 'trash'; a: SlotRef };
+  | { k: 'trash'; a: SlotRef }
+  | { k: 'craft'; recipe: string; n: number };
 
 export interface ActResult {
   ok: boolean;
@@ -49,8 +52,51 @@ export function give(s: GameState, id: string, n: number): number {
   return n;
 }
 
-export function count(s: GameState, id: string): number {
+export function count(s: Inv, id: string): number {
   return s.inv.reduce((a, sl) => a + (sl?.id === id ? sl.n : 0), 0);
+}
+
+/** Remove n of an item from the inventory (caller checks `count` first). */
+export function take(s: GameState, id: string, n: number) {
+  for (let i = s.inv.length - 1; i >= 0 && n > 0; i--) {
+    const sl = s.inv[i];
+    if (sl?.id !== id) continue;
+    const k = Math.min(n, sl.n);
+    sl.n -= k; n -= k;
+    if (!sl.n) s.inv[i] = null;
+  }
+}
+
+/** Why a hand recipe can't be crafted right now (missing inputs/tools), or null if it can. */
+export function missing(s: Inv, r: Recipe): string[] | null {
+  const out: string[] = [];
+  const reg = registry();
+  for (const i of r.inputs) if (count(s, i.id) < i.n) out.push(reg.item(i.id)?.name ?? i.id);
+  for (const k of r.keep ?? []) if (count(s, k) < 1) out.push(reg.item(k)?.name ?? k);
+  for (const t of r.tools ?? []) if (!bestTool(s, t)) out.push(t.replace('_', ' '));
+  return out.length ? out : null;
+}
+
+/** Hand-craft a recipe up to n times (stops early when inputs/tools run out). */
+export function craft(s: GameState, id: string, n: number): ActResult {
+  const r = registry().recipes.find((x) => x.id === id);
+  if (!r || r.machine !== 'hand') return { ok: false, msg: 'Not a hand recipe' };
+  const gained = new Map<string, number>();
+  let done = 0, msg: string | undefined, lost = 0;
+  for (; done < Math.max(1, Math.min(n, 64)); done++) {
+    const miss = missing(s, r);
+    if (miss) { if (!done) return { ok: false, msg: `Missing: ${miss.join(', ')}` }; break; }
+    for (const i of r.inputs) take(s, i.id, i.n);
+    for (const t of r.tools ?? []) msg = wear(s, bestTool(s, t)!.i) ?? msg;
+    for (const o of r.outputs) {
+      if (o.chance !== undefined && next(s) >= o.chance) continue;
+      const left = give(s, o.id, o.n);
+      lost += left;
+      gained.set(o.id, (gained.get(o.id) ?? 0) + o.n - left);
+    }
+  }
+  if (lost) msg = [msg, 'Inventory full — items dropped'].filter(Boolean).join(' · ');
+  return { ok: true, msg, gained: [...gained].filter(([, k]) => k > 0).map(([id, k]) => ({ id, n: k })) };
 }
 
 /** Move/swap/merge a stack. Tool slots only hold tools. */
@@ -68,7 +114,7 @@ export function move(s: GameState, a: SlotRef, b: SlotRef): ActResult {
 }
 
 /** Best tool of a type in the tool slots (highest level). */
-export function bestTool(s: GameState, type: ToolType): { i: number; level: number } | null {
+export function bestTool(s: Inv, type: ToolType): { i: number; level: number } | null {
   let best: { i: number; level: number } | null = null;
   s.tools.forEach((sl, i) => {
     const t = sl && registry().item(sl.id)?.tool;
@@ -201,6 +247,7 @@ export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'mine': return mine(s, gen, c.x, c.y, c.z);
     case 'move': return move(s, c.a, c.b);
     case 'trash': box(s, c.a)[c.a.i] = null; return { ok: true };
+    case 'craft': return craft(s, c.recipe, c.n);
   }
 }
 

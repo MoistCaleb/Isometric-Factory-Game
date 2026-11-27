@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { planet } from '../src/data/planets';
-import { bestTool, count, give, mine, move } from '../src/sim/player';
+import { registry } from '../src/content/registry';
+import { bestTool, count, craft, give, mine, missing, move } from '../src/sim/player';
 import { newGame } from '../src/sim/state';
 import { B } from '../src/world/blocks';
 import { Tree, Water, worldGen } from '../src/world/gen';
@@ -88,5 +89,26 @@ describe('mining', () => {
     dig(s, t.x, t.y, 0);
     expect(count(s, 'log:wood')).toBe(3);
     expect(s.diffs[`${t.x},${t.y},t`]).toBe(0);
+  });
+});
+
+describe('crafting', () => {
+  const reg = registry();
+  const r = (out: string, tools: string[] = []) => reg.recipesFor(out).find((x) => x.machine === 'hand' && (x.tools ?? []).join() === tools.join())!;
+  it('crafts the flint pickaxe chain and wears tools', () => {
+    const s = fresh();
+    give(s, 'shard:flint', 3); give(s, 'stick:wood', 1); give(s, 'fiber', 1);
+    expect(craft(s, r('head_pickaxe:flint').id, 1).ok).toBe(true);
+    expect(craft(s, r('tool:pickaxe:flint').id, 1).ok).toBe(true);
+    expect(bestTool(s, 'pickaxe')).not.toBeNull();
+    expect(count(s, 'shard:flint') + count(s, 'stick:wood') + count(s, 'fiber')).toBe(0);
+  });
+  it('refuses with missing inputs, stops early on batch', () => {
+    const s = fresh();
+    expect(craft(s, r('plank:wood').id, 1).msg).toMatch(/Missing/);
+    give(s, 'log:wood', 2);
+    const res = craft(s, r('plank:wood').id, 5);
+    expect(res.gained).toEqual([{ id: 'plank:wood', n: 4 }]);
+    expect(missing(s, r('plank:wood', ['saw']))).toContain('saw');
   });
 });
