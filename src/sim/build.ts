@@ -6,6 +6,7 @@ import { B } from '../world/blocks';
 import { Water, type WorldGen } from '../world/gen';
 import type { ActResult } from './player';
 import { count, give, take } from './player';
+import { newMach, refund } from './machines';
 import { EDGE, FLOORS, type BasePart, type GameState } from './state';
 
 export const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
@@ -49,6 +50,7 @@ export function place(s: GameState, gen: WorldGen, id: string, xIn: number, y: n
   if (why) return { ok: false, msg: why };
   take(s, item, 1);
   s.ents[key] = { s: st.id, r: mod(r, 4) };
+  if (st.machine) s.mach[key] = newMach();
   return { ok: true, ents: { [key]: s.ents[key] } };
 }
 
@@ -73,10 +75,10 @@ export function addBase(s: GameState, gen: WorldGen, kind: BaseKind, xIn: number
 export function demolish(s: GameState, gen: WorldGen, xIn: number, y: number, f: number, side?: Side): ActResult {
   const x = gen.wrapX(xIn), key = `${x},${y},${f}`, e = s.ents[key];
   if (e) {
-    const st = STRUCT.get(e.s);
-    if (give(s, `struct:${e.s}`, 1)) return { ok: false, msg: 'Inventory full' };
+    const st = STRUCT.get(e.s), back = refund(s, key);
+    if (!back.ok || give(s, `struct:${e.s}`, 1)) return { ok: false, msg: 'Inventory full', gained: back.gained };
     delete s.ents[key];
-    return { ok: true, ents: { [key]: null }, gained: [{ id: `struct:${e.s}`, n: 1 }], msg: st ? undefined : 'Removed' };
+    return { ok: true, ents: { [key]: null }, gained: [...back.gained, { id: `struct:${e.s}`, n: 1 }], msg: st ? undefined : 'Removed' };
   }
   const order: string[] = [];
   if (side) order.push(edgeKey(x, y, f, side, gen.w));

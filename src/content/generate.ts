@@ -15,6 +15,14 @@ const HOT_INGOT_K = 2200;
 const cap = (s: string) => s.replace(/(^|_)(\w)/g, (_, p, c) => (p ? ' ' : '') + c.toUpperCase());
 const s = (id: string, n = 1, chance?: number): Stack => (chance === undefined ? { id, n } : { id, n, chance });
 
+/** Names for extra forms: `brick:brick` → Brick, `unfired_mold_ingot:clay` → Unfired Ingot Mold, else `<Material> <Form>`. */
+function extraName(mat: string, id: string, x: string): string {
+  const raw = x.replace(/^unfired_/, ''), pre = raw !== x ? 'Unfired ' : '';
+  if (raw === id) return pre + mat;
+  if (raw.startsWith('mold_')) return `${pre}${cap(raw.slice(5))} Mold`;
+  return `${pre}${mat} ${cap(raw)}`;
+}
+
 export interface Generated { items: ItemDef[]; fluids: FluidDef[]; recipes: Recipe[] }
 
 export function generate(): Generated {
@@ -48,7 +56,7 @@ export function generate(): Generated {
       addItem({ id: `${f}:${m.id}`, name: `${m.name} ${FORMS[f].name}`, kind: 'material', color: m.color, material: m.id, form: f, hazards: m.hazards });
     }
     for (const x of m.extra) {
-      addItem({ id: `${x}:${m.id}`, name: `${m.name} ${cap(x)}`, kind: 'material', color: m.color, material: m.id, form: x, hazards: m.hazards });
+      addItem({ id: `${x}:${m.id}`, name: extraName(m.name, m.id, x), kind: 'material', color: m.color, material: m.id, form: x, hazards: m.hazards });
     }
     if (m.flags.includes('B') && m.meltK && !m.noSmelt) {
       fluids.push({ id: `molten:${m.id}`, name: `Molten ${m.name}`, color: m.color, phase: 'liquid', hazards: m.hazards ?? [], tempK: m.meltK });
@@ -78,7 +86,7 @@ export function generate(): Generated {
     // Smelting dust → ingot by melting point (§11a heat ladder).
     if (m.meltK && !m.noSmelt) {
       if (m.meltK <= 1400) {
-        mach('clay_furnace', [s(id('dust'))], [s(id('ingot'))], { ticks: 400 });
+        mach('clay_furnace', [s(id('dust'))], [s(id('ingot'))], { ticks: 400, minHeatK: m.meltK });
         mach('steam_furnace', [s(id('dust'))], [s(id('ingot'))], { power: 4 });
       }
       if (m.meltK <= 1750) mach('electric_furnace', [s(id('dust'))], [s(id('ingot'))], { ticks: 80 });
@@ -93,9 +101,10 @@ export function generate(): Generated {
       mach('fluid_solidifier', [], [s(id('ingot'))], { fluidsIn: [s(molten, INGOT_L)], keep: ['mold_ingot:clay'] });
       mach('fluid_solidifier', [], [s(id('plate'))], { fluidsIn: [s(molten, INGOT_L)], keep: ['mold_plate:clay'] });
       if (m.meltK <= 1400) {
-        mach('crucible', [s(id('ingot'))], [], { fluidsOut: [s(molten, INGOT_L)], ticks: 200 });
-        mach('crucible', [], [s(id('ingot'))], { fluidsIn: [s(molten, INGOT_L)], keep: ['mold_ingot:clay'], ticks: 100 });
-        mach('crucible', [], [s(id('plate'))], { fluidsIn: [s(molten, INGOT_L)], keep: ['mold_plate:clay'], ticks: 100 });
+        const minHeatK = m.meltK;
+        mach('crucible', [s(id('ingot'))], [], { fluidsOut: [s(molten, INGOT_L)], ticks: 200, minHeatK });
+        mach('crucible', [], [s(id('ingot'))], { fluidsIn: [s(molten, INGOT_L)], keep: ['mold_ingot:clay'], ticks: 100, minHeatK });
+        mach('crucible', [], [s(id('plate'))], { fluidsIn: [s(molten, INGOT_L)], keep: ['mold_plate:clay'], ticks: 100, minHeatK });
       }
     }
 
@@ -172,8 +181,8 @@ export function generate(): Generated {
       const units = FORMS[head].units;
       if (B) {
         hand([s(`plate:${m.id}`, Math.ceil(units))], [s(headId)], ['hammer', 'file']);
-        if (m.meltK && m.meltK <= 1400 && ['pickaxe', 'shovel', 'axe', 'hammer'].includes(type)) {
-          mach('crucible', [], [s(headId)], { fluidsIn: [s(`molten:${m.id}`, INGOT_L * units)], keep: ['mold_head:clay'], circuit: TOOL_HEADS.findIndex((t) => t[0] === type) + 1 });
+        if (m.meltK && m.meltK <= 1400) {
+          mach('crucible', [], [s(headId)], { fluidsIn: [s(`molten:${m.id}`, INGOT_L * units)], keep: ['mold_head:clay'], circuit: TOOL_HEADS.findIndex((t) => t[0] === type) + 1, minHeatK: m.meltK });
         }
       } else {
         hand([s(`shard:${m.id}`, Math.max(1, Math.ceil(units)))], [s(headId)]); // knapping
@@ -208,6 +217,8 @@ export function generate(): Generated {
   hand([s('log:wood')], [s('plank:wood', 4)], ['saw']);
   hand([s('plank:wood')], [s('stick:wood', 2)]);
   hand([s('plank:wood')], [s('stick:wood', 4)], ['saw']);
+
+  primitive(hand, mach);
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -280,11 +291,59 @@ function generateOre(mn: MineralDef, c: Ctx) {
   c.mach('macerator', [s(o('refined_ore'))], [s(dust), { ...s(mineralDust(mn, true)), chance: 0.6 }, ...bpItem(2, 0.5)]);
 
   // Direct smelting (1×) for smeltable minerals.
-  if (mn.smelt && MAT.get(mn.product)?.flags.includes('B')) {
+  const prod = MAT.get(mn.product);
+  if (mn.smelt && prod?.flags.includes('B')) {
     const ingot = s(`ingot:${mn.product}`);
-    c.mach('clay_furnace', [s(o('ore'))], [ingot], { ticks: 400 });
-    c.mach('clay_furnace', [s(dust)], [ingot], { ticks: 400 });
+    if ((prod.meltK ?? 0) <= 1400) {
+      c.mach('clay_furnace', [s(o('ore'))], [ingot], { ticks: 400, minHeatK: prod.meltK });
+      c.mach('clay_furnace', [s(dust)], [ingot], { ticks: 400, minHeatK: prod.meltK });
+    }
     c.mach('steam_furnace', [s(dust)], [ingot], { power: 4 });
     c.mach('electric_furnace', [s(dust)], [ingot], { ticks: 80 });
   }
+}
+
+/** Primitive age (CONTENT §11c, P2d): clay → kiln, charcoal, bloomery iron, coke, steel, bronze alloying, lime, glass. */
+function primitive(hand: Ctx['hand'], mach: Ctx['mach']) {
+  // Clay shaping by hand, fired in the pit kiln.
+  hand([s('ball:clay')], [s('unfired_brick:clay')]);
+  hand([s('ball:clay', 5)], [s('unfired_crucible:clay')]);
+  for (const m of ['ingot', 'plate', 'head']) {
+    hand([s('ball:clay', 2)], [s(`unfired_mold_${m}:clay`)], ['knife']);
+    mach('pit_kiln', [s(`unfired_mold_${m}:clay`)], [s(`mold_${m}:clay`)], { ticks: 400 });
+  }
+  mach('pit_kiln', [s('unfired_brick:clay')], [s('brick:brick')], { ticks: 300 });
+  mach('pit_kiln', [s('unfired_crucible:clay')], [s('crucible:clay')], { ticks: 600 });
+  // Fireclay = clay + grog (crushed brick); needs a charcoal fire to fire.
+  hand([s('brick:brick')], [s('small_dust:brick', 2)], ['mortar']);
+  mach('quern', [s('brick:brick')], [s('dust:brick')], { ticks: 100 });
+  hand([s('ball:clay', 2), s('dust:brick')], [s('unfired_fire_brick:fireclay', 2)]);
+  mach('pit_kiln', [s('unfired_fire_brick:fireclay')], [s('fire_brick:fireclay')], { ticks: 400, minHeatK: 1050 });
+  mach('quern', [s('gravel:stone')], [s('dust:sand')], { ticks: 100 });
+  mach('quern', [s('cobble:stone')], [s('gravel:stone')], { ticks: 100 });
+
+  // Charcoal pile: logs smoulder under soil.
+  mach('charcoal_pile', [s('log:wood', 8)], [s('lump:charcoal', 4), s('dust:ash', 1, 0.5)], { fluidsOut: [s('wood_tar', 200)], ticks: 2400 });
+  // Coal by hand, coke oven.
+  hand([s('ore:coal')], [s('lump:coal', 2)], ['hammer']);
+  mach('coke_oven', [s('lump:coal')], [s('lump:coke')], { fluidsOut: [s('creosote', 250)], ticks: 900 });
+
+  // Clay furnace extras: glass, vulcanised rubber.
+  mach('clay_furnace', [s('dust:sand', 2), s('dust:ash')], [s('pane:glass')], { ticks: 400, minHeatK: 1300 });
+  mach('clay_furnace', [s('sticky_resin', 3), s('small_dust:sulfur')], [s('sheet:rubber')], { ticks: 300, minHeatK: 420 });
+
+  // Bronze: alloy in the crucible, then cast.
+  mach('crucible', [s('ingot:copper', 3), s('ingot:tin')], [], { fluidsOut: [s('molten:bronze', INGOT_L * 4)], ticks: 400, minHeatK: 1358 });
+  mach('crucible', [s('dust:copper', 3), s('dust:tin')], [], { fluidsOut: [s('molten:bronze', INGOT_L * 4)], ticks: 400, minHeatK: 1358 });
+
+  // Lime kiln: calcite → quicklime (CO₂ vents).
+  for (const f of ['crushed_ore', 'mdust']) mach('lime_kiln', [s(`${f}:calcite`)], [s('dust:quicklime')], { fluidsOut: [s('carbon_dioxide', 100)], ticks: 400 });
+
+  // Bloomery iron → anvil → wrought iron → primitive blast furnace steel.
+  for (const mn of ['hematite', 'magnetite', 'limonite']) for (const f of ['ore', 'crushed_ore']) {
+    mach('bloomery', [s(`${f}:${mn}`, 2), s('lump:charcoal', 2)], [s('iron_bloom'), s('slag')], { ticks: 1200 });
+  }
+  mach('anvil', [s('iron_bloom')], [s('ingot:wrought_iron'), s('slag', 1, 0.5)], { ticks: 200, tools: ['hammer'] });
+  mach('primitive_blast_furnace', [s('ingot:wrought_iron'), s('lump:coke', 2)], [s('ingot:steel'), s('slag')], { ticks: 2400 });
+  mach('primitive_blast_furnace', [s('ingot:wrought_iron'), s('lump:coke'), s('dust:quicklime')], [s('ingot:steel'), s('slag')], { ticks: 1200 });
 }

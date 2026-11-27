@@ -102,3 +102,12 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .vlist li:hover { background: #ffffff0d; }
 .vlist .grow { flex: 1; }
 .vlist .sw { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.mach .mst { font-size: 12px; padding: 2px 6px; border-radius: 4px; background: #ffffff14; }
+.mach .mst.ok { background: #2a5a2a; } .mach .mst.warn { background: #6a5a20; } .mach .mst.bad { background: #6a2a2a; }
+.mach .io { display: flex; flex-wrap: wrap; gap: 4px; align-items: center; margin: 4px 0; }
+.mach .card { margin: 4px 0; }
+.mach input:not([type]) { flex: 1; min-width: 120px; }
+.mach .vlist li .io { margin: 0; }
+.bar { position: relative; height: 8px; background: #20252c; border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin: 4px 0; }
+.bar > div { height: 100%; background: #5a9ad8; }
+.bar > i { position: absolute; top: 0; bottom: 0; width: 2px; background: #fff; }

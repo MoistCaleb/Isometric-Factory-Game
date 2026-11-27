@@ -6,6 +6,9 @@ import { STRUCTURES, type Box } from '../data/structures';
 import type { Ent } from '../sim/state';
 
 const MODELS = new Map(STRUCTURES.map((s) => [s.id, s.model]));
+const TOP = new Map(STRUCTURES.map((s) => [s.id, Math.max(...s.model.map((b) => b[4])) / 16]));
+/** Status icon colour by machine status (sim/machines MS): idle none · working · no input · full · cold · incomplete · no water · crank · no fuel. */
+const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040];
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 const SLAB = 0.06, WALL_T = 0.1, LOW = 0.22;
 const C = { floor: 0x8a7a64, found: 0x6a6a70, wall: 0xc8bca8, window: 0x9ac8e8, door: 0x7a5430, roof: 0x8a3a2a, light: 0xffe890, post: 0x404040 };
@@ -56,11 +59,15 @@ export interface StructView {
   cx: number; cy: number; radius: number;
   /** Highest storey shown (view level). */
   top: number; rot: number; baseMode: boolean; zoomedOut: boolean;
+  /** Machine statuses by ent key (status icons). */
+  ms?: Record<string, number>;
+  /** Multiblock ghost casings to show: ent key → structure id. */
+  ghosts?: Record<string, string>;
 }
 
-/** Returns [opaque mesh geometry, see-through roof geometry]. */
-export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.BufferGeometry] {
-  const solid = new Boxes(), glass = new Boxes();
+/** Returns [opaque mesh geometry, see-through roof geometry, ghost geometry]. */
+export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.BufferGeometry, THREE.BufferGeometry] {
+  const solid = new Boxes(), glass = new Boxes(), ghost = new Boxes();
   const th = Math.PI / 4 + v.rot * (Math.PI / 2), camZ = Math.cos(th) > 0, camX = Math.sin(th) > 0;
   const wx = (x: number) => v.cx + mod(x - v.cx + v.w / 2, v.w) - v.w / 2;
   const near = (x: number, y: number) => Math.abs(wx(x) - v.cx) < v.radius && Math.abs(y - v.cy) < v.radius;
@@ -69,7 +76,14 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
     const [x, y, f] = k.split(',').map(Number);
     if (f > v.top || !near(x, y)) continue;
     const m = MODELS.get(e.s);
-    if (m) solid.model(m, wx(x), f + (v.base[`${x},${y},${f},f`] ? SLAB : 0), y, e.r);
+    const y0 = f + (v.base[`${x},${y},${f},f`] ? SLAB : 0);
+    if (m) solid.model(m, wx(x), y0, y, e.r);
+    const col = MS_COL[v.ms?.[k] ?? 0];
+    if (col) { const h = y0 + (TOP.get(e.s) ?? 0.5) + 0.15; solid.add(wx(x) + 0.42, h, y + 0.42, wx(x) + 0.58, h + 0.16, y + 0.58, col); }
+  }
+  for (const [k, id] of Object.entries(v.ghosts ?? {})) {
+    const [x, y, f] = k.split(',').map(Number), m = MODELS.get(id);
+    if (m && near(x, y) && f <= v.top) ghost.model(m, wx(x), f + (v.base[`${x},${y},${f},f`] ? SLAB : 0), y, 0, 0xffffff);
   }
   for (const [k, val] of Object.entries(v.base)) {
     const p = k.split(','), x = +p[0], y = +p[1], f = +p[2], part = p[3];
@@ -87,7 +101,7 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
       edge(solid, X, f, y, part === 'n' ? 'x' : 'z', val, h);
     }
   }
-  return [solid.geometry(), glass.geometry()];
+  return [solid.geometry(), glass.geometry(), ghost.geometry()];
 }
 
 /** Ghost preview geometry for the build cursor. */

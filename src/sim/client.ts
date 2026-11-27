@@ -1,9 +1,11 @@
 // Main-thread handle to the sim worker.
 import type { FromSim, ToSim } from './protocol';
 import type { ActResult, Cmd } from './player';
+import type { Mach } from './machines';
 import type { GameState, Slot } from './state';
 
-export interface SimStats { tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number }
+export interface SimStats { tick: number; tps: number; paused: boolean; mspt: number; wind: number; rain: number; ms?: Record<string, number> }
+export interface MachView { key: string; m: Mach | null; miss: string[] }
 
 export class SimClient {
   private worker = new Worker(new URL('./worker.ts', import.meta.url), { type: 'module' });
@@ -18,6 +20,7 @@ export class SimClient {
   tools: (Slot | null)[] = [];
   /** Result of a player command, with the updated inventory already stored. */
   onAct?: (r: ActResult) => void;
+  onMach?: (v: MachView) => void;
 
   constructor() {
     this.worker.onmessage = (e: MessageEvent<FromSim>) => {
@@ -25,12 +28,15 @@ export class SimClient {
       if (m.t === 'stats') { this.stats = m; this.statsAt = performance.now(); this.onStats?.(m); }
       else if (m.t === 'snapshot') { this.pending.get(m.id)?.(m.state); this.pending.delete(m.id); }
       else if (m.t === 'act') { this.inv = m.inv; this.tools = m.tools; this.onAct?.(m.res); }
+      else if (m.t === 'mach') this.onMach?.(m);
       else if (m.t === 'error') this.onError?.(m.message);
     };
   }
   private send(m: ToSim) { this.worker.postMessage(m); }
   load(state: GameState) { this.inv = state.inv; this.tools = state.tools; this.send({ t: 'load', state }); }
   cmd(c: Cmd) { this.send({ t: 'cmd', c }); }
+  /** Stream a machine's state (null = stop). */
+  watch(key: string | null) { this.send({ t: 'watch', key }); }
   pause() { this.send({ t: 'pause' }); }
   resume() { this.send({ t: 'resume' }); }
   snapshot(): Promise<GameState> {

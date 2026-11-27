@@ -15,6 +15,8 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   4: (s) => ({ ...s, version: 5, ents: {}, base: {} }),
   // P2f: vein knowledge.
   5: (s) => ({ ...s, version: 6, veins: {} }),
+  // P2d: machine state (created lazily for already-placed machines).
+  6: (s) => ({ ...s, version: 7, mach: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

@@ -1,8 +1,9 @@
 // Serializable game state. Everything the sim needs lives here; render reads snapshots.
 import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
+import type { Mach } from './machines';
 
-export const STATE_VERSION = 6;
+export const STATE_VERSION = 7;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;
@@ -54,6 +55,8 @@ export interface GameState {
   base: Record<string, number>;
   /** Known veins by vein id (`cx.cy.slot`) → KNOW level. */
   veins: Record<string, number>;
+  /** Machine state by controller ent key `x,y,f` (P2d). */
+  mach: Record<string, Mach>;
 }
 
 export const emptyInv = () => ({ inv: Array<Slot | null>(INV_SIZE).fill(null), tools: Array<Slot | null>(TOOL_SLOTS).fill(null) });
@@ -63,6 +66,6 @@ export const newWeather = (): Weather => ({ wind: 0.3, rain: 0, tWind: 0.3, tRai
 export function newGame(seed: number = (Math.random() * 2 ** 32) >>> 0): GameState {
   return {
     version: STATE_VERSION, seed, planet: 'earth', tick: 0, rng: seed, playSeconds: 0,
-    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {},
+    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {},
   };
 }

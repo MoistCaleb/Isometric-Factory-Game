@@ -72,6 +72,11 @@ export class Renderer {
   private structs = new THREE.Mesh(new THREE.BufferGeometry(), this.structMat);
   private structsGlass = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.3, depthWrite: false }));
   private ghostMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false }));
+  private multiGhost = new THREE.Mesh(new THREE.BufferGeometry(), this.ghostMesh.material);
+  /** Machine statuses (sim) and multiblock casings to ghost (open machine panel). */
+  private ms: Record<string, number> = {};
+  private msSig = '';
+  private ghosts: Record<string, string> = {};
   private ghostSig = '';
   private seed = 0;
   private frameNo = 0;
@@ -120,8 +125,8 @@ export class Renderer {
     this.iso.add(this.terrain, this.hemi, this.sun, this.sun.target);
     (this.grid.material as THREE.Material).transparent = true;
     (this.grid.material as THREE.Material).opacity = 0.25;
-    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh);
-    this.structs.frustumCulled = this.structsGlass.frustumCulled = this.ghostMesh.frustumCulled = false;
+    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh, this.multiGhost);
+    this.structs.frustumCulled = this.structsGlass.frustumCulled = this.ghostMesh.frustumCulled = this.multiGhost.frustumCulled = false;
 
     const N = 2500;
     this.rainBase = new Float32Array(N * 3);
@@ -225,15 +230,28 @@ export class Renderer {
     this.structVer++;
   }
 
+  /** Machine statuses from sim stats (status icons). */
+  setStatuses(ms: Record<string, number> = {}) {
+    const sig = JSON.stringify(ms);
+    if (sig !== this.msSig) { this.msSig = sig; this.ms = ms; this.structVer++; }
+  }
+  /** Ghost casings for an incomplete multiblock (keys → structure id). */
+  setGhosts(g: Record<string, string>) {
+    if (JSON.stringify(g) !== JSON.stringify(this.ghosts)) { this.ghosts = g; this.structVer++; }
+  }
+  get entities() { return this.ents; }
+  get width() { return this.p.w; }
+
   private updateStructs() {
     const v = this.view, R = Math.ceil(Math.max(48, v.zoom * 2.5) / 16) * 16;
     const cx = Math.round(v.x / 16) * 16, cy = Math.round(v.y / 16) * 16, zoomedOut = v.zoom >= 30, baseMode = this.act === 'base';
     const sig = `${this.structVer}|${v.level}|${v.rot}|${baseMode}|${zoomedOut}|${cx},${cy},${R}`;
     const show = v.level >= 0;
-    this.structs.visible = this.structsGlass.visible = show;
+    this.structs.visible = this.structsGlass.visible = this.multiGhost.visible = show;
     if (!show || sig === this.structSig) return;
     this.structSig = sig;
-    const [a, b] = buildStructs({ ents: this.ents, base: this.base, w: this.p.w, cx, cy, radius: R, top: v.level, rot: v.rot, baseMode, zoomedOut });
+    const [a, b, c] = buildStructs({ ents: this.ents, base: this.base, w: this.p.w, cx, cy, radius: R, top: v.level, rot: v.rot, baseMode, zoomedOut, ms: this.ms, ghosts: this.ghosts });
+    this.multiGhost.geometry.dispose(); this.multiGhost.geometry = c;
     this.structs.geometry.dispose(); this.structs.geometry = a;
     this.structsGlass.geometry.dispose(); this.structsGlass.geometry = b;
   }
@@ -615,7 +633,7 @@ export class Renderer {
     const v = this.view;
     const t = this.tileAt(px, py);
     if (v.mode === 'iso') {
-      if (t && this.act !== 'view') this.onTile?.(t.x, t.y, v.level, t.fx ?? 0.5, t.fy ?? 0.5);
+      if (t) this.onTile?.(t.x, t.y, v.level, t.fx ?? 0.5, t.fy ?? 0.5);
       return;
     }
     if (!t || t.y < 0 || t.y >= this.p.h) return;

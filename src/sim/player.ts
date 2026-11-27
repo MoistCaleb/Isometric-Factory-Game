@@ -8,6 +8,7 @@ import { B, BLOCKS } from '../world/blocks';
 import { LAYERS, Tree, type WorldGen } from '../world/gen';
 import { addBase, builtOn, demolish, place, type BaseKind, type Side } from './build';
 import { next } from './rng';
+import { machCmd, type MachCmd } from './machines';
 import { know, pickSample, prospect } from './veins';
 import { KNOW, type Ent, type GameState, type Slot } from './state';
 
@@ -24,8 +25,9 @@ export type Cmd =
   | { k: 'place'; id: string; x: number; y: number; f: number; r: number }
   | { k: 'base'; kind: BaseKind; x: number; y: number; f: number; side?: Side }
   | { k: 'demolish'; x: number; y: number; f: number; side?: Side }
-  /** Dev kit (Debug menu): one of each structure. */
   | { k: 'prospect'; x: number; y: number }
+  | MachCmd
+  /** Dev kit (Debug menu): structures, casings, a few P2d test materials. */
   | { k: 'devkit' };
 
 export interface ActResult {
@@ -270,10 +272,12 @@ export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'base': return addBase(s, gen, c.kind, c.x, c.y, c.f, c.side);
     case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
     case 'prospect': return prospect(s, gen, c.x, c.y);
+    case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': return machCmd(s, gen, c);
     case 'devkit': {
-      const ids = [...registry().items.filter((i) => i.kind === 'structure').map((i) => i.id), 'tool:prospector:bronze'];
-      for (const id of ids) give(s, id, 2);
-      return { ok: true, gained: ids.map((id) => ({ id, n: 2 })) };
+      const kit: [string, number][] = [...registry().items.filter((i) => i.kind === 'structure').map((i): [string, number] => [i.id, /wall|cover/.test(i.id) ? 8 : 1]),
+        ['tool:prospector:bronze', 1], ['tool:hammer:stone', 1], ['lump:charcoal', 32], ['log:wood', 16], ['unfired_brick:clay', 8], ['ingot:copper', 6], ['ingot:tin', 2], ['mold_ingot:clay', 1]];
+      const gained = kit.map(([id, n]) => ({ id, n: n - give(s, id, n) }));
+      return { ok: true, gained };
     }
   }
 }
