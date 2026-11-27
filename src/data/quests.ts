@@ -6,12 +6,12 @@ import { MINERALS } from './minerals';
 import type { TierId } from './tiers';
 
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
- * mdump open claim. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
+ * mdump open claim mface cput. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
   'bookmark', 'journal', 'overlay', 'machine'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
-  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim'] as const;
+  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -302,5 +302,20 @@ export const QUESTS: QuestDef[] = [
       'A machine with a liquid byproduct, such as a coke oven making creosote, pushes it into any pipe connected to it, so you no longer have to dump it.',
     ],
     tasks: [build('steam_ore_washer'), any(ores('purified_ore'), 8, 'Any purified ore')] },
+  // ---- P3b logistics ----
+  { id: 's_items', chapter: 'S', title: 'Item Pipes', req: ['s_furnace'], reward: S2,
+    text: [
+      '**Tin Item Pipes** (3 tin plates + a tin ring) move items between machines. Like fluid pipes they join on all 6 sides; item and fluid pipes never join each other.',
+      'Twice a second every machine on the network sends what it has made (up to 4 items each time) to the **nearest** machine that wants it: a recipe input, fuel for a furnace or boiler, or a **chest**. No more collecting by hand — chain a macerator into a furnace into a chest.',
+      'A **Wooden Chest** (27 slots) is now a real inventory: tap it to look inside, put stacks in or take everything out.',
+      'Every machine has **6 sides** (east, west, south, north, up, down). Open **Sides** in its panel and tap a side to cycle it: **Auto** (takes what it needs, sends what it makes), **In**, **Out** or **Off**. Chests only take items on Auto; set a chest side to **Out** to empty it down a pipe. Sides also apply to fluid pipes.',
+    ],
+    tasks: [build('tin_item_pipe', 4), build('chest'), flag('mface', 'Set a machine side')] },
+  { id: 's_barrel', chapter: 'S', title: 'Buffers', req: ['s_boiler'], reward: S1,
+    text: [
+      'A **Wooden Barrel** holds 16000 L of one fluid. On a network it soaks up whatever nobody needs and gives it back when a machine runs short — a reservoir for your pump, or for creosote. Wood can\'t hold steam or molten metal.',
+      '**Lead Fluid Pipes** carry less (80 L per tick) but resist acids, which the chemistry of later ages needs. Different pipe kinds never join, so you can run a lead line right beside a bronze one.',
+    ],
+    tasks: [build('barrel'), build('lead_pipe', 4)] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

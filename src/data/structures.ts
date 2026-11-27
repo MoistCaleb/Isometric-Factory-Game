@@ -12,8 +12,9 @@ export interface StructDef {
   model: Box[];
   /** Multiblock controller (DESIGN §5): casing structure required on the pattern tiles (same storey). */
   multi?: { casing: string; pattern: PatternId };
-  /** Fluid pipe (DESIGN §7, P3a): joins same-kind pipes on all 6 sides; L moved per link per tick, L held per block. */
-  pipe?: { rate: number; cap: number };
+  /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
+   * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
+  pipe?: { rate: number; cap: number; item?: boolean };
 }
 
 /** Multiblock cell offset from the controller: [dx, dy, db] (db = block levels up; 3 blocks = 1 storey). */
@@ -38,13 +39,13 @@ export type PatternId = keyof typeof PATTERNS;
 export const MULTI_PARTS = new Set<string>();
 
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
-const HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
+const LEAD = 0x5c5a78, TIN = 0xc8ccd0, HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
 export const STRUCTURES: StructDef[] = [
-  { id: 'chest', name: 'Wooden Chest', color: WOOD, cost: [['plank:wood', 8]],
+  { id: 'chest', name: 'Wooden Chest', color: WOOD, machine: 'chest', cost: [['plank:wood', 8]],
     model: [[2, 0, 3, 14, 9, 13, WOOD], [2, 9, 3, 14, 11, 13, DARK], [7, 6, 13, 9, 9, 14, 0x404040]] },
-  { id: 'barrel', name: 'Wooden Barrel', color: WOOD, cost: [['plank:wood', 7]],
+  { id: 'barrel', name: 'Wooden Barrel', color: WOOD, machine: 'barrel', cost: [['plank:wood', 7]],
     model: [[4, 0, 4, 12, 13, 12, WOOD], [3, 2, 3, 13, 4, 13, DARK], [3, 9, 3, 13, 11, 13, DARK]] },
   { id: 'pit_kiln', name: 'Pit Kiln', color: CLAY, machine: 'pit_kiln', cost: [['ball:clay', 6], ['stick:wood', 4], ['straw', 4]],
     model: [[1, 0, 1, 15, 3, 15, CLAY], [3, 3, 3, 13, 6, 13, 0xd8c060], [5, 6, 5, 11, 8, 11, DARK]] },
@@ -80,6 +81,11 @@ export const STRUCTURES: StructDef[] = [
   // ---- Steam age (P3a) ----
   { id: 'bronze_pipe', name: 'Bronze Fluid Pipe', color: BRONZE, cost: [['pipe_small:bronze', 1]], pipe: { rate: 120, cap: 1000 },
     model: [[5, 5, 5, 11, 11, 11, BRONZE]] },
+  // P3b
+  { id: 'lead_pipe', name: 'Lead Fluid Pipe', color: LEAD, cost: [['pipe_small:lead', 1]], pipe: { rate: 80, cap: 800 },
+    model: [[5, 5, 5, 11, 11, 11, LEAD]] },
+  { id: 'tin_item_pipe', name: 'Tin Item Pipe', color: TIN, cost: [['item_pipe:tin', 1]], pipe: { rate: 4, cap: 0, item: true },
+    model: [[5, 5, 5, 11, 11, 11, TIN]] },
   { id: 'water_pump', name: 'Water Pump', color: BRONZE, machine: 'water_pump', tools: ['wrench'],
     cost: [['plate:bronze', 4], ['pipe:bronze', 2], ['rotor:bronze', 1], ['plank:wood', 4]],
     model: [[2, 0, 2, 14, 3, 14, WOOD], [4, 3, 4, 12, 11, 12, BRONZE], [6, 11, 6, 10, 14, 10, HULL_D], [1, 5, 6, 4, 9, 10, WATER]] },
@@ -105,6 +111,6 @@ export const STRUCTURES: StructDef[] = [
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
 ];
 
-/** Fluid pipe structures by id. */
+/** Pipe structures (fluid + item) by id. */
 export const PIPES = new Map(STRUCTURES.filter((s) => s.pipe).map((s) => [s.id, s.pipe!]));
 for (const s of STRUCTURES) if (s.multi) { MULTI_PARTS.add(s.id); MULTI_PARTS.add(s.multi.casing); }

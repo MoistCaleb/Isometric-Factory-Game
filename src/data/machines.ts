@@ -4,9 +4,9 @@ import type { TierId } from './tiers';
 /**
  * Run modes: `fuel` burns fuel items for heat · `self` burns its own charge (no fuel) · `crank` advances only when the
  * player cranks/strikes it (P2d) · `boiler` burns fuel to turn piped water into steam · `steam` draws steam from pipes ·
- * `pump` fills its tank from adjacent water (P3a). Electric arrives P4.
+ * `pump` fills its tank from adjacent water (P3a) · `store` chest (item slots) · `tank` barrel (one fluid) (P3b). Electric arrives P4.
  */
-export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump';
+export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank';
 export interface MachineDef {
   id: string; name: string; tier: TierId; maxHeatK?: number;
   run?: RunMode;
@@ -18,6 +18,10 @@ export interface MachineDef {
   water?: boolean;
   /** Boiler: steam L/tick at full temperature. Pump: water L/tick. */
   rate?: number;
+  /** Chest: item slots (stacks of 64). */
+  slots?: number;
+  /** Wooden storage: no steam or molten metal (≤ 350 K). */
+  cold?: boolean;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
@@ -34,6 +38,8 @@ const ROWS: Row[] = [
   ['quern', 'Quern', 'P', undefined, { run: 'crank' }],
   ['sluice', 'Sluice Box', 'P', undefined, { run: 'crank', water: true }],
   ['anvil', 'Anvil', 'P', undefined, { run: 'crank' }],
+  ['chest', 'Wooden Chest', 'P', undefined, { run: 'store', slots: 27 }],
+  ['barrel', 'Wooden Barrel', 'P', undefined, { run: 'tank', tank: 16000, cold: true }],
   ['small_boiler', 'Small Bronze Boiler', 'S', 500, { run: 'boiler', rate: 12, tank: 16000 }],
   ['water_pump', 'Water Pump', 'S', undefined, { run: 'pump', rate: 10, tank: 8000, water: true }],
   ['steam_furnace', 'Steam Furnace', 'S', 1400, { run: 'steam' }],
@@ -70,3 +76,9 @@ export const AMBIENT_K = 290;
 /** Steam (DESIGN §6, P3a): boiling point, water → steam ratio, steam per recipe power unit per tick, machine steam buffer,
  * boiler water tank, boiler heating rate (slower than furnaces), dry boiler explodes on water above this. */
 export const BOIL_K = 373, STEAM_PER_WATER = 160, STEAM_PER_POWER = 2, STEAM_BUF = 2000, BOILER_WATER = 8000, BOILER_RATE = 0.002, BOOM_K = 400;
+/** Item pipes (P3b) move items every this many ticks; face modes per machine side (DESIGN §5). */
+export const ITEM_EVERY = 10;
+export const FACE = { auto: 0, in: 1, out: 2, off: 3 } as const;
+export const FACE_NAMES = ['Auto', 'In', 'Out', 'Off'];
+/** Face index = side: east (+x), west, south (+y), north, up, down. */
+export const SIDES = ['East', 'West', 'South', 'North', 'Up', 'Down'];

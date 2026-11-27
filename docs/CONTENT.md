@@ -304,6 +304,8 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 **Pipes and parts:**
 - Bronze fluid pipes (steam, ≤ 1000 K), lead fluid pipes (acid-proof).
 - Bronze Fluid Pipe block (P3a) = 1 small bronze pipe; 120 L/tick per link, 1000 L per block.
+- Lead Fluid Pipe block (P3b) = 1 small lead pipe; 80 L/tick, 800 L per block. Tin Item Pipe block = 1 tin item pipe (3 tin plates + tin ring); 4 items per 10 ticks per source.
+- Wooden Chest (8 planks): 27 slots. Wooden Barrel (7 planks): 16000 L, cold fluids only.
 - **Mechanical parts:** piston = bronze plate + rod + small gear. Steel grinder head = 3 steel plates + steel ingot. Bronze/steel gears via file + hammer, or a forge hammer.
 
 ### LV
@@ -486,7 +488,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 2. **Steam** (P3a implemented: hull → pump + pipes → boiler (explosion warning) → steam furnace / alloy smelter / forge hammer / macerator → ore washer):
    - rubber (needs sulfur: not reachable in Primitive)
    - first boiler (explosion warning quest)
-   - bronze/lead pipes
+   - bronze/lead pipes; P3b: item pipes + chest + sides (s_items), barrel + lead pipes (s_barrel)
    - each steam machine
    - ore washing & 2× processing
    - steam thumper

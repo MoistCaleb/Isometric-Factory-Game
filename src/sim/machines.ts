@@ -7,7 +7,7 @@ import { AMBIENT_K, BOIL_K, BOILER_RATE, CRANK_TICKS, FUELS, MACHINE, STEAM_PER_
 import { PATTERNS, STRUCTURES, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
 import { placeAt } from './build';
-import { topoChanged } from './pipes';
+import { accepts, topoChanged } from './pipes';
 import type { ActResult } from './player';
 import { STACK, bestTool, count, give, take, wear } from './player';
 import { next } from './rng';
@@ -28,6 +28,8 @@ export interface Mach {
   st: number;
   /** Boiler water (L) · steam machine steam buffer (L) · boiler ran dry while hot (P3a). */
   water?: number; steam?: number; dry?: boolean;
+  /** Face mode per side (FACE; index = SIDES: E W S N up down), default auto (P3b). */
+  faces?: number[];
 }
 
 /** Machine status (DESIGN §5 status icons). */
@@ -159,6 +161,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     if (!ma) { delete s.mach[key]; continue; }
     const { def } = ma, r = recipeOf(m.rec);
     if (def.run === 'boiler') { stepBoiler(m, def); continue; }
+    if (def.run === 'store' || def.run === 'tank') continue;
     if (def.run === 'pump') {
       const room = (def.tank ?? 0) - (m.tank?.n ?? 0);
       m.st = !nearWater(gen, key) ? MS.noWater : room <= 0 ? MS.full : MS.working;
@@ -220,7 +223,9 @@ export type MachCmd =
   | { k: 'munload'; key: string }
   | { k: 'mdump'; key: string }
   | { k: 'crank'; key: string }
-  | { k: 'mfill'; key: string };
+  | { k: 'mfill'; key: string }
+  | { k: 'mface'; key: string; face: number; mode: number }
+  | { k: 'cput'; key: string; id: string; n: number };
 
 /** Get (creating if needed) the machine state for a placed machine structure. */
 export function getMach(s: GameState, key: string): Mach | null {
@@ -295,6 +300,20 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
     case 'munload': {
       const gained = [...drain(s, m.inp), ...drain(s, m.fuel)];
       return { ok: true, gained, msg: Object.keys(m.inp).length + Object.keys(m.fuel).length ? 'Inventory full' : undefined };
+    }
+    case 'mface': {
+      if (c.face < 0 || c.face > 5 || c.mode < 0 || c.mode > 3) return { ok: false };
+      const f = m.faces ?? [0, 0, 0, 0, 0, 0];
+      f[c.face] = c.mode;
+      if (f.some(Boolean)) m.faces = f; else delete m.faces;
+      return { ok: true };
+    }
+    case 'cput': {
+      if (def.run !== 'store') return { ok: false, msg: 'Not a chest' };
+      const acc = accepts(m, def, c.id), n = Math.min(c.n, count(s, c.id), acc?.[0] ?? 0);
+      if (n <= 0) return { ok: false, msg: count(s, c.id) ? 'Chest full' : `No ${name(c.id)}` };
+      take(s, c.id, n); m.out[c.id] = (m.out[c.id] ?? 0) + n;
+      return { ok: true };
     }
     case 'mdump': m.tank = undefined; return { ok: true, msg: 'Tank emptied' };
     case 'crank': {

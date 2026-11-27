@@ -138,3 +138,8 @@ button.on { border-color: var(--acc); color: var(--acc); }
 }
 .qtext { margin: 4px 0; line-height: 1.4; }
 .qtext b { color: var(--acc); font-weight: 600; }
+.mach .faces { display: grid; grid-template-columns: repeat(3, 1fr); gap: 4px; margin: 4px 0; }
+.mach .faces button { font-size: 12px; }
+.mach .faces button.on { background: #2a4a6a; }
+.mach .put { max-height: 110px; overflow-y: auto; }
+.mach .put button { font-size: 12px; padding: 2px 6px; }

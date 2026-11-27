@@ -3,10 +3,11 @@
 import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
-import { BOIL_K, BOILER_WATER, FUELS, MACHINE, STEAM_BUF, STEAM_PER_POWER } from '../data/machines';
+import { BOIL_K, BOILER_WATER, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
 import type { MachView } from '../sim/client';
 import { MS, MS_TEXT, type MachCmd } from '../sim/machines';
+import { slotsUsed } from '../sim/pipes';
 import { count, type Cmd, type Inv } from '../sim/player';
 import type { Ent } from '../sim/state';
 import { Chip, type Look } from './Recipes';
@@ -26,6 +27,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
   const st = STRUCT.get(ent.s)!, def = MACHINE.get(st.machine!)!;
   const [pick, setPick] = useState(false);
   const [q, setQ] = useState('');
+  const [sides, setSides] = useState(false);
   const m = view?.m, key = view?.key ?? '';
   const r = m?.rec ? reg.recipe(m.rec) : undefined;
   const all = useMemo(() => reg.machineRecipes(def.id), [def.id]);
@@ -48,12 +50,15 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
   );
   const fuels = Object.keys(FUELS).filter((id) => count(inv, id) > 0);
   const casing = st.multi && STRUCT.get(st.multi.casing);
+  const chest = def.run === 'store', barrel = def.run === 'tank', store = chest || barrel;
+  const invIds = chest ? [...new Set(inv.inv.flatMap((sl) => (sl ? [sl.id] : [])))] : [];
+  const faces = m.faces ?? [0, 0, 0, 0, 0, 0];
 
   return (
     <div class="panel mach">
       <div class="row">
         <b class="grow">{st.name}</b>
-        <span class={`mst ${bad ? 'bad' : warn ? 'warn' : m.st === MS.working ? 'ok' : ''}`}>{MS_TEXT[m.st]}</span>
+        {!store && <span class={`mst ${bad ? 'bad' : warn ? 'warn' : m.st === MS.working ? 'ok' : ''}`}>{MS_TEXT[m.st]}</span>}
         <button onClick={onClose} title="Close (Esc)">✕</button>
       </div>
 
@@ -78,6 +83,26 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
           <h3>Steam</h3>
           {meter('Buffer', m.steam ?? 0, STEAM_BUF, '#d0d0d0')}
           <div class="dim">{r ? `Uses ${r.power * STEAM_PER_POWER} L/tick while working. ` : ''}Connect a bronze pipe from a boiler.</div>
+        </>
+      )}
+      {chest && (
+        <>
+          <h3>Contents · {slotsUsed(m.out)} / {def.slots} slots</h3>
+          <div class="row"><span class="io grow">{bag(m.out).map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}
+            {!Object.keys(m.out).length && <span class="dim">Empty</span>}</span>
+            {Object.keys(m.out).length > 0 && <button class="primary" onClick={() => cmd({ k: 'mtake' })}>Take all</button>}</div>
+          <div class="dim">Put in (a stack per tap):</div>
+          <div class="io put">{invIds.map((id) => <button key={id} onClick={() => cmd({ k: 'cput', id, n: 64 })}>+ {reg.item(id)?.name ?? id}</button>)}
+            {!invIds.length && <span class="dim">Inventory empty</span>}</div>
+          <div class="dim">Item pipes fill it from any side; set a side to Out to send its items on down a pipe.</div>
+        </>
+      )}
+      {barrel && (
+        <>
+          <h3>Tank</h3>
+          {meter(m.tank ? reg.fluid(m.tank.id)?.name ?? m.tank.id : 'Empty', m.tank?.n ?? 0, def.tank ?? 0, '#3070d0')}
+          <div class="row"><span class="dim grow">Buffers one fluid from a pipe network: takes what's spare, gives it back when needed. Wood: no steam or molten metal.</span>
+            {m.tank && <button onClick={() => cmd({ k: 'mdump' })}>Dump</button>}</div>
         </>
       )}
       {def.run === 'pump' && <div class="dim">Pumps {def.rate} L/tick of water from the next tile. Pipe it away.</div>}
@@ -159,14 +184,27 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
         </>
       )}
 
-      {(Object.keys(m.out).length > 0 || (m.tank && !boiler)) && <h3>Output</h3>}
-      {Object.keys(m.out).length > 0 && (
+      {!store && (Object.keys(m.out).length > 0 || (m.tank && !boiler)) && <h3>Output</h3>}
+      {!store && Object.keys(m.out).length > 0 && (
         <div class="row"><span class="io grow">{bag(m.out).map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}</span>
           <button class="primary" onClick={() => cmd({ k: 'mtake' })}>Collect</button></div>
       )}
-      {m.tank && !boiler && (
+      {m.tank && !boiler && !store && (
         <div class="row"><span class="io grow"><Chip st={m.tank} fluid /> <span class="dim">/ {def.tank} L</span></span>
           <button onClick={() => cmd({ k: 'mdump' })} title="Pour it away (or connect a pipe)">Dump</button></div>
+      )}
+
+      <div class="row"><button onClick={() => setSides(!sides)}>{sides ? '▾' : '▸'} Sides (pipes)</button>
+        {!sides && faces.some(Boolean) && <span class="dim">{faces.filter(Boolean).length} set</span>}</div>
+      {sides && (
+        <>
+          <div class="faces">
+            {SIDES.map((n, i) => (
+              <button key={n} class={faces[i] ? 'on' : ''} onClick={() => cmd({ k: 'mface', face: i, mode: (faces[i] + 1) % 4 })}>{n}: {FACE_NAMES[faces[i]]}</button>
+            ))}
+          </div>
+          <div class="dim">Tap to cycle. <b>Auto</b>: {chest ? 'takes items in' : 'takes what it needs, sends out what it makes'} · <b>In</b> only · <b>Out</b> only · <b>Off</b>: ignores pipes on that side. Compass sides (north = up on the map).</div>
+        </>
       )}
     </div>
   );
