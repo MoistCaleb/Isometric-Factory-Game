@@ -25,9 +25,9 @@ button.primary { background: var(--acc); border-color: var(--acc); color: #1b1f2
 .toast { position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%); background: var(--panel); border: 1px solid var(--line);
   padding: 8px 14px; border-radius: 6px; }
 .toast.err { border-color: #c04040; }
-.zbar { position: absolute; right: 12px; top: 50%; transform: translateY(-50%); display: flex; flex-direction: column; align-items: center; gap: 6px;
+.zbar { position: absolute; right: 12px; top: 56px; bottom: calc(60px + env(safe-area-inset-bottom, 0)); height: fit-content; max-height: calc(100% - 116px); margin: auto 0; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; gap: 6px;
   background: var(--panel); border: 1px solid var(--line); border-radius: 8px; padding: 8px 6px; }
-.zbar input[type=range] { writing-mode: vertical-lr; direction: rtl; height: 200px; width: 28px; accent-color: var(--acc); }
+.zbar input[type=range] { writing-mode: vertical-lr; direction: rtl; flex: 0 1 200px; min-height: 24px; height: auto; width: 28px; accent-color: var(--acc); }
 .zlabel { position: absolute; right: calc(100% + 8px); top: 50%; transform: translateY(-50%); white-space: nowrap; background: var(--panel);
   border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; font-size: 12px; }
 .viewbar { position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom, 0)); display: flex; gap: 6px; }
