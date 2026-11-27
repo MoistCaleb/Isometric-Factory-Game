@@ -44,3 +44,44 @@ export function fbm(seed: number, x: number, y: number, w: number, cells: number
   }
   return (sum / norm) * 1.6;
 }
+
+// ---- sphere-sampled noise (surface fields) ----
+// The surface is a wrapping rectangle shown on a globe; sampling 3D noise at each tile's point on the unit sphere keeps
+// shapes undistorted on the globe (the flat map then stretches east–west near the poles, like a real equirect map).
+
+const G3 = [[1, 1, 0], [-1, 1, 0], [1, -1, 0], [-1, -1, 0], [1, 0, 1], [-1, 0, 1], [1, 0, -1], [-1, 0, -1],
+  [0, 1, 1], [0, -1, 1], [0, 1, -1], [0, -1, -1]];
+
+function g3(seed: number, ix: number, iy: number, iz: number, dx: number, dy: number, dz: number): number {
+  const g = G3[hash(seed, ix, iy, iz) % 12];
+  return g[0] * dx + g[1] * dy + g[2] * dz;
+}
+
+/** 3D gradient noise in lattice units, ≈[-1,1]. */
+export function noise3(seed: number, x: number, y: number, z: number): number {
+  const x0 = Math.floor(x), y0 = Math.floor(y), z0 = Math.floor(z);
+  const fx = x - x0, fy = y - y0, fz = z - z0;
+  const u = fade(fx), v = fade(fy), w = fade(fz);
+  const l = (a: number, b: number, t: number) => a + (b - a) * t;
+  const c = (i: number, j: number, k: number) => g3(seed, x0 + i, y0 + j, z0 + k, fx - i, fy - j, fz - k);
+  return l(
+    l(l(c(0, 0, 0), c(1, 0, 0), u), l(c(0, 1, 0), c(1, 1, 0), u), v),
+    l(l(c(0, 0, 1), c(1, 0, 1), u), l(c(0, 1, 1), c(1, 1, 1), u), v), w);
+}
+
+/** Unit-sphere point for a tile center on a `w`×`h` equirect surface (row 0 = north). */
+export function spherePoint(x: number, y: number, w: number, h: number): [number, number, number] {
+  const lon = ((x + 0.5) / w) * Math.PI * 2, lat = (0.5 - (y + 0.5) / h) * Math.PI, c = Math.cos(lat);
+  return [c * Math.cos(lon), c * Math.sin(lon), Math.sin(lat)];
+}
+
+/** Fractal noise on the sphere; `cells` = lattice cells around the equator for the first octave (same scale as `fbm`). ≈[-1,1]. */
+export function sfbm(seed: number, p: readonly [number, number, number], cells: number, octaves: number, gain = 0.5): number {
+  let sum = 0, amp = 1, norm = 0, f = cells / (Math.PI * 2);
+  for (let o = 0; o < octaves; o++) {
+    sum += amp * noise3(seed + o * 1013, p[0] * f + 17.31 * o, p[1] * f, p[2] * f);
+    norm += amp; amp *= gain; f *= 2;
+  }
+  return (sum / norm) * SFBM_NORM;
+}
+const SFBM_NORM = 1.4; // matches fbm's spread so thresholds (sea level, rivers, …) carry over

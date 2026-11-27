@@ -2,7 +2,7 @@
 import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 
-export const STATE_VERSION = 2;
+export const STATE_VERSION = 3;
 export const TPS = 20;
 /** Ticks per in-game day (20 min real time). Tick 0 = 06:00. */
 export const DAY_TICKS = TPS * 60 * 20;

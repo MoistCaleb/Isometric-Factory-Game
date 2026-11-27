@@ -29,7 +29,7 @@
 | | 11g | planets (real names/radii) |
 
 ## Quick facts
-- Stack: TS, Vite, Three.js (ortho iso + globe), Preact UI, sim Web Worker 20 TPS, IndexedDB, Vitest, GH Pages PWA. Desktop + mobile.
+- Stack: TS, Vite, Three.js (ortho iso + globe), Preact UI, sim Web Worker 20 TPS, IndexedDB, Vitest, GH Pages PWA. Desktop + mobile, landscape only (no portrait layout).
 - Art: voxel (16³/tile), procedural, greedy-meshed. No sound yet.
 - Overseer: no avatar, no enemies. Global inventory across planets.
 - No belts. No offline progress. Pause only, no fast-forward.
@@ -40,11 +40,11 @@
 | Path | What |
 |---|---|
 | src/data/ | raw content tables: tiers, forms (flags→forms, tool types), materials, chemicals, minerals, veins, machines (ids only), misc + world sources, planets |
-| src/world/ | noise (hash, x-wrapping fbm), blocks (terrain + ORE_BASE+mineral), gen (`WorldGen`: surface/terrain/block/ore/tree/veins/findSpawn), map (planet raster) |
+| src/world/ | noise (hash, x-wrapping fbm, sphere `sfbm` for surface fields), blocks (terrain + ORE_BASE+mineral), gen (`WorldGen`: surface/terrain/block/ore/tree/veins/findSpawn), map (planet raster) |
 | src/content/generate.ts | items/fluids/templated recipes from data; ore chain; tools |
 | src/content/validate.ts | errors (fail build) + coverage warnings; `reachable()` from world sources |
 | src/content/registry.ts | `registry()` lookup: item/fluid/recipesFor/usesOf |
-| src/sim/ | state (GameState v2: spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/sim/ | state (GameState v3: spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |

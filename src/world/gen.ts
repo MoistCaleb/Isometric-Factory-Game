@@ -3,7 +3,7 @@
 import type { PlanetDef } from '../data/planets';
 import { RARITY_SIZE, VEINS, type Biome, type VeinDef } from '../data/veins';
 import { B, oreBlock } from './blocks';
-import { fbm, hash, hash01 } from './noise';
+import { fbm, hash, hash01, sfbm, spherePoint } from './noise';
 
 export const Water = { None: 0, River: 1, Lake: 2, Ocean: 3 } as const;
 export type Water = (typeof Water)[keyof typeof Water];
@@ -36,23 +36,28 @@ export class WorldGen {
   dx(a: number, b: number) { const d = mod(a - b, this.w); return d > this.w / 2 ? d - this.w : d; }
   inBounds = (y: number) => y >= 0 && y < this.h;
 
+  /** Surface fields are sampled on the sphere (clean globe); underground detail stays in flat tile space. */
   surface(xIn: number, y: number): Surface {
-    const x = this.wrapX(xIn), s = this.seed, w = this.w;
+    const x = this.wrapX(xIn), s = this.seed, p = spherePoint(x, y, this.w, this.h);
     const lat = ((y + 0.5) / this.h) * 2 - 1;
-    const temp = 1 - Math.abs(lat) + fbm(s + 2, x, y, w, 16, 3) * 0.15;
-    const moist = fbm(s + 3, x, y, w, 12, 4) * 0.8 + 0.5;
+    const temp = 1 - Math.abs(lat) + sfbm(s + 2, p, 16, 3) * 0.15;
+    const moist = sfbm(s + 3, p, 12, 4) * 0.8 + 0.5;
     const out: Surface = { biome: 'plains', water: Water.None, ice: false, volcanic: false, coast: false, river: 1, temp, moist };
-    if (Math.abs(lat) > 0.968 + fbm(s + 7, x, y, w, 64, 3) * 0.015) { out.ice = true; out.biome = 'tundra'; return out; }
-    const c = fbm(s + 1, x, y, w, 6, 6);
+    if (Math.abs(lat) > 0.968 + sfbm(s + 7, p, 64, 3) * 0.015) { out.ice = true; out.biome = 'tundra'; return out; }
+    const c = sfbm(s + 1, p, 6, 6);
     out.coast = Math.abs(c - SEA) < 0.035;
     if (c < SEA) { out.water = Water.Ocean; out.biome = 'ocean'; return out; }
     out.biome = temp < 0.17 ? 'tundra'
       : temp > 0.62 ? (moist < 0.4 ? 'desert' : moist > 0.62 ? 'jungle' : 'plains')
       : moist > 0.68 ? 'swamp' : moist > 0.48 ? 'forest' : moist < 0.25 && temp > 0.5 ? 'desert' : 'plains';
-    out.volcanic = fbm(s + 4, x, y, w, 40, 3) > 0.62;
-    out.river = Math.abs(fbm(s + 5, x, y, w, 24, 4));
-    if (out.river < (out.biome === 'desert' ? 0.009 : 0.018)) out.water = Water.River;
-    else if (out.biome !== 'desert' && fbm(s + 6, x, y, w, 48, 3) > 0.55) out.water = Water.Lake;
+    out.volcanic = sfbm(s + 4, p, 40, 3) > 0.62;
+    out.river = Math.abs(sfbm(s + 5, p, 24, 4));
+    // Tiles shrink east–west on the sphere toward the poles: thin the river band by cos(lat) so widths stay ~constant in
+    // tiles, and stop rivers in the far north/south where they would smear.
+    const coslat = Math.cos(lat * Math.PI / 2);
+    const rw = Math.abs(lat) > 0.85 ? 0 : (out.biome === 'desert' ? 0.009 : 0.018) * coslat;
+    if (out.river < rw) out.water = Water.River;
+    else if (out.biome !== 'desert' && sfbm(s + 6, p, 48, 3) > 0.55) out.water = Water.Lake;
     return out;
   }
 

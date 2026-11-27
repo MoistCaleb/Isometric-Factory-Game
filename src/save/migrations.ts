@@ -7,6 +7,8 @@ type Raw = Record<string, unknown> & { version: number };
 export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   // P1: world spawn, weather, diffs.
   1: (s) => ({ ...s, version: 2, spawn: worldGen(s.seed as number, planet(s.planet as string)).findSpawn(), weather: newWeather(), diffs: {} }),
+  // Surface now sampled on the sphere: same seed, new terrain → re-pick spawn, drop diffs (pre-release, no builds yet).
+  2: (s) => ({ ...s, version: 3, spawn: worldGen(s.seed as number, planet(s.planet as string)).findSpawn(), diffs: {} }),
 };
 
 export function migrate(raw: Raw): GameState {
