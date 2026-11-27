@@ -15,6 +15,8 @@ export interface VeinDef {
   rarity: Rarity;
   /** Size multiplier (e.g. "C (big)"). */
   sizeMul?: number;
+  /** Core pokes up to the surface (layer 0) — visible without digging (DESIGN §3 discovery). */
+  outcrop?: boolean;
 }
 
 type Row = [id: string, name: string, parts: string, d0: number, d1: number, bias: string, rarity: Rarity, sizeMul?: number];
@@ -46,8 +48,10 @@ const ROWS: Row[] = [
   ['platinum_reef', 'Platinum Reef', 'sperrylite:40 pentlandite:40 chromite:20', 18, 24, 'any', 'VR'],
 ];
 
+const OUTCROPS = new Set(['copper_outcrop']);
+
 export const VEINS: VeinDef[] = ROWS.map(([id, name, parts, d0, d1, bias, rarity, sizeMul]) => ({
-  id, name, depth: [d0, d1], rarity, sizeMul,
+  id, name, depth: [d0, d1], rarity, sizeMul, outcrop: OUTCROPS.has(id) || undefined,
   bias: bias.split(' ') as Bias[],
   parts: parts.split(' ').map((p) => {
     const i = p.lastIndexOf(':');

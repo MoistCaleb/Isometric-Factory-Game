@@ -1,6 +1,6 @@
 // Chunk meshes: one layer slice (surface, or depth d) of CH×CH tiles, vertex-colored quads + instanced trees.
 import * as THREE from 'three';
-import { B, BLOCKS, isOre } from '../world/blocks';
+import { B, BLOCKS, isOre, oreBlock } from '../world/blocks';
 import { Tree, type WorldGen } from '../world/gen';
 import { waterColor } from '../world/map';
 import { hash01 } from '../world/noise';
@@ -29,21 +29,24 @@ const darken = (c: number, f: number) => (Math.round(((c >> 16) & 255) * f) << 1
 function topOf(gen: WorldGen, x: number, y: number, level: number, xray: boolean, diffs: Record<string, number>): { h: number; c: number; w?: number } {
   if (!gen.inBounds(y)) return { h: -2, c: 0 };
   const xw = gen.wrapX(x);
-  const at = (z: number) => diffs[`${xw},${y},${z}`] ?? (xray ? gen.block(xw, y, z) : gen.terrain(xw, y, z));
+  // A block shows what it really is (ores included) once revealed: at the surface, or next to / under a dug-out block.
+  const open = (xx: number, yy: number, z: number) => diffs[`${gen.wrapX(xx)},${yy},${z}`] === B.air;
+  const revealed = (z: number) => z === 0 || open(xw, y, z - 1) || open(xw - 1, y, z) || open(xw + 1, y, z) || open(xw, y - 1, z) || open(xw, y + 1, z);
+  const at = (z: number) => diffs[`${xw},${y},${z}`] ?? (xray || revealed(z) ? gen.block(xw, y, z) : gen.terrain(xw, y, z));
   const z0 = Math.max(0, -level);
   let b: number, h = 0, c: number;
   if (z0 === 0) {
     const sf = gen.surface(xw, y);
-    b = diffs[`${xw},${y},0`] ?? gen.terrain(xw, y, 0, sf);
+    b = diffs[`${xw},${y},0`] ?? gen.block(xw, y, 0, sf);
     c = BLOCKS[b].color;
     if (b === B.water && sf.depth) {
       const d = sf.depth, bed = diffs[`${xw},${y},${d}`] ?? (xray ? gen.block(xw, y, d, sf) : gen.terrain(xw, y, d, sf));
       return { h: seabedH(d), c: darken(BLOCKS[bed].color, Math.max(0.3, 1 - d * 0.06)), w: waterColor(d) };
     }
-    if (b !== B.air) return { h: sf.ice ? 0.12 : 0, c };
+    if (b !== B.air) return { h: sf.ice ? 0.12 : isOre(b) ? 0.06 : 0, c };
   } else {
     b = at(z0);
-    if (b !== B.air) return { h: xray && isOre(b) ? 0.12 : 0, c: BLOCKS[b].color };
+    if (b !== B.air) return { h: isOre(b) ? 0.06 : 0, c: BLOCKS[b].color };
   }
   let z = z0;
   while (b === B.air && z < 25) { b = at(++z); h -= 0.5; }
@@ -116,6 +119,7 @@ export function buildChunk(gen: WorldGen, cx: number, cy: number, o: ChunkOpts):
     g.add(wm);
   }
   if (o.level >= 0) addTrees(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs);
+  if (o.level >= 0) addSamples(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs);
   return g;
 }
 
@@ -141,6 +145,32 @@ function addTrees(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: num
   im.computeBoundingSphere();
   g.add(im);
 }
+
+/** Loose ore samples (DESIGN §3 discovery): a couple of small ore-coloured rocks on the tile. */
+function addSamples(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: number, diffs: Record<string, number>) {
+  const parts: [THREE.Matrix4, number][] = [];
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+  for (let j = 0; j < CH; j++) for (let i = 0; i < wN; i++) {
+    const x = x0 + i, y = y0 + j;
+    if (!gen.inBounds(y) || diffs[`${x},${y},s`] !== undefined || diffs[`${x},${y},0`] === B.air) continue;
+    const smp = gen.sample(x, y);
+    if (!smp) continue;
+    const c = BLOCKS[oreBlock(smp.mineral)].color;
+    for (let k = 0; k < 2; k++) {
+      const ox = 0.25 + hash01(gen.seed + 60 + k, x, y) * 0.5, oz = 0.25 + hash01(gen.seed + 62 + k, x, y) * 0.5, s = k ? 0.2 : 0.3;
+      q.setFromAxisAngle(UP, hash01(gen.seed + 64 + k, x, y) * Math.PI);
+      p.set(i + ox, 0, j + oz); sc.set(s, s * 0.8, s);
+      parts.push([m.compose(p, q, sc).clone(), c]);
+    }
+  }
+  if (!parts.length) return;
+  const im = new THREE.InstancedMesh(unitBox, treeMat, parts.length);
+  const col = new THREE.Color();
+  parts.forEach(([mx, c], n) => { im.setMatrixAt(n, mx); im.setColorAt(n, col.setHex(c)); });
+  im.computeBoundingSphere();
+  g.add(im);
+}
+const UP = new THREE.Vector3(0, 1, 0);
 
 export function disposeChunk(g: THREE.Group) {
   g.traverse((o) => { if (o instanceof THREE.InstancedMesh) o.dispose(); else if (o instanceof THREE.Mesh) o.geometry.dispose(); });

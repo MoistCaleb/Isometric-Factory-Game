@@ -10,6 +10,7 @@ import { BuildBar } from './BuildBar';
 import { bytes, duration, gameClock, levelName, weatherText } from './format';
 import { hoverItem, Inventory } from './Inventory';
 import { Recipes, type Look } from './Recipes';
+import { Veins } from './Veins';
 
 const ACTS: [Act, string, string, boolean][] = [
   ['view', '👁', 'View (V)', true],
@@ -40,6 +41,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [buildId, setBuildId] = useState<string | null>(null);
   const [rot, setRot] = useState(0);
   const [baseKind, setBaseKind] = useState<BaseKind>('floor');
+  const [mineTool, setMineTool] = useState<'dig' | 'prospect'>('dig');
+  const [journal, setJournal] = useState(false);
+  const [, setVeinTick] = useState(0);
   const openLook = (l: Look) => { setLook(l); setBook(true); setBag(false); setMenu(false); setSel(null); };
 
   const refresh = () => store.list().then(setSaves).catch(() => setSaves([]));
@@ -57,6 +61,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
     game.sim.onAct = (r: ActResult) => {
       if (r.changes) renderer.applyChanges(r.changes);
       if (r.ents || r.base) renderer.applyBuild(r.ents, r.base);
+      if (r.veins && Object.keys(r.veins).length) { renderer.applyVeins(r.veins); setTimeout(() => setVeinTick((t) => t + 1), 50); }
       setInv({ inv: game.sim.inv, tools: game.sim.tools });
       setDig(r.progress && r.target ? `${r.target} ${r.progress[0]}/${r.progress[1]}` : null);
       const reg = registry();
@@ -80,6 +85,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       : act === 'base' ? { kind: 'base', part: baseKind } : act === 'demolish' ? { kind: 'demolish' } : null;
     renderer.onTile = (x, y, level, fx, fy) => {
       const say = (m: string) => push(m, true);
+      if (act === 'mine' && mineTool === 'prospect') return game.sim.cmd({ k: 'prospect', x, y });
       if (act === 'mine') return level > 0 ? say('Mining works at the surface and below') : game.sim.cmd({ k: 'mine', x, y, z: -level });
       if (level < 0) return say('Build at the surface or above');
       if (act === 'build') return buildId ? game.sim.cmd({ k: 'place', id: buildId, x, y, f: level, r: rot }) : say('Pick a structure to place');
@@ -89,7 +95,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         game.sim.cmd({ k: 'demolish', x, y, f: level, side: edge ? nearSide(fx, fy) : undefined });
       }
     };
-  }, [act, buildId, rot, baseKind]);
+  }, [act, buildId, rot, baseKind, mineTool]);
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -105,6 +111,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (e.code === 'KeyN') pickAct('base');
       if (e.code === 'KeyZ') pickAct('demolish');
       if (e.code === 'KeyF') setRot((r) => (r + 1) % 4);
+      if (e.code === 'KeyO') renderer.toggleVeins();
+      if (e.code === 'KeyJ') setJournal((j) => !j);
+      if (e.code === 'KeyP') { pickAct('mine'); setMineTool((m) => (m === 'prospect' ? 'dig' : 'prospect')); }
     };
     addEventListener('keydown', key);
     return () => removeEventListener('keydown', key);
@@ -134,7 +143,8 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button class={iso ? 'on' : ''} onClick={() => renderer.setMode('iso')}>Local</button>
         <button class={view.mode === 'map' ? 'on' : ''} onClick={() => renderer.setMode('map')} title="M">Map</button>
         <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
-        <button onClick={() => { setMenu(!menu); setBook(false); }} title="Esc">☰</button>
+        <button class={journal ? 'on' : ''} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎ Veins</button>
+        <button onClick={() => { setMenu(!menu); setBook(false); setJournal(false); }} title="Esc">☰</button>
       </div>
       {menu && (
         <div class="panel">
@@ -165,7 +175,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           <h3>Debug</h3>
           <div class="row">
             <label><input type="checkbox" checked={view.xray} onChange={() => renderer.toggleXray()} /> X-ray ores (dev)</label>
-            <button onClick={() => game.sim.cmd({ k: 'devkit' })}>Give structures (dev)</button>
+            <button onClick={() => game.sim.cmd({ k: 'devkit' })}>Give structures + prospector (dev)</button>
           </div>
           <h3>Content</h3>
           <div class="dim">{reg.items.length} items · {reg.fluids.length} fluids · {reg.recipes.length} recipes</div>
@@ -178,11 +188,23 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           ))}
         </div>
       )}
+      {iso && !menu && !book && !bag && act === 'mine' && (
+        <div class="buildbar">
+          <button class={mineTool === 'dig' ? 'on' : ''} onClick={() => setMineTool('dig')} title="Dig (tap to mine; picks up ore samples)">⛏ <span class="lbl">dig</span></button>
+          <button class={mineTool === 'prospect' ? 'on' : ''} disabled={!inv.tools.some((t) => t?.id.startsWith('tool:prospector'))}
+            onClick={() => setMineTool('prospect')} title="Prospect (P) — needs a prospector's hammer">🔍 <span class="lbl">prospect</span></button>
+          <span class="dim">{mineTool === 'prospect' ? 'Tap to survey veins within 24 tiles, to layer 8' : 'Coloured rocks on the ground are ore samples — tap to pick up'}</span>
+        </div>
+      )}
+      {journal && renderer.world && (
+        <Veins gen={renderer.world} list={renderer.veinList} at={view} overlay={view.veins} onOverlay={() => renderer.toggleVeins()}
+          onFly={(x, y) => { renderer.flyTo(x, y); setJournal(false); }} onClose={() => setJournal(false)} />
+      )}
       {iso && !menu && !book && !bag && (act === 'build' || act === 'base' || act === 'demolish') && (
         <BuildBar act={act} inv={inv.inv} buildId={buildId} onBuildId={setBuildId} rot={rot} onRot={() => setRot((r) => (r + 1) % 4)}
           baseKind={baseKind} onBaseKind={setBaseKind} onBook={() => { setLook(null); setBook(true); setBag(false); }} />
       )}
-      {iso && !menu && !book && (
+      {iso && !menu && !book && !journal && (
         <div class="zbar">
           <span class="zlabel">{levelName(view.level)}</span>
           <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>

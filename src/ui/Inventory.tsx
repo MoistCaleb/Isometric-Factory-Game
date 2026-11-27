@@ -14,6 +14,7 @@ const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 /** Short in-slot label: material-less items keep their name; forms show the form word. */
 function label(id: string, name: string): string {
   const words = name.split(' ');
+  if (id.startsWith('tool:prospector')) return 'Prospect';
   if (id.startsWith('tool:')) return words.slice(-1)[0];
   return words.length > 2 ? words.slice(-2).join(' ') : name;
 }

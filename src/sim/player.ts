@@ -8,7 +8,8 @@ import { B, BLOCKS } from '../world/blocks';
 import { LAYERS, Tree, type WorldGen } from '../world/gen';
 import { addBase, builtOn, demolish, place, type BaseKind, type Side } from './build';
 import { next } from './rng';
-import type { Ent, GameState, Slot } from './state';
+import { know, pickSample, prospect } from './veins';
+import { KNOW, type Ent, type GameState, type Slot } from './state';
 
 export const STACK = 64;
 /** Just the inventory part of the state (the UI checks craftability against its copy). */
@@ -24,6 +25,7 @@ export type Cmd =
   | { k: 'base'; kind: BaseKind; x: number; y: number; f: number; side?: Side }
   | { k: 'demolish'; x: number; y: number; f: number; side?: Side }
   /** Dev kit (Debug menu): one of each structure. */
+  | { k: 'prospect'; x: number; y: number }
   | { k: 'devkit' };
 
 export interface ActResult {
@@ -38,6 +40,8 @@ export interface ActResult {
   /** Structure / base part changes (null = removed). */
   ents?: Record<string, Ent | null>;
   base?: Record<string, number | null>;
+  /** Vein knowledge raised (vein id → KNOW level). */
+  veins?: Record<string, number>;
 }
 
 // ---------- inventory ----------
@@ -211,6 +215,7 @@ function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
 export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: number): ActResult {
   const x = gen.wrapX(xIn);
   if (!gen.inBounds(y)) return { ok: false };
+  if (zIn === 0) { const smp = pickSample(s, gen, x, y); if (smp) return smp; }
   if (zIn === 0 && builtOn(s, x, y)) return { ok: false, msg: 'Something is built here — demolish it first' };
   if (zIn === 0 && s.diffs[`${x},${y},t`] === undefined) {
     const tree = gen.tree(x, y);
@@ -239,9 +244,11 @@ export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: n
   const p = hit(s, key, need);
   if (p) return { ...p, target: def.name };
 
-  let drops: Stack[];
+  let drops: Stack[], veins: Record<string, number> | undefined, found: string | undefined;
   if (mineral) {
-    const n = gen.ore(x, y, z)?.richness ?? 1;
+    const hit = gen.ore(x, y, z);
+    const n = hit?.richness ?? 1;
+    if (hit && s.diffs[`${x},${y},${z}`] === undefined) { veins = know(s, hit.vein.id, KNOW.exposed); if (veins) found = hit.vein.def.name; }
     drops = [{ id: `ore:${mineral.id}`, n }];
     if (mineral.handDrop) drops.push(...chance(s, HAND_DROP, mineral.handDrop));
   } else drops = rule.drop(s);
@@ -250,7 +257,7 @@ export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: n
   // Felling the surface takes its tree with it.
   if (z === 0 && gen.tree(x, y) && s.diffs[`${x},${y},t`] === undefined) { s.diffs[`${x},${y},t`] = 0; changes[`${x},${y},t`] = 0; }
   const broke = tool ? wear(s, tool.i) : undefined;
-  return collect(s, drops, { ok: true, target: def.name, msg: broke, changes });
+  return collect(s, drops, { ok: true, target: def.name, msg: [found && `Exposed: ${found}`, broke].filter(Boolean).join(' · ') || undefined, changes, veins });
 }
 
 export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
@@ -262,8 +269,9 @@ export function apply(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'place': return place(s, gen, c.id, c.x, c.y, c.f, c.r);
     case 'base': return addBase(s, gen, c.kind, c.x, c.y, c.f, c.side);
     case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
+    case 'prospect': return prospect(s, gen, c.x, c.y);
     case 'devkit': {
-      const ids = registry().items.filter((i) => i.kind === 'structure').map((i) => i.id);
+      const ids = [...registry().items.filter((i) => i.kind === 'structure').map((i) => i.id), 'tool:prospector:bronze'];
       for (const id of ids) give(s, id, 2);
       return { ok: true, gained: ids.map((id) => ({ id, n: 2 })) };
     }

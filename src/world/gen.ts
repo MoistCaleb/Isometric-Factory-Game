@@ -24,6 +24,12 @@ const OCEAN_K = 40, OCEAN_MAX = 8, TRENCH_MAX = 22;
 export interface Surface { biome: Biome; water: Water; depth: number; ice: boolean; volcanic: boolean; coast: boolean; river: number; temp: number; moist: number }
 export interface VeinInst { id: string; def: VeinDef; x: number; y: number; z0: number; z1: number; a: number; b: number; rot: number; richness: number; seed: number }
 export interface OreHit { vein: VeinInst; block: number; richness: number }
+/** Surface sample density by vein top layer (DESIGN §3 discovery): shallow veins litter more loose ore. */
+const SAMPLE_DENSITY = (z0: number) => (z0 <= 2 ? 0.06 : z0 <= 5 ? 0.035 : z0 <= 8 ? 0.015 : 0);
+/** Hint circle radius (tiles) around a jittered point within HINT_JITTER of the vein centre. */
+export const HINT_R = 12, HINT_JITTER = 5;
+/** Prospector's hammer reach (tiles, max layer). */
+export const PROSPECT_R = 24, PROSPECT_DEPTH = 8;
 
 const RARITY_W = { C: 10, U: 6, R: 3, VR: 1.5 };
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -113,7 +119,7 @@ export class WorldGen {
 
   /** Generated block (terrain + ores). */
   block(x: number, y: number, z: number, sf?: Surface): number {
-    if (z >= 1 && z < LAYERS.bedrock) { const o = this.ore(x, y, z, sf); if (o) return o.block; }
+    if (z < LAYERS.bedrock) { const o = this.ore(x, y, z, sf); if (o) return o.block; }
     return this.terrain(x, y, z, sf);
   }
 
@@ -184,18 +190,59 @@ export class WorldGen {
     return out;
   }
 
-  /** Ore at a block; never inside water (z < surface depth). */
+  /** Normalised ellipse distance² of (x, y) from a vein's centre (≤ 1 inside, before edge noise). */
+  veinDist(v: VeinInst, x: number, y: number): number {
+    const dx = this.dx(x, v.x), dy = y - v.y;
+    if (Math.abs(dx) > VEIN_RMAX + 2 || Math.abs(dy) > VEIN_RMAX + 2) return 99;
+    const c = Math.cos(v.rot), s = Math.sin(v.rot);
+    const u = (dx * c + dy * s) / v.a, t = (-dx * s + dy * c) / v.b;
+    return u * u + t * t;
+  }
+
+  /** Vein by id (`cx.cy.slot`). */
+  veinById(id: string): VeinInst | undefined {
+    const [cx, cy] = id.split('.').map(Number);
+    return this.veinsInCell(cx, cy).find((v) => v.id === id);
+  }
+
+  /** Hint circle centre for a vein: deterministic jitter so a sample never pins the exact spot. */
+  hintCentre(v: VeinInst): { x: number; y: number } {
+    const a = hash01(v.seed + 7, 1) * Math.PI * 2, r = hash01(v.seed + 7, 2) * HINT_JITTER;
+    return { x: v.x + Math.round(Math.cos(a) * r), y: v.y + Math.round(Math.sin(a) * r) };
+  }
+
+  /**
+   * Loose ore sample lying on a surface tile (DESIGN §3): only above soil/stone veins, on dry treeless land.
+   * Returns the vein and the sampled mineral id (never `mat:` filler).
+   */
+  sample(xIn: number, y: number, sf?: Surface): { vein: VeinInst; mineral: string } | null {
+    const x = this.wrapX(xIn);
+    const r = hash01(this.seed + 50, x, y);
+    if (r >= SAMPLE_DENSITY(1)) return null;
+    for (const v of this.veinsAround(x, y)) {
+      if (r >= SAMPLE_DENSITY(v.z0) || this.veinDist(v, x, y) > 1) continue;
+      sf ??= this.surface(x, y);
+      if (sf.water !== Water.None || sf.ice || this.tree(x, y, sf)) return null;
+      const parts = v.def.parts.filter((p) => !p.ref.startsWith('mat:'));
+      let w = hash01(this.seed + 51, x, y) * parts.reduce((a, p) => a + p.weight, 0);
+      for (const p of parts) if ((w -= p.weight) < 0) return { vein: v, mineral: p.ref };
+    }
+    return null;
+  }
+
+  /** Ore at a block; never inside water (z < surface depth). Outcrop veins also show their core at layer 0. */
   ore(xIn: number, y: number, z: number, sf?: Surface): OreHit | null {
     const x = this.wrapX(xIn);
     for (const v of this.veinsAround(x, y)) {
-      if (z < v.z0 || z > v.z1) continue;
-      const dx = this.dx(x, v.x), dy = y - v.y;
-      if (Math.abs(dx) > VEIN_RMAX + 2 || Math.abs(dy) > VEIN_RMAX + 2) continue;
-      const c = Math.cos(v.rot), s = Math.sin(v.rot);
-      const u = (dx * c + dy * s) / v.a, t = (-dx * s + dy * c) / v.b;
+      const top = z === 0 && v.def.outcrop;
+      if (!top && (z < v.z0 || z > v.z1)) continue;
+      const d = this.veinDist(v, x, y);
+      if (d > 1.2) continue;
       const edge = (hash01(v.seed, x, y, z) - 0.5) * 0.35;
-      if (u * u + t * t + edge > 1) continue;
-      if (z < (sf ??= this.surface(x, y)).depth) return null;
+      if (d + edge > (top ? 0.2 : 1)) continue;
+      sf ??= this.surface(x, y);
+      if (z < sf.depth) return null;
+      if (top && (sf.water !== Water.None || sf.ice || this.tree(x, y, sf))) continue;
       // Weighted mineral pick per block.
       let r = hash01(v.seed + 1, x, y, z) * 100;
       for (const p of v.def.parts) {

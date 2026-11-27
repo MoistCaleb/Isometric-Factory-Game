@@ -5,11 +5,12 @@ import { planet, type PlanetDef } from '../data/planets';
 import type { SimClient } from '../sim/client';
 import { TPS, timeOfDay, type GameState } from '../sim/state';
 import { nearSide, STRUCT } from '../sim/build';
-import { BLOCKS, isOre } from '../world/blocks';
+import { B, BLOCKS, isOre } from '../world/blocks';
 import { LAYERS, Tree, Water, worldGen, type WorldGen } from '../world/gen';
 import { planetMap } from '../world/map';
 import { buildChunk, CH, disposeChunk } from './chunks';
 import { buildStructs, ghostGeometry } from './structures';
+import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
 
 export type Mode = 'iso' | 'map' | 'globe';
@@ -17,7 +18,9 @@ export type Mode = 'iso' | 'map' | 'globe';
 export type Act = 'view' | 'build' | 'base' | 'demolish' | 'mine';
 /** Build cursor preview (set by the UI). */
 export type Ghost = { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string } | { kind: 'demolish' };
-export interface View { mode: Mode; x: number; y: number; zoom: number; rot: number; level: number; xray: boolean; mapZoom: number; globeDist: number }
+export interface View { mode: Mode; x: number; y: number; zoom: number; rot: number; level: number; xray: boolean; mapZoom: number; globeDist: number;
+  /** Vein overlay on (iso + map). */
+  veins: boolean }
 
 export const LEVEL_MIN = -LAYERS.bedrock, LEVEL_MAX = 8;
 const ISO_ZOOM: [number, number] = [5, 110];
@@ -47,7 +50,7 @@ export function rectInQuad(rx0: number, rz0: number, rx1: number, rz1: number, q
 }
 
 export class Renderer {
-  view: View = { mode: 'iso', x: 0, y: 0, zoom: 24, rot: 0, level: 0, xray: false, mapZoom: 400, globeDist: 2.6 };
+  view: View = { mode: 'iso', x: 0, y: 0, zoom: 24, rot: 0, level: 0, xray: false, mapZoom: 400, globeDist: 2.6, veins: true };
   onView?: (v: View) => void;
   onHover?: (text: string | null) => void;
   act: Act = 'view';
@@ -72,6 +75,12 @@ export class Renderer {
   private ghostSig = '';
   private seed = 0;
   private frameNo = 0;
+  private known: Record<string, number> = {};
+  private knownList: KnownVein[] = [];
+  private veinVer = 0;
+  private veinSig = '';
+  private veinIso = new THREE.Group();
+  private veinMap = new THREE.Group();
 
   // iso
   private iso = new THREE.Scene();
@@ -124,7 +133,8 @@ export class Renderer {
     this.iso.add(this.rain);
 
     this.mapScene.background = new THREE.Color(0x0b0f16);
-    this.mapScene.add(this.marker);
+    this.mapScene.add(this.marker, this.veinMap);
+    this.iso.add(this.veinIso);
     this.globeScene.background = new THREE.Color(0x05070c);
     this.globeScene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const gl = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -146,6 +156,8 @@ export class Renderer {
     this.ents = s.ents;
     this.base = s.base;
     this.structVer++;
+    this.known = { ...s.veins };
+    this.veinVer++;
     if (this.seed !== s.seed) {
       this.seed = s.seed;
       this.clearChunks();
@@ -163,6 +175,27 @@ export class Renderer {
   setLevel(l: number) { this.view.level = clamp(Math.round(l), LEVEL_MIN, LEVEL_MAX); this.emit(); }
   rotate(d: number) { this.view.rot = mod(this.view.rot + d, 4); this.emit(); }
   toggleXray() { this.view.xray = !this.view.xray; this.emit(); }
+  toggleVeins() { this.view.veins = !this.view.veins; this.emit(); }
+  /** Centre the local view on a tile. */
+  flyTo(x: number, y: number) { Object.assign(this.view, { mode: 'iso', x: x + 0.5, y: y + 0.5 }); this.onHover?.(null); this.emit(); }
+  get world() { return this.gen; }
+  get veinList() { return this.knownList; }
+  /** Apply vein knowledge raised by the sim. */
+  applyVeins(patch: Record<string, number>) { Object.assign(this.known, patch); this.veinVer++; }
+
+  private updateVeins(group: THREE.Group, layer: number | null, y: number, scale: number) {
+    const v = this.view;
+    const sig = `${this.veinVer}|${v.veins}|${layer}|${scale}|${group === this.veinIso}`;
+    if (sig !== this.veinSig) {
+      this.veinSig = sig;
+      this.knownList = knownVeins(this.gen!, this.known);
+      disposeOverlay(this.veinIso); disposeOverlay(this.veinMap);
+      const objs = v.veins ? buildVeinOverlay(this.knownList, layer, scale) : [];
+      if (objs.length) group.add(...objs);
+    }
+    const w = this.p.w;
+    for (const o of group.children) o.position.set(v.x + mod(o.userData.x - v.x + w / 2, w) - w / 2, y, o.userData.y);
+  }
   setMode(m: Mode) {
     const v = this.view;
     if (m === v.mode) return;
@@ -388,11 +421,13 @@ export class Renderer {
       this.updateSky(now, dt);
       this.updateStructs();
       this.updateGhost();
+      this.updateVeins(this.veinIso, Math.max(0, -v.level), Math.min(v.level, 0) + 0.04, 1);
       this.grid.visible = v.level > 0;
       if (this.grid.visible) this.grid.position.set(Math.round(v.x), v.level, Math.round(v.y));
       this.r.render(this.iso, this.isoCam);
     } else if (v.mode === 'map') {
       this.updateMapCam();
+      this.updateVeins(this.veinMap, null, 2, 2 ** Math.round(Math.log2(v.mapZoom / 80)));
       this.r.render(this.mapScene, this.mapCam);
     } else {
       this.updateGlobeCam();
@@ -610,8 +645,12 @@ export class Renderer {
     let extra = '';
     if (b === undefined) {
       if (v.xray && z > 0) { const o = gen.ore(x, y, z); if (o) extra = ` · ${o.vein.def.name} vein, ${o.richness}/block`; }
-      b = v.xray ? gen.block(x, y, z, sf) : gen.terrain(x, y, z, sf);
+      const open = (xx: number, yy: number, zz: number) => this.diffs[`${gen.wrapX(xx)},${yy},${zz}`] === B.air;
+      const shown = v.xray || z === 0 || open(x, y, z - 1) || open(x - 1, y, z) || open(x + 1, y, z) || open(x, y - 1, z) || open(x, y + 1, z);
+      b = shown ? gen.block(x, y, z, sf) : gen.terrain(x, y, z, sf);
     }
+    if (z === 0 && this.diffs[`${x},${y},s`] === undefined) { const smp = gen.sample(x, y, sf); if (smp) extra += ` · ${mineralName(smp.mineral)} sample`; }
+    for (const k of veinsAtTile(gen, this.knownList, x, y)) extra += k.level === 1 ? ` · ${k.v.def.name} hint` : ` · ${k.v.def.name} vein (layers ${k.v.z0}–${k.v.z1})`;
     const tree = z === 0 ? gen.tree(x, y, sf) : Tree.None;
     const treeName = ['', ' · Tree', ' · Conifer', ' · Jungle tree', ' · Cactus'][tree];
     return `${head}\nLayer ${z}: ${BLOCKS[b].name}${isOre(b) ? '' : ''}${treeName}${extra}`;

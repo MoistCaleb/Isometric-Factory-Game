@@ -196,6 +196,9 @@ export function generate(): Generated {
   // Primitive one-offs (§11c tools).
   addTool('hammer', 'stone', 'Stone Hammer', 0x8a8a8a, 0, 30);
   hand([s('cobble:stone'), s('stick:wood'), s('fiber')], [s('tool:hammer:stone')]);
+  // Prospector's hammer (CONTENT §11c): surveys veins near the tap, down to stone depth.
+  addTool('prospector', 'bronze', "Prospector's Hammer", 0xc98b3a, 1, 64);
+  hand([s('head_hammer:bronze'), s('plate:bronze'), s('stick:wood')], [s('tool:prospector:bronze')], ['file']);
   addTool('mortar', 'stone', 'Mortar', 0x8a8a8a, 0, 60);
   hand([s('cobble:stone'), s('shard:flint')], [s('tool:mortar:stone')]);
   addTool('treetap', 'wood', 'Treetap', 0x8b6a3e, 0, 100);

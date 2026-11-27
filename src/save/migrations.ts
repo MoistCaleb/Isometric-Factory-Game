@@ -13,6 +13,8 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   3: (s) => ({ ...s, version: 4, ...emptyInv() }),
   // P2c: placed structures + base parts.
   4: (s) => ({ ...s, version: 5, ents: {}, base: {} }),
+  // P2f: vein knowledge.
+  5: (s) => ({ ...s, version: 6, veins: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

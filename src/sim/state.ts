@@ -2,7 +2,7 @@
 import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 
-export const STATE_VERSION = 5;
+export const STATE_VERSION = 6;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;
@@ -28,6 +28,8 @@ export type BasePart = 'f' | 'r' | 'l' | 'n' | 'w';
 /** Edge variants for n/w parts. */
 export const EDGE = { wall: 1, window: 2, door: 3 } as const;
 export const FLOORS = 8;
+/** Vein knowledge (DESIGN §3 discovery): 1 hint (surface sample) · 2 exposed (ore mined) · 3 surveyed (prospected). */
+export const KNOW = { hint: 1, exposed: 2, surveyed: 3 } as const;
 
 export interface GameState {
   version: number;
@@ -50,6 +52,8 @@ export interface GameState {
   ents: Record<string, Ent>;
   /** Base build parts by `x,y,f,p` → variant. */
   base: Record<string, number>;
+  /** Known veins by vein id (`cx.cy.slot`) → KNOW level. */
+  veins: Record<string, number>;
 }
 
 export const emptyInv = () => ({ inv: Array<Slot | null>(INV_SIZE).fill(null), tools: Array<Slot | null>(TOOL_SLOTS).fill(null) });
@@ -59,6 +63,6 @@ export const newWeather = (): Weather => ({ wind: 0.3, rain: 0, tWind: 0.3, tRai
 export function newGame(seed: number = (Math.random() * 2 ** 32) >>> 0): GameState {
   return {
     version: STATE_VERSION, seed, planet: 'earth', tick: 0, rng: seed, playSeconds: 0,
-    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {},
+    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {},
   };
 }

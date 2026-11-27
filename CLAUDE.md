@@ -45,11 +45,13 @@
 | src/content/validate.ts | errors (fail build) + coverage warnings; `reachable()` from world sources |
 | src/content/registry.ts | `registry()` lookup: item/fluid/recipesFor/usesOf |
 | src/sim/player.ts | inventory (give/take/move, 27+9 tool slots, stack 64), tool wear, hand `craft`/`missing`, mining (`mine`: exposure rule, hits/tool speed, drops, pick reach H≤T+1, tree chop); `Cmd` → worker `apply` → `act` reply |
+| src/sim/veins.ts | discovery: `pickSample` (hint), `know`, `prospect` (survey); mining ore → exposed |
 | src/sim/build.ts | place/addBase/demolish, `edgeKey` (s/e edges stored as neighbour n/w), `nearSide` |
-| src/sim/ | state (GameState v5: inv/tools, ents `x,y,f`, base `x,y,f,p`, spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/sim/ | state (GameState v6: inv/tools, ents `x,y,f`, base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
+| src/render/veins.ts | vein overlay (hint circles / outlines / fills), `knownVeins`, `veinsAtTile` |
 | src/render/structures.ts | structures + base parts as one vertex-coloured mesh around the camera; ghost preview |
 | src/render/chunks.ts | 32×32 chunk mesh for one layer slice + instanced trees; renderer builds only chunks overlapping the viewport ground quad (`rectInQuad`), frees off-screen ones after ~1.5 s |
 | src/ui/ | Preact App (top bar incl. view buttons, menu, modebar left, Z-bar right, feed), Inventory (hotbar + bag), Recipes (browser + hand crafting), style.css, format |
@@ -64,19 +66,20 @@
 - Mineral refs: material id, chemical id, `m:<mineral>`, `later:<x>`.
 - Storey f: 0 = ground, 1–8 up (view level > 0). Render Y = f.
 - Water: `Surface.depth` = water layers (seabed at z = depth); ocean ≤8, trenches ≤22; no ore in water; under-water blocks unminable (offshore rigs later).
-- World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`).
+- World: x wraps (`gen.wrapX`), y = north→south rows, z = depth layer (0 surface … 25 bedrock). Render: X=x, Z=y, Y=−depth. Diff key `x,y,z` (trees `x,y,t`, picked samples `x,y,s`). Vein id `cx.cy.slot`.
 - Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
 - Scripts: `npm run dev | test | validate | build | map`.
 
 ## Status
 - **P0 done**. **P1 done** (planet gen, chunk render, camera, Z-slider, day/night, weather, map + globe).
 - Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
-- X-ray ore view is a dev toggle; real reveal = scanning (P2+).
+- X-ray ore view is a dev toggle; real reveal = samples/outcrops/digging/prospecting (P2f).
 - TODO: offshore mining rig (tier + recipe) to reach seabed/trench ores.
 - TODO: chunk loader design (keep chunks loaded off-screen for automation); sim will tick loaded chunks only.
 - **P2 Primitive** in progress:
   - [x] P2a mining mode, inventory, tool slots/wear, pits render
   - [x] P2b crafting panel + recipe browser v1 (search, R/U, long-press/double-tap, bookmarks, history)
   - [x] P2c placeable structures (`struct:*`), Machine Build / Base Build / Demolition, storeys, foundations
+  - [x] P2f vein discovery: ore samples, outcrops, true-block reveal, prospector's hammer, vein overlay (O) + journal (J)
   - [ ] P2d primitive machines + multiblocks sim (kiln, charcoal pile, clay furnace, crucible, bloomery, coke oven, PBF, quern, sluice)
   - [ ] P2e quest book v1 + loot crates

@@ -216,7 +216,7 @@ Distance: rare veins are weighted away from spawn.
 | Stone Hammer | stone + stick + fiber | crush ore (hand), early plates |
 | Mortar | stone + flint | grind to dust (wasteful) |
 | Treetap | planks + stick | sticky resin from rubber trees |
-| Prospector's Hammer | bronze head + stick | scan small radius, to stone depth |
+| Prospector's Hammer | bronze hammer head + bronze plate + stick (file) | survey veins within 24 tiles, to layer 8 (64 uses) |
 | Bronze Pick / Hammer / Saw / File / Wrench / Knife / Shovel | bronze tool head + stick (heads cast in molds or filed) | Pick: **H1** |
 | Steel tools (+ Screwdriver, Wire Cutter) | steel heads (PBF steel) | Pick: **H2** |
 | Vanadium Steel tools | LV | Pick: **H3** |
