@@ -2,6 +2,7 @@
 import type { WorldGen } from '../world/gen';
 import { stepMachines } from './machines';
 import { stepPipes } from './pipes';
+import { stepPollution } from './pollution';
 import { stepQuests } from './quests';
 import { TPS, type GameState } from './state';
 import { stepWeather } from './weather';
@@ -10,6 +11,6 @@ export function step(s: GameState, gen?: WorldGen): void {
   s.tick++;
   s.playSeconds = s.tick / TPS;
   stepWeather(s);
-  if (gen) { stepMachines(s, gen); stepPipes(s, gen); }
+  if (gen) { stepMachines(s, gen); stepPipes(s, gen); stepPollution(s, gen.w, gen.h); }
   stepQuests(s);
 }

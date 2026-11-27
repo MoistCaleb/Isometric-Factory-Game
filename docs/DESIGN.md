@@ -69,6 +69,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - **Closed loops** (Cl₂, Mg, acids). Outputs that back up stop machines.
 - **Real melting points** decide smelting routes (clay furnace → bloomery → PBF → EBF coils).
 - **Pollution:** per-chunk value, spreads + decays. Thresholds: haze → plants die → machine efficiency loss → acid rain damages unroofed machines and uninsulated cables. Fixed with **scrubber multiblocks**, gas capture, trees.
+  - **v1 (P3e):** one value per 32×32 chunk; burning machines emit `smoke`/s (kilns 1, bloomery/lime kiln 2, PBF 4, charcoal pile 2, coke oven 3, boilers 2/4/16, solar 0); every second each chunk leaks 3 % to each of 4 neighbours (x wraps) and decays 1 %. **Haze ≥ 300** (sky/light tint, top-bar ☁ readout), **smog ≥ 1500** (recipe machines −25 % speed). Plants dying, acid rain, scrubbers, tree absorption later (P5).
 - **Hazards:** fluids are tagged toxic / corrosive / flammable / radioactive. Wrong pipe material corrodes → **leaks** → pollution spike + **contaminated tiles** (must be cleaned before building). Flammable leaks near heat start fires. Radiation lowers nearby machine efficiency.
 
 ## 5. Machines
@@ -113,7 +114,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - **Planner/ratio calculator** → can emit a blueprint sketch.
 - **Quest book** (visual tree per tier chapter, **L**) with **loot crate** rewards; it **is the tutorial**: every mechanic (controls, mining, inventory, recipe book, building modes, machines, fuel/heat, crank, multiblocks, storeys, veins, saves) is explained by the quest that first needs it. Tasks: hold items, build structures, or do an action once (action flags, tracked in the save). Quests unlock when their prerequisites are done; completion is checked every second and after each command; rewards are claimed by hand.
 - **Loot crates** per tier: open from the bag; 3 weighted rolls, 5% chance a roll uses the next tier's table; deterministic from the save RNG.
-- HUD: top (power, pollution, time/weather, alerts) · bottom (mode bar, 9 tools, inventory) · right (Z-slider). Alerts fly camera to source. Overlays: pollution, power, pipes, veins, hazards. Statistics graphs.
+- HUD: top (power, pollution, time/weather, alerts) · bottom (mode bar, 9 tools, inventory) · right (Z-slider). Alerts fly camera to source (P3e: machine stuck ≥ 3 s in a bad status — no fuel/water/steam, output full (not boilers), dry, mined out — plus explosions; tap → fly + open panel). Overlays menu in the top bar (P3e: veins O, pipes H = every pipe near the camera on all storeys drawn through walls, fluid blue / item orange; pollution K = chunk tint yellow→red, iso + map). Overlays: pollution, power, pipes, veins, hazards. Statistics graphs.
 - Controls: pinch/scroll zoom, drag/WASD pan, **4-way rotation**, long-press/right-click info.
 - **Pause** + real-time only (no fast-forward). **No offline progress** (game stops when closed).
 - Autosave with rolling **backups** + manual save in settings + export/import.

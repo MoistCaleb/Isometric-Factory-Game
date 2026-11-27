@@ -13,6 +13,8 @@ import { buildStructs, ghostGeometry } from './structures';
 import { multiCells } from '../data/structures';
 import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
+import { pipeGeometry, pollGeometry } from './overlays';
+import { HAZE, POLL_CH, SMOG } from '../sim/pollution';
 
 export type Mode = 'iso' | 'map' | 'globe';
 /** Player action mode (DESIGN §3 Building). */
@@ -21,7 +23,9 @@ export type Act = 'view' | 'build' | 'base' | 'demolish' | 'mine';
 export type Ghost = { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string } | { kind: 'demolish' };
 export interface View { mode: Mode; x: number; y: number; zoom: number; rot: number; level: number; xray: boolean; mapZoom: number; globeDist: number;
   /** Vein overlay on (iso + map). */
-  veins: boolean }
+  veins: boolean;
+  /** Pipe and pollution overlays (P3e). */
+  pipes?: boolean; poll?: boolean }
 
 export const LEVEL_MIN = -LAYERS.bedrock, LEVEL_MAX = 8;
 const ISO_ZOOM: [number, number] = [5, 110];
@@ -93,6 +97,14 @@ export class Renderer {
   private veinSig = '';
   private veinIso = new THREE.Group();
   private veinMap = new THREE.Group();
+  /** Pollution per chunk (sim stats) + overlay meshes. */
+  private pl: Record<string, number> = {};
+  private plSig = '';
+  private ovMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
+  private pollIso = new THREE.Mesh(new THREE.BufferGeometry(), this.ovMat);
+  private pollMap = new THREE.Mesh(new THREE.BufferGeometry(), this.ovMat);
+  private pipeMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75, depthWrite: false, depthTest: false }));
+  private pipeSig = '';
 
   // iso
   private iso = new THREE.Scene();
@@ -152,7 +164,9 @@ export class Renderer {
 
     this.mapScene.background = new THREE.Color(0x0b0f16);
     this.mapScene.add(this.marker, this.veinMap);
-    this.iso.add(this.veinIso);
+    this.iso.add(this.veinIso, this.pollIso, this.pipeMesh);
+    this.mapScene.add(this.pollMap);
+    for (const o of [this.pollIso, this.pollMap, this.pipeMesh]) { o.frustumCulled = false; o.renderOrder = 6; }
     this.globeScene.background = new THREE.Color(0x05070c);
     this.globeScene.add(new THREE.AmbientLight(0xffffff, 0.9));
     const gl = new THREE.DirectionalLight(0xffffff, 1.2);
@@ -194,6 +208,33 @@ export class Renderer {
   rotate(d: number) { this.view.rot = mod(this.view.rot + d, 4); this.emit(); }
   toggleXray() { this.view.xray = !this.view.xray; this.emit(); }
   toggleVeins() { this.view.veins = !this.view.veins; this.emit(); }
+  togglePipes() { this.view.pipes = !this.view.pipes; this.emit(); }
+  togglePoll() { this.view.poll = !this.view.poll; this.emit(); }
+  /** Pollution per chunk from sim stats. */
+  setPollution(pl: Record<string, number> = {}) { this.pl = pl; }
+  /** Pollution at the camera's chunk. */
+  get pollHere() { return this.pl[`${Math.floor(mod(this.view.x, this.p.w) / POLL_CH)},${Math.floor(this.view.y / POLL_CH)}`] ?? 0; }
+
+  private updatePoll(mesh: THREE.Mesh, y: number, R: number, on: boolean) {
+    mesh.visible = on;
+    if (!on) return;
+    const v = this.view, cx = Math.round(v.x / POLL_CH) * POLL_CH, cy = Math.round(v.y / POLL_CH) * POLL_CH;
+    const sig = `${JSON.stringify(this.pl)}|${cx},${cy}|${y}|${R}|${mesh === this.pollIso}`;
+    if (sig === this.plSig) return;
+    this.plSig = sig;
+    mesh.geometry.dispose(); mesh.geometry = pollGeometry(this.pl, this.p.w, cx, cy, R, y);
+  }
+
+  private updatePipes() {
+    const v = this.view, on = !!v.pipes;
+    this.pipeMesh.visible = on;
+    if (!on) return;
+    const R = Math.ceil(Math.max(48, v.zoom * 2.5) / 16) * 16, cx = Math.round(v.x / 16) * 16, cy = Math.round(v.y / 16) * 16;
+    const sig = `${this.structVer}|${cx},${cy},${R}`;
+    if (sig === this.pipeSig) return;
+    this.pipeSig = sig;
+    this.pipeMesh.geometry.dispose(); this.pipeMesh.geometry = pipeGeometry(this.ents, this.p.w, cx, cy, R);
+  }
   /** Centre the local view on a tile. */
   flyTo(x: number, y: number) { Object.assign(this.view, { mode: 'iso', x: x + 0.5, y: y + 0.5 }); this.onHover?.(null); this.emit(); }
   get world() { return this.gen; }
@@ -484,12 +525,15 @@ export class Renderer {
       this.updateGhost();
       this.updateSelected(now);
       this.updateVeins(this.veinIso, Math.max(0, -v.level), Math.min(v.level, 0) + 0.04, 1);
+      this.updatePoll(this.pollIso, this.levelY + 0.06, Math.max(64, v.zoom * 3), !!v.poll);
+      this.updatePipes();
       this.grid.visible = v.level > 0;
       if (this.grid.visible) this.grid.position.set(Math.round(v.x), this.levelY, Math.round(v.y));
       this.r.render(this.iso, this.isoCam);
     } else if (v.mode === 'map') {
       this.updateMapCam();
       this.updateVeins(this.veinMap, null, 2, 2 ** Math.round(Math.log2(v.mapZoom / 80)));
+      this.updatePoll(this.pollMap, 1.5, v.mapZoom * 2, !!v.poll);
       this.r.render(this.mapScene, this.mapCam);
     } else {
       this.updateGlobeCam();
@@ -515,6 +559,9 @@ export class Renderer {
     this.hemi.intensity = 0.35 + light * 0.75;
     this.hemi.color.setRGB(0.6 + light * 0.3, 0.68 + light * 0.25, 1);
     const sky = new THREE.Color(under ? 0x0d0c10 : 0x0a1020).lerp(new THREE.Color(under ? 0x0d0c10 : rain > 0.3 ? 0x6a7682 : 0x8fb3d4), under ? 0 : day);
+    // Pollution haze (P3e): browns the sky and light above HAZE, strongest at 2× SMOG.
+    const haze = under ? 0 : clamp((this.pollHere - HAZE) / (SMOG * 2 - HAZE), 0, 0.7);
+    if (haze > 0) { sky.lerp(new THREE.Color(0x8a7650), haze); this.hemi.color.lerp(new THREE.Color(0xc0a070), haze * 0.6); }
     this.iso.background = sky;
 
     // Rain falls in a box around the camera target; wind slants it.

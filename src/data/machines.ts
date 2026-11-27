@@ -28,28 +28,30 @@ export interface MachineDef {
   /** Boiler (P3d): burn ticks used per tick (bigger boilers eat fuel faster) · water tank (L, default BOILER_WATER) ·
    * heated by daylight instead of fuel. */
   fuelUse?: number; waterTank?: number; solar?: boolean;
+  /** Pollution per second while burning (P3e). */
+  smoke?: number;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
 const ROWS: Row[] = [
   ['hand', 'Crafting Station', 'P'],
-  ['pit_kiln', 'Pit Kiln', 'P', 1100, { run: 'fuel', heatK: 900 }],
-  ['clay_furnace', 'Clay Furnace', 'P', 1400, { run: 'fuel', heatK: 900 }],
-  ['crucible', 'Crucible + Molds', 'P', 1400, { run: 'fuel', heatK: 600, tank: 144 * 8 }],
-  ['bloomery', 'Bloomery', 'P', 1500, { run: 'fuel', heatK: 1300 }],
-  ['primitive_blast_furnace', 'Primitive Blast Furnace', 'P', 1900, { run: 'fuel', heatK: 1800 }],
-  ['charcoal_pile', 'Charcoal Pile', 'P', undefined, { run: 'self', tank: 4000 }],
-  ['coke_oven', 'Coke Oven', 'P', undefined, { run: 'self', tank: 8000 }],
-  ['lime_kiln', 'Lime Kiln', 'P', 1200, { run: 'fuel', heatK: 1100 }],
+  ['pit_kiln', 'Pit Kiln', 'P', 1100, { run: 'fuel', heatK: 900, smoke: 1 }],
+  ['clay_furnace', 'Clay Furnace', 'P', 1400, { run: 'fuel', heatK: 900, smoke: 1 }],
+  ['crucible', 'Crucible + Molds', 'P', 1400, { run: 'fuel', heatK: 600, tank: 144 * 8, smoke: 1 }],
+  ['bloomery', 'Bloomery', 'P', 1500, { run: 'fuel', heatK: 1300, smoke: 2 }],
+  ['primitive_blast_furnace', 'Primitive Blast Furnace', 'P', 1900, { run: 'fuel', heatK: 1800, smoke: 4 }],
+  ['charcoal_pile', 'Charcoal Pile', 'P', undefined, { run: 'self', tank: 4000, smoke: 2 }],
+  ['coke_oven', 'Coke Oven', 'P', undefined, { run: 'self', tank: 8000, smoke: 3 }],
+  ['lime_kiln', 'Lime Kiln', 'P', 1200, { run: 'fuel', heatK: 1100, smoke: 2 }],
   ['quern', 'Quern', 'P', undefined, { run: 'crank' }],
   ['sluice', 'Sluice Box', 'P', undefined, { run: 'crank', water: true }],
   ['anvil', 'Anvil', 'P', undefined, { run: 'crank' }],
   ['chest', 'Wooden Chest', 'P', undefined, { run: 'store', slots: 27 }],
   ['barrel', 'Wooden Barrel', 'P', undefined, { run: 'tank', tank: 16000, cold: true }],
-  ['small_boiler', 'Small Bronze Boiler', 'S', 500, { run: 'boiler', rate: 12, tank: 16000 }],
-  ['hp_boiler', 'High-Pressure Steel Boiler', 'S', 600, { run: 'boiler', rate: 30, tank: 16000, fuelUse: 2 }],
+  ['small_boiler', 'Small Bronze Boiler', 'S', 500, { run: 'boiler', rate: 12, tank: 16000, smoke: 2 }],
+  ['hp_boiler', 'High-Pressure Steel Boiler', 'S', 600, { run: 'boiler', rate: 30, tank: 16000, fuelUse: 2, smoke: 4 }],
   ['solar_boiler', 'Solar Boiler', 'S', 450, { run: 'boiler', rate: 6, tank: 8000, solar: true }],
-  ['large_boiler', 'Large Boiler', 'S', 800, { run: 'boiler', rate: 120, tank: 32000, fuelUse: 8, waterTank: 32000 }],
+  ['large_boiler', 'Large Boiler', 'S', 800, { run: 'boiler', rate: 120, tank: 32000, fuelUse: 8, waterTank: 32000, smoke: 16 }],
   ['water_pump', 'Water Pump', 'S', undefined, { run: 'pump', rate: 10, tank: 8000, water: true }],
   ['steam_furnace', 'Steam Furnace', 'S', 1400, { run: 'steam' }],
   ['steam_macerator', 'Steam Macerator', 'S', undefined, { run: 'steam' }],

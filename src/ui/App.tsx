@@ -4,7 +4,10 @@ import type { Game } from '../game';
 import { LEVEL_MAX, LEVEL_MIN, type Act, type Renderer, type View } from '../render/renderer';
 import * as store from '../save/store';
 import type { MachView, SimStats } from '../sim/client';
-import { controllerAt, controllerInStorey } from '../sim/machines';
+import { controllerAt, controllerInStorey, machineAt, MS, MS_TEXT } from '../sim/machines';
+import { HAZE, pollKey, SMOG } from '../sim/pollution';
+const pollAt = (pl: Record<string, number> | undefined, key: string) => { const [x, y] = key.split(',').map(Number); return pl?.[pollKey(x, y)] ?? 0; };
+import { STOREY } from '../sim/state';
 import type { ActResult, SlotRef } from '../sim/player';
 import { nearSide, type BaseKind } from '../sim/build';
 import { BuildBar } from './BuildBar';
@@ -33,6 +36,13 @@ let lastQ: Record<string, number> | null = null;
 const sentFlags = new Set<string>();
 let lastView: View | null = null, lastPaused: boolean | null = null;
 
+/** Alerts (DESIGN §8): machines stuck in a bad status for ALERT_MS, plus explosions. Tap one to fly there. */
+export interface Alert { key: string; st: number; msg: string; t: number; boom?: boolean }
+const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun];
+const ALERT_MS = 3000;
+/** First time each machine was seen in its current bad status (`key` → [status, ms]). */
+const badSince = new Map<string, [number, number]>();
+
 export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [view, setView] = useState<View>({ ...renderer.view });
   const [hover, setHover] = useState<string | null>(null);
@@ -57,6 +67,10 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [machKey, setMachKey] = useState<string | null>(null);
   const [machView, setMachView] = useState<MachView | null>(null);
   const [qbook, setQbook] = useState(false);
+  const [alerts, setAlerts] = useState<Alert[]>([]);
+  const [booms, setBooms] = useState<Alert[]>([]);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [ovOpen, setOvOpen] = useState(false);
   const openMach = (k: string | null) => {
     setMachKey(k); setMachView(null); game.sim.watch(k); renderer.setSelected(k);
     if (k) { setJournal(false); setBook(false); setBag(false); setMenu(false); } else renderer.setGhosts({});
@@ -72,7 +86,22 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   };
   useEffect(() => {
     game.sim.onStats = (st) => {
-      setStats(st); renderer.setStatuses(st.ms);
+      setStats(st); renderer.setStatuses(st.ms); renderer.setPollution(st.pl);
+      const now = performance.now(), list: Alert[] = [];
+      for (const [k, s] of Object.entries(st.ms ?? {})) {
+        const ma = machineAt(renderer.entities, k);
+        // A full boiler is just idling; a solar boiler waiting for sunshine at night is normal.
+        const bad = BAD.includes(s) && !(ma?.def.run === 'boiler' && (s === MS.full || s === MS.noSun));
+        if (!bad) { badSince.delete(k); continue; }
+        const b = badSince.get(k);
+        if (!b || b[0] !== s) { badSince.set(k, [s, now]); continue; }
+        if (now - b[1] < ALERT_MS) continue;
+        const msg = `${ma?.st.name ?? 'Machine'}: ${MS_TEXT[s]}`;
+        if (now - b[1] < ALERT_MS + 300) push(`⚠ ${msg}`, true);
+        list.push({ key: k, st: s, msg, t: b[1] });
+      }
+      for (const k of badSince.keys()) if (!st.ms?.[k]) badSince.delete(k);
+      setAlerts(list);
       if (st.q && lastQ) for (const [id, v] of Object.entries(st.q)) if (v === QDONE && !lastQ[id]) push(`Quest complete: ${QUEST.get(id)?.title ?? id} — claim it in the quest book (L)`);
       if (st.q) lastQ = st.q;
       if (lastPaused === false && st.paused) flag('pause');
@@ -95,6 +124,10 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       const reg = registry();
       for (const g of r.gained ?? []) push(`+${g.n} ${reg.item(g.id)?.name ?? g.id}`);
       if (r.msg) push(r.msg, !r.ok);
+      if (r.sim && !r.ok && r.msg) {
+        const key = Object.keys(r.ents ?? {})[0];
+        if (key) setBooms((l) => [...l.slice(-4), { key, st: -1, msg: r.msg!, t: performance.now(), boom: true }]);
+      }
     };
     renderer.onPan = () => flag('pan');
     renderer.onView = (v) => {
@@ -108,6 +141,8 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (v.level < p.level && v.level < 0) flag('level_down');
       if (v.level > p.level && v.level > 0) flag('level_up');
       if (v.veins && !p.veins) flag('overlay');
+      if (v.pipes && !p.pipes) flag('pipe_overlay');
+      if (v.poll && !p.poll) flag('poll_overlay');
     };
     renderer.onHover = setHover;
     refresh();
@@ -159,6 +194,8 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (e.code === 'KeyZ') pickAct('demolish');
       if (e.code === 'KeyF') setRot((r) => (r + 1) % 4);
       if (e.code === 'KeyO') renderer.toggleVeins();
+      if (e.code === 'KeyH') renderer.togglePipes();
+      if (e.code === 'KeyK') renderer.togglePoll();
       if (e.code === 'KeyJ') setJournal((j) => !j);
       if (e.code === 'KeyL') setQbook((q) => !q);
       if (e.code === 'KeyP') { pickAct('mine'); setMineTool((m) => (m === 'prospect' ? 'dig' : 'prospect')); }
@@ -170,6 +207,16 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   useEffect(() => { if (bag) flag('bag'); }, [bag]);
   useEffect(() => { if (journal) flag('journal'); }, [journal]);
   useEffect(() => { if (machKey) flag('machine'); }, [machKey]);
+  useEffect(() => { if (alertsOpen) flag('alerts'); }, [alertsOpen]);
+
+  const allAlerts = [...booms, ...alerts];
+  const goAlert = (a: Alert) => {
+    const [x, y, b] = a.key.split(',').map(Number);
+    renderer.flyTo(x, y); renderer.setLevel(Math.floor(b / STOREY));
+    if (a.boom) setBooms((l) => l.filter((o) => o !== a)); else openMach(a.key);
+    setAlertsOpen(false);
+  };
+  const pollHere = renderer.pollHere;
   useEffect(() => { if (look?.tab === 'uses') flag('uses'); }, [look]);
 
   const reg = registry();
@@ -189,6 +236,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button onClick={() => game.togglePause()} title="Space">{stats.paused ? '▶' : '❚❚'}</button>
         <span>{gameClock(stats.tick)}</span>
         <span>{weatherText(stats)}</span>
+        {iso && pollHere >= 5 && <span class={pollHere >= SMOG ? 'err' : pollHere >= HAZE ? 'warn' : 'dim'} title={`Pollution here (haze ${HAZE}, smog ${SMOG}: machines −25 % speed)`}>☁ {Math.round(pollHere)}{pollHere >= SMOG ? ' smog' : pollHere >= HAZE ? ' haze' : ''}</span>}
         <span class="dim tps">{stats.paused ? 'Paused' : `${stats.tps} TPS · ${stats.mspt.toFixed(2)} ms`}</span>
         <span class="grow" />
         {iso && <button onClick={() => renderer.rotate(-1)} title="Q">⟲</button>}
@@ -198,6 +246,27 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
         <button class={qbook ? 'on' : ''} onClick={() => { setQbook(!qbook); setMenu(false); }} title="Quest book (L)">📜 Quests{claimable(stats.q) > 0 && <span class="badge">{claimable(stats.q)}</span>}</button>
         <button class={journal ? 'on' : ''} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎ Veins</button>
+        <span class="popwrap">
+          <button class={ovOpen ? 'on' : ''} onClick={() => { setOvOpen(!ovOpen); setAlertsOpen(false); }} title="Overlays: veins O · pipes H · pollution K">Overlays</button>
+          {ovOpen && (
+            <div class="pop">
+              <label><input type="checkbox" checked={view.veins} onChange={() => renderer.toggleVeins()} /> Veins (O)</label>
+              <label><input type="checkbox" checked={!!view.pipes} onChange={() => renderer.togglePipes()} /> Pipes (H)</label>
+              <label><input type="checkbox" checked={!!view.poll} onChange={() => renderer.togglePoll()} /> Pollution (K)</label>
+            </div>
+          )}
+        </span>
+        <span class="popwrap">
+          <button class={alertsOpen ? 'on' : allAlerts.length ? 'alert' : ''} onClick={() => { setAlertsOpen(!alertsOpen); setOvOpen(false); }} title="Alerts">⚠{allAlerts.length > 0 && <span class="badge">{allAlerts.length}</span>}</button>
+          {alertsOpen && (
+            <div class="pop alerts">
+              {allAlerts.map((a) => (
+                <button key={a.key + a.st} class={a.boom ? 'err' : ''} onClick={() => goAlert(a)} title="Fly there">{a.boom ? '💥' : '⚠'} {a.msg}</button>
+              ))}
+              {!allAlerts.length && <div class="dim">No alerts — machines that get stuck (no fuel, no water, no steam…) show up here.</div>}
+            </div>
+          )}
+        </span>
         <button onClick={() => { setMenu(!menu); setBook(false); setJournal(false); setQbook(false); }} title="Esc">☰</button>
       </div>
       {menu && (
@@ -230,6 +299,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           <div class="row">
             <label><input type="checkbox" checked={view.xray} onChange={() => renderer.toggleXray()} /> X-ray ores (dev)</label>
             <button onClick={() => game.sim.cmd({ k: 'devkit' })}>Dev kit: structures + materials</button>
+            <button onClick={() => game.sim.cmd({ k: 'devpoll', x: Math.floor(view.x), y: Math.floor(view.y) })}>Dev: pollute here</button>
           </div>
           <h3>Content</h3>
           <div class="dim">{reg.items.length} items · {reg.fluids.length} fluids · {reg.recipes.length} recipes</div>
@@ -259,7 +329,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           baseKind={baseKind} onBaseKind={setBaseKind} onBook={() => { setLook(null); setBook(true); setBag(false); }} />
       )}
       {machKey && !book && !menu && !journal && !qbook && renderer.entities[machKey] && (
-        <Machine ent={renderer.entities[machKey]} view={machView?.key === machKey ? machView : null} inv={inv}
+        <Machine ent={renderer.entities[machKey]} view={machView?.key === machKey ? machView : null} inv={inv} poll={pollAt(stats.pl, machKey)}
           onCmd={(c) => game.sim.cmd(c)} onLook={openLook} onClose={() => openMach(null)} />
       )}
       {iso && !menu && !book && !journal && !qbook && !(machKey && renderer.entities[machKey]) && (

@@ -1,5 +1,6 @@
 // Machine panel (DESIGN §5, P2d): status, multiblock auto-fill, fuel + heat, recipe pick, load/unload, progress,
 // crank, outputs and tank. Live state streams from the sim while open (`sim.watch`).
+import { SMOG } from '../sim/pollution';
 import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
@@ -20,10 +21,12 @@ const can = (inv: Inv, r: Recipe) => r.inputs.every((i) => count(inv, i.id) >= i
 
 interface Props {
   ent: Ent; view: MachView | null; inv: Inv;
+  /** Pollution in this machine's chunk (P3e). */
+  poll?: number;
   onCmd: (c: Cmd) => void; onLook: (l: Look) => void; onClose: () => void;
 }
 
-export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
+export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Props) {
   const reg = registry();
   const st = STRUCT.get(ent.s)!, def = MACHINE.get(st.machine!)!;
   const [pick, setPick] = useState(false);
@@ -65,6 +68,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
         <button onClick={onClose} title="Close (Esc)">✕</button>
       </div>
 
+      {poll >= SMOG && !boiler && def.run !== 'store' && def.run !== 'tank' && <div class="warn">☁ Smog here ({Math.round(poll)}): machines in this area run 25 % slower. Spread out your furnaces and boilers.</div>}
       {view!.blocked.length > 0 && <div class="dim">Inner chamber must be empty: clear {view!.blocked.length} tile(s) above the controller.</div>}
       {view!.miss.length > 0 && (
         <div class="row">
@@ -131,7 +135,7 @@ export function Machine({ ent, view, inv, onCmd, onLook, onClose }: Props) {
           <h3>Heat</h3>
           <div class="bar"><div style={{ width: `${Math.min(100, (m.heat / (def.maxHeatK ?? 1)) * 100)}%`, background: m.heat >= need ? '#e08030' : '#806040' }} />
             <i style={{ left: `${(need / (def.maxHeatK ?? 1)) * 100}%` }} /></div>
-          <div class="dim">{Math.round(m.heat)} K · needs {need} K · max {def.maxHeatK} K{m.burn > 0 && !def.solar ? ` · burning ${Math.ceil(m.burn / 20 / (def.fuelUse ?? 1))} s` : ''}</div>
+          <div class="dim">{Math.round(m.heat)} K · needs {need} K · max {def.maxHeatK} K{m.burn > 0 && !def.solar ? ` · burning ${Math.ceil(m.burn / 20 / (def.fuelUse ?? 1))} s` : ''}{def.smoke ? ` · smoke ${def.smoke}/s while burning` : ''}</div>
           {!def.solar && <><div class="io">
             {bag(m.fuel).map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}
             {!Object.keys(m.fuel).length && <span class="dim">No fuel loaded</span>}

@@ -48,9 +48,11 @@
 | src/sim/machines.ts | P2d machines: `Mach` per controller ent (recipe, inp/fuel/out bags, tank, heat, prog, status `MS`), `stepMachines`, `machCmd` (mrec/mload/mfuel/mtake/munload/mdump/crank/mfill), multiblock `controllerAt`/`multiCheck` (miss [key, id], blocked, need hatches), `refund` on demolish; boilers incl. solar/large |
 | src/sim/pipes.ts | pipes: `networks` (same-kind pipe ents joined on 6 sides → links {ctl, face, via, hatch?}; hatch multiblocks link only via hatches, cached per topology via `topoChanged`), `stepPipes`: fluid (pool → producers push → users pull → storage tops up / soaks leftovers → spread back; a network keeps its fluid once set; boiler dry + water > 400 K → `explode`), items every `ITEM_EVERY` ticks (sources → nearest sinks by pipe distance, `accepts`); face modes `Mach.faces` (FACE, SIDES order E W S N up down) |
 | src/sim/quests.ts | P2e quest book: `checkQuests` (unlocked + tasks met → 1 done; 2 claimed), `taskProgress`, `questCmd` (qclaim, open crate); data in data/quests (QUESTS, action FLAGS) + data/loot (tables, `crate:<tier>`) |
+| src/sim/pollution.ts | P3e: `stepPollution` (emit/spread/decay once per second), `pollKey`/`pollAt`/`smoggy`, HAZE/SMOG |
+| src/render/overlays.ts | P3e: pollution quads + pipe boxes geometry |
 | src/sim/veins.ts | discovery: `pickSample` (hint), `know`, `prospect` (hammer) → `survey(r, depth)` (also thumper); mining ore → exposed |
 | src/sim/build.ts | place/addBase/demolish, `edgeKey` (s/e edges stored as neighbour n/w), `nearSide` |
-| src/sim/ | weather (`sunlight`), state (GameState v10: inv/tools, ents `x,y,b` (block level), base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), quests, flags (tutorial actions), pipes (fluid per pipe block), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
+| src/sim/ | weather (`sunlight`), state (GameState v11: inv/tools, ents `x,y,b` (block level), base `x,y,f,p`, veins (id → KNOW 1 hint/2 exposed/3 surveyed), mach (ent key → Mach), quests, flags (tutorial actions), pipes (fluid per pipe block), poll (pollution per chunk), spawn, weather, diffs; TPS=20, DAY_TICKS=20 min, `timeOfDay`), step (systems go here), weather, loop (fixed step, max 5 catch-up), rng, worker, client, protocol |
 | src/save/ | codec (gzip JSON envelope), migrations (bump STATE_VERSION + add fn), store (IDB: manual + 5 rolling auto) |
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
@@ -88,10 +90,11 @@
   - [x] P2f vein discovery: ore samples, outcrops, true-block reveal, prospector's hammer, vein overlay (O) + journal (J)
   - [x] P2d primitive machines + multiblocks: fuel/heat, crank, self-burning; pit kiln, clay furnace, crucible hearth, lime kiln, quern, sluice, anvil; charcoal pile, bloomery, coke oven, PBF (ring/plus casings, ghost + auto-fill); machine panel; status icons
   - [x] P2e quest book v1 (Primitive chapter = full tutorial, action flags) + loot crates
-- **P3 Steam** in progress:
+- **P3 Steam** done:
   - [x] P3a steam core: bronze hull/piston/grinder head, water pump, bronze fluid pipes (single-fluid networks), small bronze boiler (heat → steam, dry-boiler explosion), steam furnace/macerator/forge hammer/ore washer/alloy smelter drawing steam from pipes; Steam quest chapter start
   - [x] P3b tin item pipes (nearest-sink routing), 6-face config (auto/in/out/off, fluid + item), chest (27 slots) / barrel (16 kL buffer) as machines, lead fluid pipes; quests s_items, s_barrel
   - [x] P3c steam compressor / extractor / pump (40 L/t), thumper (survey r48 to layer 16, once), excavator (ore only, 9×9 below, layers 1–16, H≤1, → out bag); steam ore ladder (crushed/purified → dust, impure wash, furnace smelts crushed/purified); rubber trees (jungle + some swamp) + treetap tapping, extractor + alloy vulcanising; quests s_ladder s_compressor s_rubber s_extractor s_pump s_thumper s_excavator
   - [x] P3d multiblock framework: patterns rotate with the controller (build ghost shows the footprint), several casing kinds per pattern (cell part), hatches (fluid in/out, item bus) replace outer casings, `need` hatches, pipes connect only through hatches; Large Boiler (120 L/t, fuel 8×), steel hull + high-pressure boiler (30 L/t, fuel 2×), solar boiler (daylight, `sunlight`); quests s_steel_hull s_hp_boiler s_solar s_large_boiler
-  - [ ] P3e pollution v1, alerts (fly to source), overlays (pipes, pollution)
+  - [x] P3e pollution v1 (`s.poll` per 32×32 chunk, machine `smoke`/s, spread 3 %/decay 1 % per s, haze 300 / smog 1500 = −25 % speed), alerts (stuck ≥ 3 s + explosions, tap → fly + open), overlays menu (veins O, pipes H, pollution K); quest s_smoke
+- Next: **P4 LV** (DESIGN §10).
 - New mechanic ⇒ add/extend the quest that teaches it (data/quests.ts); UI-only actions go in `UI_FLAGS`.

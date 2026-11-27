@@ -501,6 +501,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - P3c: ore ladder (s_ladder), compressor, rubber (treetap + sulfur), extractor, steam pump
    - steam thumper (s_thumper)
    - steam excavator (s_excavator)
+   - P3e: pollution, overlays, alerts (s_smoke, flags poll_overlay / pipe_overlay / alerts)
    - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
 3. **LV:**
    - lodestone magnet

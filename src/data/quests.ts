@@ -8,7 +8,7 @@ import type { TierId } from './tiers';
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
  * mdump open claim mface cput tap thump lboiler. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
-  'bookmark', 'journal', 'overlay', 'machine'] as const;
+  'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
   'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler'] as const;
@@ -273,6 +273,14 @@ export const QUESTS: QuestDef[] = [
       'Connect the pump\'s water pipe to the boiler first, then add fuel.',
     ],
     tasks: [build('small_boiler')] },
+  { id: 's_smoke', chapter: 'S', title: 'Smoke and Signals', req: ['s_boiler'], reward: S1,
+    text: [
+      '**Pollution:** everything that burns makes smoke — kilns and furnaces a little, coke ovens and blast furnaces more, boilers the most (a Large Boiler 16 per second). Smoke collects over each **32×32 area**, drifts to neighbouring areas and slowly fades. The top bar shows **☁** the pollution where you are looking.',
+      'Above **300** the sky turns to **haze**. Above **1500** it is **smog**: machines in that area run **25 % slower**. Spread your furnaces and boilers out instead of packing them together. (Later, smog will kill plants and bring acid rain; scrubbers will clean it.)',
+      '**Overlays (top bar):** **Pollution (K)** tints each area from yellow to red. **Pipes (H)** shows every pipe nearby on all storeys, through walls and floors — blue for fluid, orange for item pipes. **Veins (O)** you already know.',
+      '**Alerts (⚠ in the top bar):** a machine stuck for a few seconds (no fuel, no water, no steam, output full…) or a boiler explosion shows up there. Tap an alert to fly to the machine and open it.',
+    ],
+    tasks: [flag('poll_overlay', 'Turn on the pollution overlay (K)'), flag('pipe_overlay', 'Turn on the pipe overlay (H)'), flag('alerts', 'Open the alerts list (⚠)')] },
   { id: 's_furnace', chapter: 'S', title: 'Steam Furnace', req: ['s_boiler'], reward: S1,
     text: [
       'Steam machines take steam from a pipe into their own buffer and use **2 L per tick for each unit of recipe power** (most use 8 L per tick). Without steam they stop with status **No steam**.',

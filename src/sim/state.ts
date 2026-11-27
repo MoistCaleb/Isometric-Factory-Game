@@ -3,7 +3,7 @@ import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 import type { Mach } from './machines';
 
-export const STATE_VERSION = 10;
+export const STATE_VERSION = 11;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;
@@ -65,6 +65,8 @@ export interface GameState {
   flags: Record<string, number>;
   /** Fluid in pipe blocks by ent key (P3a): spread evenly over each network every tick. */
   pipes: Record<string, { id: string; n: number }>;
+  /** Pollution per 32×32 chunk `cx,cy` (P3e). */
+  poll: Record<string, number>;
 }
 
 export const emptyInv = () => ({ inv: Array<Slot | null>(INV_SIZE).fill(null), tools: Array<Slot | null>(TOOL_SLOTS).fill(null) });
@@ -74,6 +76,6 @@ export const newWeather = (): Weather => ({ wind: 0.3, rain: 0, tWind: 0.3, tRai
 export function newGame(seed: number = (Math.random() * 2 ** 32) >>> 0): GameState {
   return {
     version: STATE_VERSION, seed, planet: 'earth', tick: 0, rng: seed, playSeconds: 0,
-    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {}, quests: {}, flags: {}, pipes: {},
+    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {}, quests: {}, flags: {}, pipes: {}, poll: {},
   };
 }

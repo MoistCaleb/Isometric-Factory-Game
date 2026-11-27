@@ -17,6 +17,7 @@ import { next } from './rng';
 import { KNOW, STOREY, type GameState } from './state';
 import { know, survey } from './veins';
 import { sunlight } from './weather';
+import { smoggy } from './pollution';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -225,6 +226,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       m.steam! -= need;
     }
     m.st = MS.working;
+    if (s.tick % 4 === 0 && smoggy(s, key)) continue; // smog: −25 % speed
     if (++m.prog >= r!.ticks) finish(s, m, r!);
   }
 }
