@@ -18,7 +18,7 @@ export interface StructDef {
   hatch?: 'fluid_in' | 'fluid_out' | 'item_in';
   /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
    * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
-  pipe?: { rate: number; cap: number; item?: boolean };
+  pipe?: { rate: number; cap: number; item?: boolean; /** Acid-proof (P4b corrosion). */ acid?: boolean };
   /** Cable (DESIGN §6, P4a): joins any cable on all 6 sides. Max volts, amps, volt drop per tile (loss W = I × drop × tiles). A fuse burns before anything else on overcurrent. */
   cable?: { v: number; a: number; drop: number; fuse?: boolean };
 }
@@ -105,7 +105,7 @@ export const STRUCTURES: StructDef[] = [
   { id: 'bronze_pipe', name: 'Bronze Fluid Pipe', color: BRONZE, cost: [['pipe_small:bronze', 1]], pipe: { rate: 120, cap: 1000 },
     model: [[5, 5, 5, 11, 11, 11, BRONZE]] },
   // P3b
-  { id: 'lead_pipe', name: 'Lead Fluid Pipe', color: LEAD, cost: [['pipe_small:lead', 1]], pipe: { rate: 80, cap: 800 },
+  { id: 'lead_pipe', name: 'Lead Fluid Pipe', color: LEAD, cost: [['pipe_small:lead', 1]], pipe: { rate: 80, cap: 800, acid: true },
     model: [[5, 5, 5, 11, 11, 11, LEAD]] },
   { id: 'tin_item_pipe', name: 'Tin Item Pipe', color: TIN, cost: [['item_pipe:tin', 1]], pipe: { rate: 4, cap: 0, item: true },
     model: [[5, 5, 5, 11, 11, 11, TIN]] },
@@ -218,6 +218,21 @@ function lvMachines(): StructDef[] {
       [[4, 12, 4, 12, 14, 12, GLASS], [3, 14, 3, 13, 16, 13, STEEL]]),
     row('polarizer', 'Polarizer', [['rod:iron', 4]],
       [[4, 12, 4, 12, 16, 12, COPPER], [6, 12, 6, 10, 16, 10, 0x5a5e64]]),
+    // P4b chemistry.
+    row('mixer', 'Mixer', [['motor:lv', 1], ['rotor:steel', 1], ['pane:glass', 1]],
+      [[4, 12, 4, 12, 16, 12, GLASS], [7, 12, 7, 9, 16, 9, STEEL]]),
+    row('electrolyzer', 'Electrolyzer', [['wire:silver', 4], ['pane:glass', 1]],
+      [[3, 12, 3, 13, 15, 13, GLASS], [5, 12, 7, 6, 16, 9, 0xd8dce4], [10, 12, 7, 11, 16, 9, COPPER]]),
+    row('chemical_reactor', 'Chemical Reactor', [['motor:lv', 1], ['rotor:steel', 1], ['pane:glass', 1]],
+      [[3, 12, 3, 13, 14, 13, 0x6a8a6a], [5, 14, 5, 11, 16, 11, GLASS]]),
+    row('chemical_bath', 'Chemical Bath', [['pump:lv', 2], ['conveyor:lv', 1], ['pane:glass', 1]],
+      [[2, 12, 2, 14, 14, 14, STEEL], [3, 13, 3, 13, 14, 13, 0xd0a030]]),
+    row('roaster', 'Roaster', [['struct:clay_furnace', 1], ['pump:lv', 1], ['fire_brick:fireclay', 4]],
+      [[3, 12, 3, 13, 14, 13, FIRE], [6, 14, 6, 10, 16, 10, BRICK], [5, 4, 15, 11, 7, 16, GLOW]]),
+    row('canner', 'Canner', [['pump:lv', 1], ['conveyor:lv', 1]],
+      [[3, 12, 4, 7, 15, 8, TIN], [9, 12, 8, 13, 15, 12, TIN]]),
+    row('electric_pump', 'Electric Pump', [['pump:lv', 1], ['rotor:steel', 1]],
+      [[5, 12, 5, 11, 16, 11, 0x5070a0], [0, 3, 6, 1, 8, 10, WATER]]),
   ];
 }
 

@@ -1,5 +1,7 @@
 // Versioned save migrations: MIGRATIONS[v] upgrades a v-state to v+1.
+import { MACHINE } from '../data/machines';
 import { planet } from '../data/planets';
+import { STRUCTURES } from '../data/structures';
 import { emptyInv, newWeather, STATE_VERSION, type GameState } from '../sim/state';
 import { worldGen } from '../world/gen';
 
@@ -27,6 +29,16 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   9: (s) => ({ ...s, version: 10, pipes: {} }),
   // P3e: pollution.
   10: (s) => ({ ...s, version: 11, poll: {} }),
+  // P4b: recipe machines hold a fluid bag instead of one tank.
+  11: (s) => {
+    const ents = s.ents as Record<string, { s: string }>, mach = s.mach as Record<string, { tank?: { id: string; n: number }; fl?: Record<string, number> }>;
+    for (const [k, m] of Object.entries(mach ?? {})) {
+      const st = STRUCTURES.find((x) => x.id === ents[k]?.s), def = st?.machine ? MACHINE.get(st.machine) : undefined;
+      if (!m.tank || !def || def.run === 'boiler' || def.run === 'pump' || def.run === 'tank') continue;
+      m.fl = { [m.tank.id]: m.tank.n }; delete m.tank;
+    }
+    return { ...s, version: 12 };
+  },
 };
 
 export function migrate(raw: Raw): GameState {

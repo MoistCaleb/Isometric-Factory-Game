@@ -33,6 +33,8 @@ export interface MachineDef {
   smoke?: number;
   /** Generator (P4a): W at full output. */
   gen?: number;
+  /** Recipe-less electric machine (P4b electric pump): W drawn while working. */
+  elec?: number;
 }
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
@@ -82,6 +84,14 @@ const ROWS: Row[] = [
   ['fluid_extractor', 'Fluid Extractor', 'LV', undefined, { run: 'elec', tank: 8000 }],
   ['fluid_solidifier', 'Fluid Solidifier', 'LV', undefined, { run: 'elec', tank: 8000 }],
   ['polarizer', 'Polarizer', 'LV', undefined, { run: 'elec' }],
+  // P4b: chemistry.
+  ['mixer', 'Mixer', 'LV', undefined, { run: 'elec', tank: 8000 }],
+  ['electrolyzer', 'Electrolyzer', 'LV', undefined, { run: 'elec', tank: 16000 }],
+  ['chemical_reactor', 'Chemical Reactor', 'LV', undefined, { run: 'elec', tank: 16000 }],
+  ['chemical_bath', 'Chemical Bath', 'LV', undefined, { run: 'elec', tank: 8000 }],
+  ['roaster', 'Roaster', 'LV', 1300, { run: 'elec', tank: 8000, smoke: 1 }],
+  ['canner', 'Canner', 'LV', undefined, { run: 'elec', tank: 8000 }],
+  ['electric_pump', 'Electric Pump', 'LV', undefined, { run: 'pump', rate: 60, tank: 16000, water: true, elec: 16 }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
 ];
 export const MACHINES: MachineDef[] = ROWS.map(([id, name, tier, maxHeatK, x]) => ({ id, name, tier, maxHeatK, ...x }));
@@ -111,3 +121,9 @@ export const THUMP_TICKS = 400, THUMP_R = 48, THUMP_DEPTH = 16;
 export const DIG_R = 4, DIG_DEPTH = 16, DIG_H = 1, DIG_TICKS = 40, DIG_SCAN = 128;
 /** Electricity (DESIGN §6, P4a): machine input = tier voltage × AMP_IN, buffer = BUF_S seconds of input. */
 export const AMP_IN = 1, BUF_S = 1;
+/** Chemistry (P4b): litres per cell · corrosion burst chance per non-acid-proof pipe block per second · pollution per burst ·
+ * pollution per litre of a dumped gas/toxic fluid. */
+export const CELL_L = 1000, CORRODE_P = 0.01, LEAK_POLL = 100, DUMP_POLL = 0.05;
+/** Fluids that come in cells (P4b). */
+export const CELL_FLUIDS = ['water', 'brine', 'sodium_hydroxide', 'chlorine', 'hydrogen', 'oxygen', 'hydrochloric_acid', 'sulfur_dioxide',
+  'sulfuric_acid', 'mercury', 'creosote', 'wood_tar'];

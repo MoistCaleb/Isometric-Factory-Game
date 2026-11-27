@@ -24,6 +24,7 @@ export const LOOT: Partial<Record<TierId, LootEntry[]>> = {
     { id: 'fine_wire:copper', n: [4, 12], w: 5 }, { id: 'ingot:solder', n: [1, 3], w: 4 }, { id: 'sheet:rubber', n: [2, 6], w: 5 },
     { id: 'struct:tin_cable', n: [4, 8], w: 5 }, { id: 'ingot:nickel', n: [1, 2], w: 3 }, { id: 'tube:glass', n: [2, 4], w: 3 },
     { id: 'vacuum_tube', n: [1, 2], w: 2 }, { id: 'circuit:basic', n: [1, 1], w: 1 }, { id: 'motor:lv', n: [1, 1], w: 1 },
+    { id: 'cell:empty', n: [2, 4], w: 4 }, { id: 'dust:salt', n: [4, 8], w: 3 }, { id: 'struct:lead_pipe', n: [2, 6], w: 3 }, { id: 'pane:glass', n: [2, 4], w: 3 },
   ],
 };
 /** Tiers that have crates (an item `crate:<tier>`). */

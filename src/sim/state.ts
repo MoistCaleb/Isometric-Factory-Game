@@ -3,7 +3,7 @@ import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
 import type { Mach } from './machines';
 
-export const STATE_VERSION = 11;
+export const STATE_VERSION = 12;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;

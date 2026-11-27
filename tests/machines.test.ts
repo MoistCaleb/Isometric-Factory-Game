@@ -90,7 +90,7 @@ describe('machines', () => {
     expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(true);
     run(s, 1800);
     expect(s.mach[key].out['lump:coke']).toBe(2);
-    expect(s.mach[key].tank).toEqual({ id: 'creosote', n: 500 });
+    expect(s.mach[key].fl).toEqual({ creosote: 500 });
   });
 
   it('stacks 3 blocks per storey; upper storeys need support; supports cannot be demolished', () => {

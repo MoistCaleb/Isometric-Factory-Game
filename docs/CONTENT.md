@@ -343,7 +343,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Ore Washer | motor, steel rotor, glass |
 | Thermal Centrifuge | 2 motors, cupronickel coil wire |
 | Centrifuge | 2 motors |
-| Electrolyzer | 4 silver/gold wire, glass |
+| Electrolyzer | 4 silver wire, glass |
 | Chemical Reactor | motor, steel rotor, glass |
 | Chemical Bath | 2 pumps, conveyor module, glass |
 | Mixer | motor, steel rotor, glass |
@@ -355,9 +355,9 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Fluid Extractor / Solidifier | pump, piston, glass |
 | Electric Furnace / Arc Furnace | 4 copper cable / graphite electrodes |
 | Polarizer | 2 tin cables, iron rods (coiled) |
-| Roaster | furnace, pump, bricks |
+| Roaster | clay furnace, pump, 4 fire bricks |
 | Canner | pump, conveyor module |
-| Electric Pump | pump, rotor |
+| Electric Pump | pump, steel rotor (60 L/t water, 16 W) |
 | Mining Rig | 2 motors, steel drill head, pipe |
 | Scanner (block) | circuit, emitter-lite, copper coil |
 | Battery Buffer | chest, cables |
@@ -376,6 +376,8 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 **Fuses & breakers:**
 - **Fuse:** tin wire in a glass tube. Burns out.
 - **Breaker:** LV, needs a circuit. Resettable.
+
+**Tin cell:** 2 tin plates + rubber ring (hammer) or bender; holds 1000 L of one fluid.
 
 **Lead-acid battery (LV):** lead-antimony plates + sulfuric acid + rubber case.
 
@@ -503,7 +505,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - steam excavator (s_excavator)
    - P3e: pollution, overlays, alerts (s_smoke, flags poll_overlay / pipe_overlay / alerts)
    - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
-3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine)
+3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid)
    - lodestone magnet
    - first motor
    - hand-made basic circuit

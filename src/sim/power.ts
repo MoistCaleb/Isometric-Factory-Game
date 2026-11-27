@@ -22,7 +22,7 @@ const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 const cache = new WeakMap<object, { v: number; w: number; nets: PNet[] }>();
 const defOf = (s: GameState, ctl: string): MachineDef | undefined => MACHINE.get(SM.get(s.ents[ctl]?.s ?? '') ?? '');
-const electric = (d?: MachineDef) => d?.run === 'elec' || d?.run === 'gen';
+const electric = (d?: MachineDef) => d?.run === 'elec' || d?.run === 'gen' || !!d?.elec;
 
 /** Machine input (W) and buffer (J). */
 export const inputW = (d: MachineDef) => TIER_VOLTAGE[d.tier] * AMP_IN;

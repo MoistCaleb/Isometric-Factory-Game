@@ -5,12 +5,14 @@
 // back evenly. Storage (barrels) only gives when a machine runs short and takes what's left, so it acts as a buffer.
 // Items (P3b): every ITEM_EVERY ticks each source (machine outputs on auto/out sides, chests on out sides) sends up to the
 // pipe rate to the nearest sinks by pipe distance (recipe inputs, fuel, chests on auto/in sides).
-import { BOILER_WATER, BOOM_K, FACE, FUELS, ITEM_EVERY, MACHINE, STEAM_BUF, type MachineDef } from '../data/machines';
+import { BOILER_WATER, BOOM_K, CORRODE_P, FACE, LEAK_POLL, FUELS, ITEM_EVERY, MACHINE, STEAM_BUF, type MachineDef } from '../data/machines';
 import { PIPES, STRUCTURES, conduitsJoin, sideOpen } from '../data/structures';
 import { registry } from '../content/registry';
 import type { WorldGen } from '../world/gen';
-import { BAG as BAG_N, controllerAt, explode, hatchOf, newMach, type Mach } from './machines';
-import type { GameState } from './state';
+import { BAG as BAG_N, addFl, controllerAt, explode, flCap, hatchOf, newMach, simEvents, singleTank, type Mach } from './machines';
+import { addPoll } from './pollution';
+import { next } from './rng';
+import { TPS, type GameState } from './state';
 
 /** A machine side touching the network: controller key, its face index, the pipe block it touches; through a hatch
  * (P3d) the direction is fixed by the hatch. */
@@ -97,13 +99,24 @@ function attached(s: GameState, net: Net, dir: 'in' | 'out') {
 }
 
 // ---------- fluids ----------
-/** Fluid a machine offers to a network (and the bag holding it). */
-function offer(m: Mach, def: MachineDef): { id: string; n: number } | null {
-  if (!m.tank || m.tank.n <= 0) return null;
-  if (def.run === 'boiler' || def.run === 'pump' || def.run === 'tank') return m.tank;
-  // Liquid byproducts (creosote, tar, molten metal) leave unless the recipe consumes that fluid.
+/** Fluid a machine offers to a network holding `net` (any if unset): its tank, or a bag output (not a recipe input). */
+function offer(m: Mach, def: MachineDef, net?: string): { id: string; n: number; take: (n: number) => void } | null {
+  if (singleTank(def)) {
+    const tk = m.tank;
+    if (!tk || tk.n <= 0 || (net && net !== tk.id)) return null;
+    // Molten/byproduct tanks of single-tank machines: only boilers, pumps and barrels hold one.
+    return { id: tk.id, n: tk.n, take: (n) => { tk.n -= n; if (tk.n <= 1e-9) m.tank = undefined; } };
+  }
+  if (!m.fl) return null;
   const r = m.rec ? registry().recipe(m.rec) : undefined;
-  return r?.fluidsIn?.some((f) => f.id === m.tank!.id) ? null : m.tank;
+  // A network already holding a fluid takes only that; an unset one takes the output the machine has most of, so fresh
+  // lines on different sides end up with different outputs (each line drains what it took first).
+  let best: string | undefined;
+  for (const [id, n] of Object.entries(m.fl)) {
+    if (n <= 0 || (net && net !== id) || r?.fluidsIn?.some((f) => f.id === id)) continue;
+    if (!best || n > m.fl[best]) best = id;
+  }
+  return best ? { id: best, n: m.fl[best], take: (x) => addFl(m, best!, -x) } : null;
 }
 
 /** Wooden storage holds no steam or molten metal. */
@@ -113,11 +126,31 @@ export const tooHot = (def: MachineDef, id: string) => !!def.cold && (id === 'st
 function want(m: Mach, def: MachineDef, id: string): [number, number, (n: number) => void] | null {
   if (def.run === 'boiler') return id === 'water' ? [m.water ?? 0, def.waterTank ?? BOILER_WATER, (n) => { m.water = n; }] : null;
   if ((def.run === 'steam' || def.steam) && id === 'steam') return [m.steam ?? 0, STEAM_BUF, (n) => { m.steam = n; }];
-  const setTank = (n: number) => { m.tank = n > 0 ? { id, n } : undefined; };
-  if (def.run === 'tank') return (m.tank && m.tank.id !== id) || tooHot(def, id) ? null : [m.tank?.n ?? 0, def.tank ?? 0, setTank];
+  if (def.run === 'tank') {
+    const setTank = (n: number) => { m.tank = n > 0 ? { id, n } : undefined; };
+    return (m.tank && m.tank.id !== id) || tooHot(def, id) ? null : [m.tank?.n ?? 0, def.tank ?? 0, setTank];
+  }
+  if (singleTank(def)) return null;
   const r = m.rec ? registry().recipe(m.rec) : undefined;
-  if (!r?.fluidsIn?.some((f) => f.id === id) || (m.tank && m.tank.id !== id)) return null;
-  return [m.tank?.n ?? 0, def.tank ?? 8000, setTank];
+  if (!r?.fluidsIn?.some((f) => f.id === id)) return null;
+  const cur = m.fl?.[id] ?? 0;
+  return [cur, flCap(def), (n) => addFl(m, id, n - (m.fl?.[id] ?? 0))];
+}
+
+/** Corrosion v1 (DESIGN §4, P4b): a corrosive fluid bursts non-acid-proof pipe blocks (checked once a second). */
+function corrode(s: GameState, net: Net, id: string) {
+  if (s.tick % TPS || !registry().fluid(id)?.hazards.includes('corrosive')) return;
+  for (const k of net.keys) {
+    const pd = PIPES.get(s.ents[k]?.s ?? '');
+    if (!pd || pd.acid || next(s) >= CORRODE_P) continue;
+    const name = STRUCTURES.find((x) => x.id === s.ents[k].s)?.name ?? 'pipe';
+    delete s.ents[k]; delete s.pipes[k];
+    addPoll(s, k, LEAK_POLL);
+    topoChanged();
+    s.flags.corrode = (s.flags.corrode ?? 0) + 1;
+    simEvents.push({ ok: false, sim: true, msg: `🧪 A ${name} corroded through — ${registry().fluid(id)?.name} leaked out. Acids need lead pipes.`, ents: { [k]: null } });
+    return; // topology changed: the rest waits for the rebuilt networks
+  }
 }
 
 function stepFluid(s: GameState, net: Net) {
@@ -130,10 +163,10 @@ function stepFluid(s: GameState, net: Net) {
   const outs = attached(s, net, 'out'), ins = attached(s, net, 'in');
   const push = (list: typeof outs) => {
     for (const { m, def } of list) {
-      const o = offer(m, def);
-      if (!o || (id && id !== o.id)) continue;
+      const o = offer(m, def, id);
+      if (!o) continue;
       const amt = Math.min(o.n, net.rate, net.cap - n);
-      if (amt > 0) { id = o.id; n += amt; o.n -= amt; if (o.n <= 1e-9) m.tank = undefined; }
+      if (amt > 0) { id = o.id; n += amt; o.take(amt); }
     }
   };
   /** Fill machines; true if one still wants more. */
@@ -160,6 +193,7 @@ function stepFluid(s: GameState, net: Net) {
   pull(ins.filter((o) => isStore(o.def)));
   const per = n / net.keys.length;
   for (const k of net.keys) if (id) s.pipes[k] = { id, n: per > 1e-6 ? per : 0 };
+  if (id && n > 1e-6) corrode(s, net, id);
 }
 
 // ---------- items ----------

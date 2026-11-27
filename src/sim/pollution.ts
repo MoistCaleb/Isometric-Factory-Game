@@ -15,10 +15,16 @@ export const pollKey = (x: number, y: number) => `${Math.floor(x / POLL_CH)},${M
 export const pollAt = (s: GameState, x: number, y: number) => s.poll[pollKey(x, y)] ?? 0;
 export const smoggy = (s: GameState, key: string) => { const [x, y] = key.split(',').map(Number); return pollAt(s, x, y) >= SMOG; };
 
+/** Add pollution at an ent key's chunk (leaks, dumps). */
+export function addPoll(s: GameState, key: string, n: number) {
+  const [x, y] = key.split(',').map(Number), k = pollKey(x, y);
+  s.poll[k] = (s.poll[k] ?? 0) + n;
+}
+
 /** Smoke per second while this machine burns (0 = clean). */
 export function smokeOf(def: MachineDef, m: Mach): number {
   if (!def.smoke) return 0;
-  if (def.run === 'self') return m.st === 1 ? def.smoke : 0; // MS.working
+  if (def.run === 'self' || def.run === 'elec') return m.st === 1 ? def.smoke : 0; // MS.working
   return m.burn > 0 ? def.smoke : 0;
 }
 

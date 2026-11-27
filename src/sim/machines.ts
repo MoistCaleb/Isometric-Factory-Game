@@ -3,7 +3,7 @@
 // Run modes: fuel (burn items for heat, recipe needs minHeatK) · self (burns its own charge) · crank (player-driven).
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
-import { AMBIENT_K, BOIL_K, BOILER_RATE, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
+import { AMBIENT_K, BOIL_K, BOILER_RATE, BOILER_WATER, CELL_FLUIDS, CELL_L, DUMP_POLL, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
   THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
@@ -17,7 +17,7 @@ import { next } from './rng';
 import { KNOW, STOREY, TPS, type GameState } from './state';
 import { know, survey } from './veins';
 import { sunlight } from './weather';
-import { smoggy } from './pollution';
+import { addPoll, smoggy } from './pollution';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -25,7 +25,10 @@ export interface Mach {
   inp: Record<string, number>;
   out: Record<string, number>;
   fuel: Record<string, number>;
+  /** Single tank: boiler steam, pump water, barrel (P3). */
   tank?: { id: string; n: number };
+  /** Recipe machines (P4b): fluid bag (L by id, each ≤ the machine's tank); recipe fluids are inputs, the rest outputs. */
+  fl?: Record<string, number>;
   heat: number;
   /** Fuel ticks left and the flame temperature of what's burning. */
   burn: number; burnK: number;
@@ -146,21 +149,23 @@ function nearWater(gen: WorldGen, key: string): boolean {
 
 const recipeOf = (id?: string): Recipe | undefined => (id ? registry().recipe(id) : undefined);
 const isGas = (id: string) => registry().fluid(id)?.phase === 'gas';
+/** Machines with a single tank (not a fluid bag). */
+export const singleTank = (def: MachineDef) => def.run === 'boiler' || def.run === 'pump' || def.run === 'tank';
+/** Gas outputs vent from primitive/steam machines; electric ones keep them (P4b). */
+const vents = (def: MachineDef, id: string) => def.run !== 'elec' && isGas(id);
+/** Fluid bag cap per fluid (L). */
+export const flCap = (def: MachineDef) => def.tank ?? 8000;
 
 function hasInputs(m: Mach, r: Recipe): boolean {
   return r.inputs.every((i) => (m.inp[i.id] ?? 0) >= i.n) && (r.keep ?? []).every((k) => (m.inp[k] ?? 0) >= 1)
-    && (r.fluidsIn ?? []).every((f) => m.tank?.id === f.id && m.tank.n >= f.n);
+    && (r.fluidsIn ?? []).every((f) => (m.fl?.[f.id] ?? 0) >= f.n - 1e-9);
 }
 
 function hasRoom(m: Mach, r: Recipe, def: MachineDef): boolean {
   const kinds = new Set(Object.keys(m.out));
   for (const o of r.outputs) { if ((m.out[o.id] ?? 0) + o.n > STACK) return false; kinds.add(o.id); }
   if (kinds.size > OUT_KINDS) return false;
-  for (const f of r.fluidsOut ?? []) {
-    if (isGas(f.id)) continue;
-    const after = (r.fluidsIn ?? []).reduce((a, x) => a - (x.id === m.tank?.id ? x.n : 0), m.tank?.n ?? 0);
-    if ((m.tank && after > 0 && m.tank.id !== f.id) || after + f.n > (def.tank ?? 0)) return false;
-  }
+  for (const f of r.fluidsOut ?? []) if (!vents(def, f.id) && (m.fl?.[f.id] ?? 0) + f.n > flCap(def)) return false;
   return true;
 }
 
@@ -174,13 +179,23 @@ function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: Machine
   return null;
 }
 
-function finish(s: GameState, m: Mach, r: Recipe) {
+/** Change a fluid in the bag (drops empties). */
+export function addFl(m: Mach, id: string, n: number) {
+  const v = (m.fl?.[id] ?? 0) + n;
+  if (v > 1e-6) (m.fl ??= {})[id] = v;
+  else if (m.fl) { delete m.fl[id]; if (!Object.keys(m.fl).length) delete m.fl; }
+}
+/** Chemistry outputs that set a quest flag when first made (P4b). */
+const CHEM_FLAGS = new Set(['brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid']);
+
+function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
   for (const i of r.inputs) { m.inp[i.id] -= i.n; if (!m.inp[i.id]) delete m.inp[i.id]; }
-  for (const f of r.fluidsIn ?? []) { m.tank!.n -= f.n; if (m.tank!.n <= 0) m.tank = undefined; }
+  for (const f of r.fluidsIn ?? []) addFl(m, f.id, -f.n);
   for (const o of r.outputs) if (o.chance === undefined || next(s) < o.chance) m.out[o.id] = (m.out[o.id] ?? 0) + o.n;
   for (const f of r.fluidsOut ?? []) {
-    if (isGas(f.id)) continue; // vents (pollution later)
-    m.tank = { id: f.id, n: (m.tank?.n ?? 0) + f.n };
+    if (vents(def, f.id)) continue; // vents (pollution later)
+    addFl(m, f.id, f.n);
+    if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
   m.prog = 0;
 }
@@ -200,7 +215,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     if (def.run === 'store' || def.run === 'tank') continue;
     if (def.run === 'pump') {
       const room = (def.tank ?? 0) - (m.tank?.n ?? 0);
-      m.st = !nearWater(gen, key) ? MS.noWater : room <= 0 ? MS.full : !useSteam(m, def) ? MS.noSteam : MS.working;
+      m.st = !nearWater(gen, key) ? MS.noWater : room <= 0 ? MS.full : !useSteam(m, def) ? MS.noSteam : !usePower(m, def) ? MS.noPower : MS.working;
       if (m.st === MS.working) m.tank = { id: 'water', n: (m.tank?.n ?? 0) + Math.min(room, def.rate ?? 0) };
       continue;
     }
@@ -236,7 +251,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     }
     m.st = MS.working;
     if (s.tick % 4 === 0 && smoggy(s, key)) continue; // smog: −25 % speed
-    if (++m.prog >= r!.ticks) finish(s, m, r!);
+    if (++m.prog >= r!.ticks) finish(s, m, r!, def);
   }
 }
 
@@ -245,6 +260,15 @@ function useSteam(m: Mach, def: MachineDef): boolean {
   if (!def.steam) return true;
   if ((m.steam ?? 0) < def.steam) return false;
   m.steam! -= def.steam;
+  return true;
+}
+
+/** Draw a recipe-less electric machine's power for this tick (P4b electric pump). */
+function usePower(m: Mach, def: MachineDef): boolean {
+  if (!def.elec) return true;
+  const need = def.elec / TPS;
+  if ((m.e ?? 0) < need - 1e-9) return false;
+  m.e! -= need;
   return true;
 }
 
@@ -326,7 +350,8 @@ export type MachCmd =
   | { k: 'mfuel'; key: string; id: string; n: number }
   | { k: 'mtake'; key: string }
   | { k: 'munload'; key: string }
-  | { k: 'mdump'; key: string }
+  | { k: 'mdump'; key: string; id?: string }
+  | { k: 'mcell'; key: string; id: string; fill?: boolean }
   | { k: 'crank'; key: string }
   | { k: 'mfill'; key: string }
   | { k: 'mface'; key: string; face: number; mode: number }
@@ -420,7 +445,19 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       take(s, c.id, n); m.out[c.id] = (m.out[c.id] ?? 0) + n;
       return { ok: true };
     }
-    case 'mdump': m.tank = undefined; return { ok: true, msg: 'Tank emptied' };
+    case 'mdump': {
+      const dumped: [string, number][] = m.tank ? [[m.tank.id, m.tank.n]] : Object.entries(m.fl ?? {}).filter(([id]) => !c.id || id === c.id);
+      let poll = 0;
+      for (const [id, n] of dumped) {
+        const fd = registry().fluid(id);
+        if (fd && (fd.phase === 'gas' || fd.hazards.includes('toxic')) && id !== 'steam' && id !== 'water') poll += n * DUMP_POLL;
+        if (!m.tank) addFl(m, id, -n);
+      }
+      if (m.tank) m.tank = undefined;
+      if (poll) addPoll(s, c.key, poll);
+      return { ok: true, msg: poll ? `Dumped — pollution +${Math.round(poll)}` : 'Tank emptied' };
+    }
+    case 'mcell': return cellCmd(s, m, def, c.id, !!c.fill);
     case 'crank': {
       if (def.run !== 'crank') return { ok: false };
       const b = blocker(s, gen, c.key, m, def, r);
@@ -430,7 +467,7 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       m.prog += CRANK_TICKS;
       if (m.prog < r!.ticks) return { ok: true, progress: [m.prog, r!.ticks], target: st.name };
       const before = { ...m.out };
-      finish(s, m, r!);
+      finish(s, m, r!, def);
       const msg = tools.map((t) => wear(s, t!.i)).find(Boolean);
       const made = Object.entries(m.out).filter(([id, n]) => n > (before[id] ?? 0)).map(([id, n]) => `${name(id)} ×${n - (before[id] ?? 0)}`);
       return { ok: true, msg: msg ?? (made.length ? `Made ${made.join(', ')}` : undefined) };
@@ -450,6 +487,43 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       return { ok: !why, ents, msg: why };
     }
   }
+}
+
+/** Pour cells of a fluid into a machine, or (fill) fill empty cells from what it holds (P4b). */
+function cellCmd(s: GameState, m: Mach, def: MachineDef, id: string, fill: boolean): ActResult {
+  if (!CELL_FLUIDS.includes(id)) return { ok: false, msg: 'No cell for that fluid' };
+  const full = `cell:${id}`;
+  if (fill) {
+    const have = singleTank(def) ? (m.tank?.id === id ? m.tank.n : 0) : m.fl?.[id] ?? 0;
+    const n = Math.min(count(s, 'cell:empty'), Math.floor((have + 1e-6) / CELL_L));
+    if (n <= 0) return { ok: false, msg: count(s, 'cell:empty') ? `Less than ${CELL_L} L` : 'No empty cells' };
+    take(s, 'cell:empty', n);
+    const left = give(s, full, n);
+    if (left) give(s, 'cell:empty', left);
+    const used = (n - left) * CELL_L;
+    if (singleTank(def)) { m.tank!.n -= used; if (m.tank!.n <= 1e-6) m.tank = undefined; } else addFl(m, id, -used);
+    s.flags.cell = (s.flags.cell ?? 0) + 1;
+    return { ok: true, msg: `Filled ${n - left} cell${n - left === 1 ? '' : 's'}` };
+  }
+  const room = fluidRoom(m, def, id);
+  const n = Math.min(count(s, full), Math.floor((room + 1e-6) / CELL_L));
+  if (n <= 0) return { ok: false, msg: !count(s, full) ? `No ${name(full)}` : room > 0 ? 'Not enough room' : 'It takes no ' + (registry().fluid(id)?.name ?? id) };
+  take(s, full, n);
+  const left = give(s, 'cell:empty', n);
+  if (singleTank(def)) {
+    if (def.run === 'boiler') m.water = (m.water ?? 0) + n * CELL_L; else m.tank = { id, n: (m.tank?.n ?? 0) + n * CELL_L };
+  } else addFl(m, id, n * CELL_L);
+  s.flags.cell = (s.flags.cell ?? 0) + 1;
+  return { ok: true, msg: `Poured ${n} cell${n === 1 ? '' : 's'}${left ? ' (bag full: empty cells lost)' : ''}` };
+}
+
+/** Room for fluid `id` poured in by hand: recipe inputs, barrels, boiler water. */
+function fluidRoom(m: Mach, def: MachineDef, id: string): number {
+  if (def.run === 'boiler') return id === 'water' ? (def.waterTank ?? BOILER_WATER) - (m.water ?? 0) : 0;
+  if (def.run === 'tank') return (m.tank && m.tank.id !== id) || (def.cold && id === 'steam') ? 0 : (def.tank ?? 0) - (m.tank?.n ?? 0);
+  if (singleTank(def)) return 0;
+  const r = recipeOf(m.rec);
+  return r?.fluidsIn?.some((f) => f.id === id) ? flCap(def) - (m.fl?.[id] ?? 0) : 0;
 }
 
 /** Machine statuses for the renderer (status icons). */

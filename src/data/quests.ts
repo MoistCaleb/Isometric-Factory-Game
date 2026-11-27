@@ -6,12 +6,14 @@ import { MINERALS } from './minerals';
 import type { TierId } from './tiers';
 
 /** Action flags. Sim-set: mine chop sample craft move place stack upper base demolish prospect mload mfuel mtake crank mfill
- * mdump open claim mface cput tap thump lboiler powered. UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
+ * mdump open claim mface cput tap thump lboiler powered cell corrode + chemistry outputs (brine chlorine hydrochloric_acid
+ * sulfur_dioxide sulfuric_acid). UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
   'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
-  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered'] as const;
+  'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered',
+  'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -452,10 +454,54 @@ export const QUESTS: QuestDef[] = [
     ['thermal_centrifuge', 'Thermal Centrifuge', 'Purified → refined ore (+ the second byproduct); refined ore macerates to dust plus extra. Its coil is cupronickel wire: nickel from pentlandite (electric furnace) + copper in the alloy smelter.'],
     ['fluid_extractor', 'Fluid Extractor', 'Melts ingots into 144 L of molten metal; the Fluid Solidifier casts it back into ingots and plates with clay molds.'],
     ['polarizer', 'Polarizer', 'Magnetises iron rods with power — retire the lodestone.'],
+    ['mixer', 'Mixer', 'Stirs dusts and fluids together: salt + 1000 L water → 1000 L brine; copper + tin dust → bronze dust (solder and cupronickel too).'],
+    ['electrolyzer', 'Electrolyzer', 'Splits fluids with current: brine → sodium hydroxide + chlorine + hydrogen; water → hydrogen + oxygen. Its electrodes are 4 silver wires.'],
+    ['chemical_reactor', 'Chemical Reactor', 'Reacts fluids: hydrogen + chlorine → hydrochloric acid; SO₂ + oxygen + water → sulfuric acid (slowly); also vulcanises raw rubber better than the alloy smelter (3 sheets per 2).'],
+    ['roaster', 'Roaster', 'Roasts sulfide mineral dust (pyrite, chalcopyrite, galena, sphalerite, stibnite, pentlandite, cobaltite) in air → calcine + sulfur dioxide. Cinnabar gives mercury. Calcine + coal dust → metal in the electric furnace.'],
+    ['chemical_bath', 'Chemical Bath', 'Leaches crushed ore in acid: sulfuric acid frees its third byproduct, hydrochloric acid its second (70 %). Mercury pulls extra gold out of crushed native gold.'],
+    ['canner', 'Canner', 'Fills empty tin cells from piped fluid and empties full cells back into pipes — cells by automation.'],
+    ['electric_pump', 'Electric Pump', 'Like the steam pump, by power: 60 L/tick of water for 16 W from a tile next to water.'],
   ] as const).map(([id, name, what]): QuestDef => ({
     id: `l_${id}`, chapter: 'LV', title: name, req: ['l_cables'], reward: L1,
     text: [`**${name}:** ${what}`, 'Build it (LV template + its parts, see its recipe) and cable it to a generator.'],
     tasks: [build(id)],
   })),
+  // ---- LV (P4b): chemistry I ----
+  { id: 'l_cells', chapter: 'LV', title: 'Fluid Cells', req: ['l_cables'], reward: L1,
+    text: [
+      'A **Tin Cell** (2 tin plates + a rubber ring, hammer) carries **1000 L** of one fluid as an item. In a machine panel, **Fill** turns what a machine holds into full cells; **Pour** empties your cells into a machine that wants that fluid (a recipe input, a barrel, a boiler\'s water).',
+      'Cells are the quick way to move chemicals before your pipes are laid. The **Canner** does it by recipe.',
+    ],
+    tasks: [have('cell:empty', 4), flag('cell', 'Fill or pour a cell')] },
+  { id: 'l_brine', chapter: 'LV', title: 'Brine', req: ['l_mixer'], reward: L1,
+    text: [
+      'Chemistry runs on fluids. LV machines hold **several fluids at once**: the ones their recipe uses are **inputs** (pipes fill them), everything else is **output** (pipes take it away). Gases stay inside electric machines — unlike kilns, they don\'t vent — so a full gas tank stops the machine.',
+      'Mix **salt** (rock salt dust) with water into **brine**. Pipe water in, or pour water cells.',
+    ],
+    tasks: [flag('brine', 'Make brine in the Mixer')] },
+  { id: 'l_chloralkali', chapter: 'LV', title: 'Chlor-Alkali', req: ['l_brine', 'l_electrolyzer'], reward: L2,
+    text: [
+      'Electrolysis of brine: 2000 L brine → **1000 L sodium hydroxide + 1000 L chlorine + 1000 L hydrogen**. Three outputs — and a pipe network holds **one fluid**. A fresh network takes whichever output the machine holds most of and keeps it, so run a separate line from a different side for each, keeping them apart with **channels** or **cut sides**. Or fill cells.',
+      '**Dump** in the panel pours a fluid away; toxic fluids and gases (chlorine!) add pollution where you dump them.',
+    ],
+    tasks: [flag('chlorine', 'Electrolyse brine')] },
+  { id: 'l_hcl', chapter: 'LV', title: 'Hydrochloric Acid', req: ['l_chloralkali', 'l_chemical_reactor'], reward: L2,
+    text: [
+      'Burn hydrogen in chlorine: **H₂ + Cl₂ → HCl**. The Chemical Reactor takes both gases (two input lines, or cells) and makes **hydrochloric acid**.',
+      '**Acids are corrosive.** In a bronze pipe they eat through: every second each non-acid-proof pipe block holding acid has a small chance to **burst** — the pipe and its acid are lost and the spill pollutes. **Lead pipes are acid-proof.** NaOH + HCl neutralise back to brine if you make too much.',
+    ],
+    tasks: [flag('hydrochloric_acid', 'Make hydrochloric acid'), build('lead_pipe', 4)] },
+  { id: 'l_roast', chapter: 'LV', title: 'Roasting', req: ['l_roaster'], reward: L1,
+    text: [
+      'Sulfide ores don\'t smelt directly. The **Roaster** burns their sulfur off in air: 2 ZnS + 3 O₂ → 2 ZnO + 2 SO₂. You get **calcine** (the oxide) and **sulfur dioxide**.',
+      'The electric furnace reduces calcine with **coal dust** into metal: galena → lead, sphalerite → zinc, pentlandite → nickel (one ingot per dust, twice the matte route). SO₂ is toxic — dumping it pollutes. Capture it instead.',
+    ],
+    tasks: [flag('sulfur_dioxide', 'Roast a sulfide')] },
+  { id: 'l_acid', chapter: 'LV', title: 'Sulfuric Acid', req: ['l_roast', 'l_chemical_reactor'], reward: L2,
+    text: [
+      'The king of chemicals: **SO₂ + O₂ + H₂O → H₂SO₄**. Without a catalyst it is slow (a minute per batch) and wasteful — the MV contact process will fix that. Oxygen comes from splitting water in the electrolyzer; burning plain sulfur dust in the roaster gives SO₂ too.',
+      'Sulfuric acid feeds the **Chemical Bath** (acid leaching frees specific byproducts) and, soon, lead-acid batteries. Keep it in lead pipes.',
+    ],
+    tasks: [flag('sulfuric_acid', 'Make sulfuric acid')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

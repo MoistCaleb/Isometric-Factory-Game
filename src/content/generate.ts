@@ -1,7 +1,7 @@
 // Generates items, fluids and templated recipes from data (DESIGN §1).
 import { CHEMICALS } from '../data/chemicals';
 import { FLAG_FORMS, FORMS, type ToolType } from '../data/forms';
-import { MACHINES } from '../data/machines';
+import { CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
 import { MATERIALS, type MaterialDef } from '../data/materials';
 import { MINERALS, type MineralDef } from '../data/minerals';
 import { MISC_ITEMS } from '../data/misc';
@@ -229,6 +229,7 @@ export function generate(): Generated {
   primitive(hand, mach);
   steam(hand, mach);
   lv(hand, mach);
+  chem({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -301,6 +302,9 @@ function generateOre(mn: MineralDef, c: Ctx) {
   c.mach('steam_macerator', [s(o('purified_ore'))], [s(dust), ...bpItem(1, 0.2)], { power: 4 });
   c.mach('macerator', [s(o('purified_ore'))], [s(dust), ...bpItem(1, 0.3)]);
   c.mach('thermal_centrifuge', [s(o('purified_ore'))], [s(o('refined_ore')), ...bpItem(1)], bpFluid(1));
+  // P4b acid leaching: each acid frees a specific byproduct.
+  c.mach('chemical_bath', [s(o('crushed_ore'))], [s(o('purified_ore')), ...bpItem(2, 0.7)], { fluidsIn: [s('sulfuric_acid', 100)] });
+  c.mach('chemical_bath', [s(o('crushed_ore'))], [s(o('purified_ore')), ...bpItem(1, 0.7)], { fluidsIn: [s('hydrochloric_acid', 100)] });
   c.mach('macerator', [s(o('refined_ore'))], [s(dust), { ...s(mineralDust(mn, true)), chance: 0.6 }, ...bpItem(2, 0.5)]);
 
   // Direct smelting (1×) for smeltable minerals.
@@ -417,4 +421,50 @@ function lv(hand: Ctx['hand'], mach: Ctx['mach']) {
   hand([s('plate:steel', 8), s('cable:tin', 2)], [s('hull:lv')], ['wrench']);
   // Rubber rings for pumps.
   hand([s('plate:rubber')], [s('ring:rubber', 2)], ['knife']);
+}
+
+/** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */
+const SULFIDES: [mineral: string, metal: string][] = [['pyrite', 'iron'], ['chalcopyrite', 'copper'], ['galena', 'lead'], ['sphalerite', 'zinc'],
+  ['stibnite', 'antimony'], ['pentlandite', 'nickel'], ['cobaltite', 'cobalt']];
+
+/** Chemistry I (DESIGN §4 Chemistry v1, CONTENT §11e, P4b): cells, brine, chlor-alkali, HCl, roasting, sulfuric acid. */
+function chem(c: Ctx) {
+  const { hand, mach } = c;
+  // Tin cells (1000 L) + the Canner.
+  c.addItem({ id: 'cell:empty', name: 'Empty Tin Cell', kind: 'misc', color: 0xc8ccd0 });
+  hand([s('plate:tin', 2), s('ring:rubber')], [s('cell:empty')], ['hammer']);
+  mach('bender', [s('plate:tin', 2)], [s('cell:empty')], { circuit: 3 });
+  for (const f of CELL_FLUIDS) {
+    const ch = CHEMICALS.find((x) => x.id === f)!;
+    c.addItem({ id: `cell:${f}`, name: `${ch.name} Cell`, kind: 'misc', color: ch.color, hazards: ch.hazards });
+    mach('canner', [s('cell:empty')], [s(`cell:${f}`)], { fluidsIn: [s(f, CELL_L)], ticks: 40, power: 8 });
+    mach('canner', [s(`cell:${f}`)], [s('cell:empty')], { fluidsOut: [s(f, CELL_L)], ticks: 40, power: 8 });
+  }
+  // Mixer: brine, alloy dusts.
+  mach('mixer', [s('dust:salt')], [], { fluidsIn: [s('water', 1000)], fluidsOut: [s('brine', 1000)], power: 8 });
+  const dusts = (ins: [string, number][], out: string, n: number) => {
+    if ([...ins.map(([id]) => id), out].every((id) => c.itemIds.has(id))) mach('mixer', ins.map(([id, k]) => s(id, k)), [s(out, n)], { ticks: 200, power: 8 });
+  };
+  dusts([['dust:copper', 3], ['dust:tin', 1]], 'dust:bronze', 4);
+  dusts([['dust:tin', 2], ['dust:lead', 1]], 'dust:solder', 3);
+  dusts([['dust:copper', 1], ['dust:nickel', 1]], 'dust:cupronickel', 2);
+  // Electrolyzer: chlor-alkali, water splitting.
+  mach('electrolyzer', [], [], { fluidsIn: [s('brine', 2000)], fluidsOut: [s('sodium_hydroxide', 1000), s('chlorine', 1000), s('hydrogen', 1000)], ticks: 400, power: 30 });
+  mach('electrolyzer', [], [], { fluidsIn: [s('water', 1000)], fluidsOut: [s('hydrogen', 1000), s('oxygen', 500)], ticks: 300, power: 30 });
+  // Chemical reactor: HCl, neutralisation (recycles NaOH + HCl to brine), uncatalysed sulfuric acid (slow), vulcanising.
+  mach('chemical_reactor', [], [], { fluidsIn: [s('hydrogen', 1000), s('chlorine', 1000)], fluidsOut: [s('hydrochloric_acid', 1000)], power: 16 });
+  mach('chemical_reactor', [], [], { fluidsIn: [s('sodium_hydroxide', 1000), s('hydrochloric_acid', 1000)], fluidsOut: [s('brine', 1000)], power: 8 });
+  mach('chemical_reactor', [], [], { fluidsIn: [s('sulfur_dioxide', 1000), s('oxygen', 500), s('water', 1000)], fluidsOut: [s('sulfuric_acid', 500)], ticks: 1200, power: 16 });
+  mach('chemical_reactor', [s('raw:rubber', 2), s('small_dust:sulfur')], [s('sheet:rubber', 3)], { power: 16 });
+  // Roaster: sulfides → calcine + SO₂; the electric furnace reduces calcine with coal. Cinnabar gives mercury; sulfur burns to SO₂.
+  for (const [mn, metal] of SULFIDES) {
+    const m = MIN.get(mn)!, calc = `roasted:${mn}`;
+    c.addItem({ id: calc, name: `Roasted ${m.name}`, kind: 'ore', color: 0x7a4a30, mineral: mn, form: 'roasted' });
+    mach('roaster', [s(`mdust:${mn}`)], [s(calc), ...(mn === 'cobaltite' ? [s('small_dust:arsenic')] : [])], { fluidsOut: [s('sulfur_dioxide', 500)], ticks: 200, power: 24 });
+    mach('electric_furnace', [s(calc), s('dust:coal')], [s(`ingot:${metal}`)], { ticks: 120, power: 24 });
+  }
+  mach('roaster', [s('mdust:cinnabar')], [], { fluidsOut: [s('mercury', 144), s('sulfur_dioxide', 500)], ticks: 200, power: 24 });
+  mach('roaster', [s('dust:sulfur')], [], { fluidsOut: [s('sulfur_dioxide', 1000)], ticks: 100, power: 16 });
+  // Mercury amalgamates gold out of crushed ore.
+  mach('chemical_bath', [s('crushed_ore:native_gold')], [s('purified_ore:native_gold'), s('small_dust:gold', 2)], { fluidsIn: [s('mercury', 144)] });
 }
