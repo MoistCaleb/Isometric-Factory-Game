@@ -1,0 +1,119 @@
+# Design Document (locked decisions, Sections 1–10)
+
+Deep, GT-style isometric voxel factory game. Real chemistry, painful early game, tier-gated progression.
+Content details live in [CONTENT.md](CONTENT.md).
+
+---
+
+## 1. Core idea: depth from data
+- Materials are data entries (color, tier, melting point, forms, byproducts, composition). Items + templated recipes are **generated** from them.
+- Hand-written: machines, multiblocks, circuits, chemistry, quests, overrides.
+- Target: **60 solid materials** (clustered in early tiers) + a separate list of chemicals/fluids. Later tiers added in updates.
+- **Real chemistry** (real minerals/formulas/processes, simplified only where needed for play).
+- **Early is painful by design**: hand recipes are wasteful (e.g. 2 ingots + hammer → 1 plate); machines make it efficient.
+- Recipe conflicts resolved with **GT-style programmed circuit numbers**.
+
+## 2. Tiers
+| Tier | Voltage | Gate material | Gate circuit | Gate multiblock |
+|---|---|---|---|---|
+| Primitive | none (hand crank) | Bronze | — | Bloomery, Coke Oven, Primitive Blast Furnace |
+| Steam | steam | Steel (PBF) | — | Large Boiler |
+| LV | 32 V | Steel | Basic (vacuum tube) | EBF (built at LV, runs on 2× LV hatches) |
+| MV | 128 V | Aluminium | Discrete (transistor) | Hall–Héroult Cell, Pyrolyse Oven |
+| HV | 512 V | Stainless Steel | Integrated | Cleanroom, Distillation Tower |
+| EHV | 2,048 V | Titanium | Microprocessor | Launch Pad, Nuclear |
+| SV | 8,192 V | outline | outline | outline |
+| PV | 32,768 V | outline | | |
+| QV | 131,072 V | outline | | |
+- Names: LV/MV/HV/EHV are real grid terms; SV/PV/QV are ours. No GTNH tier/material names.
+- **Gating rule:** the multiblock that unlocks tier N+1 is built from tier N parts and reaches tier N+1 power by taking **2 energy hatches of tier N**.
+- Pacing target: Primitive 1–2h, Steam 2–4h, LV 4–6h, MV ~8h, HV ~10h (~15–25h to finish EHV basics).
+- Overvoltage = machine **explodes and is destroyed**. Fuses/breakers protect (see §6).
+- Primitive tech feeds into later tech (primitive steel, coke, creosote, bricks stay relevant).
+
+## 3. World
+- **Finite planets.** Surface = rectangle that **wraps east–west**; north/south edges are **polar ice caps** (unbuildable).
+- Home planet: **4096 × 2048 tiles**, ~26 depth layers. Other bodies sized relative to it.
+- Saved as **seed + diffs** (only player changes stored).
+- Layers: Surface 0 · Soil 1–2 · Stone 3–8 · Deep 9–16 · Abyssal 17–24 · Bedrock 25.
+- **Flat terrain** (no hills). Rivers, lakes, oceans. Biomes: plains, forest, swamp, desert, tundra, jungle, ocean.
+- **Ores are buried.** Must **scan** (prospector's hammer → steam thumper → electric scanners → survey drones) and **excavate** (hand shovel/pick → steam excavator → electric rigs → large mining multiblock → deep core drill).
+- Overburden (dirt/stone/gravel) is a resource.
+- Veins: GT-style mixed deposits (3–4 minerals), depth band + biome bias + rarity, **finite**.
+- Ore **hardness** = tier index (Primitive 0 … EHV 5). A drill of tier T mines hardness ≤ T. A **hand pickaxe** reaches one tier higher (first samples of each tier's ores are always hand-mined). Hand mining also has a small chance of **rich ore / gem / lodestone** drops machines never give.
+- **Day/night** (affects solar) and **weather** (wind strength, rain, acid rain from pollution).
+- **Zoom:** surface → region map → **3D globe** → star system (pick planets, send ships).
+- **Space** (EHV+): probes scan planets' veins/atmosphere; **auto-miner capsules** mine into their own storage, which the player must physically visit and ship home.
+
+### Building
+- **Surface-only machines**, but you can **build upward** (multiple floors; machines allowed on upper floors). World gen never generates above ground.
+- **Z-level slider** shared between underground viewing (mining) and building floors.
+- Decorative/base blocks are **free**: **edge walls**, floors, windows, doors, roofs, lights. Purely visual.
+- Near-side walls always rendered **low**, except in Base Build mode. Roofs/walls go see-through when zoomed in and opaque when zoomed out.
+- Modes: **View · Machine Build · Base Build · Demolition · Mining**.
+
+## 4. Ore processing (see CONTENT.md §11e for chemistry)
+- Smelt raw = 1× · crush route = 2× · full wash/centrifuge route ≈ 2.3× + 3 byproducts · chemical routes give specific byproducts.
+- Each mineral lists 3 byproducts. **Every byproduct has a use.**
+- **Closed loops** (Cl₂, Mg, acids). Outputs that back up stop machines.
+- **Real melting points** decide smelting routes (clay furnace → bloomery → PBF → EBF coils).
+- **Pollution:** per-chunk value, spreads + decays. Thresholds: haze → plants die → machine efficiency loss → acid rain damages unroofed machines and uninsulated cables. Fixed with **scrubber multiblocks**, gas capture, trees.
+- **Hazards:** fluids are tagged toxic / corrosive / flammable / radioactive. Wrong pipe material corrodes → **leaks** → pollution spike + **contaminated tiles** (must be cleaned before building). Flammable leaks near heat start fires. Radiation lowers nearby machine efficiency.
+
+## 5. Machines
+- Tier sets max voltage, slots, overclock headroom. **Tier is everything** (no upgrade cards).
+- **6 faces** (incl. top/bottom); each set to input/output/energy/off; auto-output face.
+- Programmed circuit slot for recipe selection.
+- Overclock: per tier above recipe → **2× speed, 4× power** (some machines "perfect": 4×/4×).
+- Status icons over machines (working, idle, no power, output full, missing input, too cold, incomplete).
+- Machine **parts** per tier: motor, pump, piston, conveyor module, robot arm, (MV+) sensor/emitter, (HV+) field generator.
+- **Multiblocks:** pattern of casings + hatches; controller shows ghost; player chooses **auto-fill or manual placing**.
+- **Maintenance hatch** on multiblocks (random issues fixed with tools); **auto-maintenance hatch** later (consumes duct tape/lubricant).
+
+## 6. Power
+- **Real units:** V, A, W (= V×A), J. Display auto-scales (kJ, MJ, GJ).
+- **Steam:** boilers heat up over time; **dry boiler + water = explosion**. No exhaust-vent mechanic.
+- **Electric:** per-network solve once per tick. Cables: material → max voltage, amps/thickness, loss per tile. Insulation halves loss and protects from acid rain. Superconductors later.
+- Transformers (±1 tier), batteries, battery buffers, large storage multiblock.
+- **Fuses** (burn out, cheap) and **breakers** (trip, resettable) placed after generators/batteries or before machines.
+- Overamped cable burns. Overvoltage explodes machine.
+- Primitive power: **hand crank** only.
+- **Electric tools** (drill, chainsaw, scanner) use battery charge.
+- Diverse generators that improve with tier: Solar (day only), Wind (stronger higher up), Water turbine (river/lake), Geothermal (must drill deep), Combustion/Gas (fuel), Steam turbines, Nuclear (EHV), Fusion (later).
+
+## 7. Logistics
+- **Pipes only** (no belts): item pipes (material → items/sec, route to nearest, restrictive variants), **single-fluid** pipes (material → throughput, max temp, hazard resistance).
+- Robotic arms, filters, vertical pipes. Chests by tier, super chest (MV).
+- Gas leaks into air from broken pipes. Fluid cells/capsules as items.
+- **AE-like network at HV**: storage drives, channel-limited cables, buses, terminal, autocrafting patterns, **circuit swap card**, wireless access (also from global inventory).
+- Mobile placing: drag-lay lines/L-shapes. **Blueprints** (copy/paste/save; pulls from inventory, later network).
+
+## 8. UI & player systems
+- **Overseer** (no avatar, no enemies). Global inventory **27 slots + 9 tool slots**. Inventory is global across planets.
+- Click-gather in Mining mode; tools wear.
+- **Recipe browser**: search with `#tag $material @machine t:tier -exclude`; recipes/uses; long-press = recipes, double-tap = uses (R/U on desktop); bookmarks; history.
+- **Planner/ratio calculator** → can emit a blueprint sketch.
+- **Quest book** (visual tree per tier) with **loot crate** rewards; doubles as tutorial.
+- HUD: top (power, pollution, time/weather, alerts) · bottom (mode bar, 9 tools, inventory) · right (Z-slider). Alerts fly camera to source. Overlays: pollution, power, pipes, veins, hazards. Statistics graphs.
+- Controls: pinch/scroll zoom, drag/WASD pan, **4-way rotation**, long-press/right-click info.
+- **Pause** + real-time only (no fast-forward). **No offline progress** (game stops when closed).
+- Autosave with rolling **backups** + manual save in settings + export/import.
+
+## 9. Tech
+- TypeScript · Vite · **Three.js** (orthographic iso + perspective globe/space) · **Preact** HTML UI overlay · sim in **Web Worker** at 20 TPS · IndexedDB + compression · Vitest · GitHub Pages **PWA** · desktop + mobile.
+- Art: **voxel** models (e.g. 16³ per tile) defined in code with palettes, greedy-meshed; tier color stripe. Sound later.
+- Rules: deterministic sim separate from render; sleeping idle machines; pooled networks; world = seed + diffs; chunk meshes + instancing; **content validator** (every item obtainable, every byproduct used, no unresolved conflicts, tier reachability); versioned saves with migrations.
+- Layout: `src/{data,content,sim,world,render,ui,save}`, `tools/`.
+
+## 10. Build phases
+| Phase | Contents |
+|---|---|
+| P0 Foundation | Scaffold, PWA, worker tick loop, saves/backups, content pipeline + validator |
+| P1 World | Planet gen (wrap, poles, biomes, layers, veins), chunk render, camera (pan/zoom/rotate), Z-slider, day/night, weather, zoom to globe |
+| P2 Primitive | Mining mode, inventory/tools/wear, crafting station, primitive materials & multiblocks, base build, demolition, recipe browser v1, quest book v1, loot crates |
+| P3 Steam | Boilers, fluid & item pipes, 6-face config, steam machines, ore ladder, multiblock framework, pollution v1, alerts, overlays |
+| P4 LV | Electricity (all of §6), LV machines/parts/circuits, rubber, acids, roasting, LV generators, electric tools, scanners, maintenance, hazards |
+| P5 MV | EBF coils/heat, Bayer + Hall–Héroult, chemistry, scrubbers, acid rain, geothermal, planner, blueprints, statistics |
+| P6 HV | AE network, petrochem/plastics, cleanroom, large turbines, auto-maintenance, vacuum freezer |
+| P7 EHV + Space | System view, probes, auto-miners, rockets, moon, nuclear |
+| Later | SV+, more planets, fusion, sound |

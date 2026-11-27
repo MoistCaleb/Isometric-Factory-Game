@@ -1,0 +1,550 @@
+# Content Spec (Section 11)
+
+Tier codes: **P** Primitive · **S** Steam · **LV** · **MV** · **HV** · **EHV**. Temperatures in **K**.
+Items marked `(?)` are open for review.
+
+---
+
+## 11a. Materials (60 solid materials)
+
+### Form groups (generator flags)
+| Flag | Forms generated |
+|---|---|
+| `B` basic metal | dust, small dust, nugget, ingot, plate, double plate, rod, bolt, screw, ring, molten fluid |
+| `G` | gear, small gear |
+| `W` | wire, fine wire, cable (insulated) |
+| `F` | foil |
+| `S` | spring |
+| `R` | rotor |
+| `X` | frame |
+| `PF` | fluid pipe (small/normal/large) |
+| `PI` | item pipe |
+| `T` | tool heads (pick, shovel, axe, hammer, file, saw, knife, drill head) |
+| `D` | dust only (+ small dust) |
+| `C` | ceramic/other special forms (listed per row) |
+
+### Melting / heat ladder
+| Heat source | Max K | Tier |
+|---|---|---|
+| Pit kiln | 1100 | P |
+| Clay furnace (+ crucible & molds) | 1400 | P |
+| Bloomery (makes bloom, does not melt iron) | 1500 | P |
+| Primitive Blast Furnace | 1900 | P |
+| Steam furnace / Steam alloy smelter | 1400 | S |
+| Electric furnace | 1750 | LV |
+| EBF — Cupronickel coil | 2000 | LV |
+| EBF — Kanthal coil | 2600 | MV |
+| EBF — Nichrome coil | 3300 | HV |
+| EBF — Tungsten Steel coil | 4200 | EHV |
+- Dust → ingot for materials melting above 1750 K needs the EBF at heat ≥ melting point.
+- Above 2200 K the EBF outputs a **hot ingot** → needs the Vacuum Freezer (HV).
+
+### The 60
+| # | Material | Formula | Melt K | Tier | Flags | Notes |
+|---|---|---|---|---|---|---|
+| 1 | Stone | — | — | P | D, C: cobble, gravel, brick | overburden |
+| 2 | Clay | — | — | P | D, C: ball, unfired brick, molds | riverbanks |
+| 3 | Fireclay | — | — | P | D, C: unfired/fired fire brick | clay + brick dust |
+| 4 | Brick | — | — | P | D, C: brick, block | |
+| 5 | Wood | — | — | P | C: log, plank, stick, pulp | |
+| 6 | Charcoal | C | — | P | D, C: lump | charcoal pile |
+| 7 | Coal | C (+S) | — | P | D, C: lump | burning emits SO₂ |
+| 8 | Coke | C | — | P | D, C: lump | coke oven |
+| 9 | Flint | SiO₂ | — | P | C: shard, T | surface pickup |
+| 10 | Sand | SiO₂ | — | P | D | |
+| 11 | Glass | — | ~1400 | P | D, C: pane, tube, lens | sand + ash flux |
+| 12 | Ash | K₂CO₃ (mix) | — | P | D | from burning; glass flux, potash |
+| 13 | Copper | Cu | 1358 | P | B G W F PF T | |
+| 14 | Tin | Sn | 505 | P | B W F PI | |
+| 15 | Bronze | Cu₃Sn | ~1200 | P | B G R X PF T | gate material |
+| 16 | Iron | Fe | 1811 | P | B G S R X | bloomery / EBF |
+| 17 | Wrought Iron | Fe | 1811 | P | B G X T | hammered bloom |
+| 18 | Steel | Fe+C | 1700 | P | B G S R X PF T | PBF early, EBF later |
+| 19 | Lead | Pb | 601 | P | B F PF | acid-proof pipes (real) |
+| 20 | Gold | Au | 1337 | P | B W F | placer gold |
+| 21 | Silver | Ag | 1235 | P | B W F | galena byproduct; formaldehyde catalyst |
+| 22 | Zinc | Zn | 693 | P | B F | |
+| 23 | Brass | Cu₃Zn | ~1200 | P | B G R X PF | steam alt |
+| 24 | Sulfur | S | 388 | P | D | |
+| 25 | Salt | NaCl | 1074 | P | D | evaporation / rock salt |
+| 26 | Quicklime | CaO | — | P | D | calcined calcite; mortar, flux |
+| 27 | Rubber | (C₅H₈)ₙ | — | P | C: raw, sheet, ring, plate | resin + sulfur |
+| 28 | Nickel | Ni | 1728 | S | B W F | |
+| 29 | Antimony | Sb | 904 | S | B | |
+| 30 | Lead-Antimony | Pb₄Sb | ~600 | S | B | battery plates |
+| 31 | Solder | Sn₆₃Pb₃₇ | 456 | S | B W | circuits |
+| 32 | Cupronickel | CuNi | ~1500 | S | B W F | first coil |
+| 33 | Silicon | Si | 1687 | LV | B, C: boule, wafer | metallurgical (LV) → pure (HV) |
+| 34 | Graphite | C | — | LV | D, rod, C: electrode | electrodes, anodes |
+| 35 | Magnesium | Mg | 923 | LV | B | Kroll reductant |
+| 36 | Aluminium | Al | 933 | LV/MV | B G S R X PF PI W F | MV gate |
+| 37 | Gallium | Ga | 303 | LV | B | Bayer & sphalerite byproduct |
+| 38 | Cadmium | Cd | 594 | LV | B | toxic |
+| 39 | Cobalt | Co | 1768 | LV | B | |
+| 40 | Manganese | Mn | 1519 | LV | B | |
+| 41 | Vanadium | V | 2183 | LV | B | contact-process catalyst, tool steel |
+| 42 | Selenium | Se | 494 | LV | D, ingot | copper anode slime; first solar cell |
+| 43 | Phosphorus | P | 317 | LV | D | doping, fertilizer |
+| 44 | Calcium | Ca | 1115 | LV | D | |
+| 45 | Potassium | K | 337 | LV | D | |
+| 46 | Sodium | Na | 371 | LV | D | |
+| 47 | Lithium | Li | 454 | MV | B | batteries |
+| 48 | Electrum | AgAu | ~1300 | LV | B W F | |
+| 49 | Chromium | Cr | 2180 | MV | B | |
+| 50 | Kanthal | FeCrAl | ~1800 | MV | B W | MV coil |
+| 51 | Chrome-Vanadium Steel | Fe+Cr+V | ~1700 | MV | B G T | MV tool steel |
+| 52 | Nichrome | Ni₄Cr | 1673 | HV | B W | HV coil |
+| 53 | Stainless Steel | Fe₆CrMnNi | ~1700 | HV | B G S R X PF PI T | HV gate |
+| 54 | Polyethylene | (C₂H₄)ₙ | — | HV | C: sheet, foil, plate | |
+| 55 | Epoxy | — | — | HV | C: resin, sheet | FR-4 boards |
+| 56 | Tungsten Carbide | WC | 3058 | HV | B T | sintered (no melting) |
+| 57 | Titanium | Ti | 1941 | EHV | B G S R X PF PI W F T | EHV gate |
+| 58 | Tungsten | W | 3695 | EHV | B W | |
+| 59 | Tungsten Steel | Fe+W | ~3000 | EHV | B X PF | EHV coil/casing |
+| 60 | Platinum | Pt | 2041 | EHV | B W F | catalysts |
+
+Later (outlined): Uranium, Thorium, Diamond (synthetic), rare earths, superconductors.
+
+### Chemicals & fluids (separate list, ~45)
+- **Basic:** Water, Steam, Brine, Air, O₂, N₂, H₂, Cl₂, Ar (HV), CO₂, SO₂, SO₃.
+- **Acids & bases:** H₂SO₄, HCl, HF, HNO₃ (HV), NaOH, NH₃ (HV).
+- **Aluminium line:** Sodium aluminate, Al(OH)₃, Alumina (Al₂O₃), Cryolite (Na₃AlF₆), Red mud.
+- **Wood & coal:** Creosote, Coal tar, Wood tar, Methanol, Acetic acid, Formaldehyde, Phenol, Benzene, Toluene, Phenolic resin.
+- **Fuels:** Ethanol, Crude oil, Natural gas, Methane, Ethane, Ethylene, Propane, Naphtha, Kerosene, Diesel, Heavy fuel oil, Lubricant.
+- **Polymers:** Styrene, Butadiene, Vinyl chloride, Epichlorohydrin, Bisphenol-A.
+- **Titanium & silicon:** TiCl₄, MgCl₂, Trichlorosilane (SiHCl₃).
+- **Other:** Mercury, Wastewater. Solid wastes: slag, stone dust.
+
+---
+
+## 11b. Minerals & veins
+
+### Minerals (hardness H = tier index: P0 S1 LV2 MV3 HV4 EHV5)
+| Mineral | Formula | H | Main product | Byproducts (wash / thermal / centrifuge) |
+|---|---|---|---|---|
+| Native Copper | Cu | 0 | Copper | Silver, Gold, Copper |
+| Malachite | Cu₂CO₃(OH)₂ | 0 | Copper (+CO₂) | Copper, Calcite, Iron |
+| Cassiterite | SnO₂ | 0 | Tin | Iron, Tin, Tungsten (teaser) |
+| Limonite (bog iron) | FeO(OH) | 0 | Iron | Manganese, Phosphorus, Iron |
+| Native Gold (placer) | Au | 0 | Gold | Silver, Copper, Gold |
+| Coal | C | 0 | Coal | Sulfur, Ash, Coal |
+| Calcite | CaCO₃ | 0 | Quicklime/Ca | Magnesium, Calcite, Iron |
+| Dolomite | CaMg(CO₃)₂ | 0 | Magnesium/Ca | Calcite, Magnesium, Iron |
+| Rock Salt | NaCl | 0 | Salt | Potassium (sylvite), Salt, Calcium |
+| Sylvite | KCl | 0 | Potassium | Salt, Potassium, Magnesium |
+| Magnetite | Fe₃O₄ | 1 | Iron | Vanadium, Gold, Iron · **lodestone** hand-drop |
+| Hematite | Fe₂O₃ | 1 | Iron | Manganese, Silicon(sand), Iron |
+| Pyrite | FeS₂ | 1 | Iron + Sulfur | Sulfur, Gold, Copper |
+| Chalcopyrite | CuFeS₂ | 1 | Copper + Iron | Pyrite, Cobalt, Selenium (+Cadmium, Gold) |
+| Galena | PbS | 1 | Lead | Silver, Sulfur, Antimony |
+| Sphalerite | ZnS | 1 | Zinc | Gallium, Cadmium, Sulfur |
+| Stibnite | Sb₂S₃ | 1 | Antimony | Sulfur, Lead, Antimony |
+| Pyrolusite | MnO₂ | 1 | Manganese | Iron, Manganese, Cobalt |
+| Quartz | SiO₂ | 1 | Silicon | Sand, Quartz, Gold |
+| Fluorite | CaF₂ | 1 | Fluorine (HF) | Calcite, Fluorite, Lead |
+| Bauxite | Al(OH)₃ + Fe/Ti | 1 | Aluminium (Bayer) | Gallium, Rutile, Iron (via red mud) |
+| Cinnabar | HgS | 1 | Mercury | Sulfur, Mercury, Antimony |
+| Apatite | Ca₅(PO₄)₃F | 1 | Phosphorus | Calcium, Fluorine, Phosphorus |
+| Pentlandite | (Fe,Ni)₉S₈ | 2 | Nickel | Iron, Cobalt, Platinum (teaser) |
+| Cobaltite | CoAsS | 2 | Cobalt | Arsenic waste (toxic), Nickel, Sulfur |
+| Graphite | C | 2 | Graphite | Carbon, Quartz, Graphite |
+| Chromite | FeCr₂O₄ | 3 | Chromium | Iron, Magnesium, Chromium |
+| Ilmenite | FeTiO₃ | 3 | Titanium | Iron, Rutile, Manganese |
+| Rutile | TiO₂ | 3 | Titanium | Iron, Titanium, Vanadium |
+| Spodumene | LiAlSi₂O₆ | 3 | Lithium | Aluminium, Silicon, Lithium |
+| Wolframite | (Fe,Mn)WO₄ | 4 | Tungsten | Iron, Manganese, Tin |
+| Scheelite | CaWO₄ | 4 | Tungsten | Calcium, Tungsten, Molybdenum(later) |
+| Sperrylite | PtAs₂ | 5 | Platinum | Arsenic waste, Nickel, Platinum |
+| Uraninite | UO₂ | 5 | Uranium (later) | Lead, Radium(later), Thorium(later) |
+
+(Arsenic = waste-only chemical, toxic; must be stabilized/stored. `(?)` whether to add it as a material later.)
+
+### Veins (25)
+Depth: Soil 1–2 · Stone 3–8 · Deep 9–16 · Abyssal 17–24.
+Rarity: C common · U uncommon · R rare · VR very rare.
+Distance: rare veins are weighted away from spawn.
+
+| # | Vein | Minerals (ratio) | Depth | Biome bias | Rarity |
+|---|---|---|---|---|---|
+| 1 | Bog Iron | Limonite 70, Pyrolusite 15, Clay 15 | 1–2 | swamp | C |
+| 2 | Placer Gravel | Cassiterite 35, Magnetite 30, Native Gold 15, Quartz 20 | 1–2 | rivers | C |
+| 3 | Copper Outcrop | Native Copper 40, Malachite 40, Chalcopyrite 20 | 3–6 | forest, plains | C |
+| 4 | Tin Greisen | Cassiterite 60, Quartz 30, Wolframite 10 | 3–8 | tundra, plains | U |
+| 5 | Coal Seam | Coal 80, Pyrite 20 | 3–8 | forest, swamp | C |
+| 6 | Limestone | Calcite 70, Dolomite 30 | 3–6 | plains, ocean edge | C |
+| 7 | Evaporite | Rock Salt 60, Sylvite 25, Calcite 15 | 1–4 | desert | C |
+| 8 | Banded Iron | Hematite 50, Magnetite 35, Quartz 15 | 4–10 | any | C |
+| 9 | Copper Sulfide | Chalcopyrite 50, Pyrite 30, Sphalerite 20 | 6–12 | any | U |
+| 10 | Galena | Galena 50, Sphalerite 30, Stibnite 20 | 6–12 | desert, plains | U |
+| 11 | Manganese | Pyrolusite 60, Hematite 40 | 4–10 | desert, jungle | U |
+| 12 | Fluorite | Fluorite 50, Calcite 30, Galena 20 | 6–12 | plains, tundra | U |
+| 13 | Cinnabar | Cinnabar 60, Stibnite 25, Pyrite 15 | 6–10 | volcanic patches in desert | R |
+| 14 | Apatite | Apatite 70, Calcite 30 | 4–10 | jungle, forest | U |
+| 15 | Bauxite Laterite | Bauxite 70, Limonite 20, Ilmenite 10 | 1–6 | jungle | U |
+| 16 | Nickel Sulfide | Pentlandite 50, Chalcopyrite 30, Pyrite 20 | 9–14 | tundra | U |
+| 17 | Graphite | Graphite 70, Quartz 30 | 8–14 | forest, tundra | U |
+| 18 | Cobalt Arsenide | Cobaltite 50, Pentlandite 30, Native Copper 20 | 10–16 | tundra | R |
+| 19 | Pegmatite | Quartz 40, Spodumene 35, Cassiterite 25 | 8–14 | desert, tundra | R |
+| 20 | Chromite | Chromite 60, Magnetite 25, Pentlandite 15 | 10–16 | ocean edge, plains | U |
+| 21 | Heavy Mineral | Ilmenite 50, Rutile 30, Magnetite 20 | 9–14 | ocean edge, desert | U |
+| 22 | Tungsten Skarn | Scheelite 50, Wolframite 35, Calcite 15 | 12–18 | any | R |
+| 23 | Deep Banded Iron | Magnetite 60, Hematite 40 | 9–16 | any | C (big) |
+| 24 | Uranium | Uraninite 60, Galena 40 | 17–22 | any | VR |
+| 25 | Platinum Reef | Sperrylite 40, Pentlandite 40, Chromite 20 | 18–24 | any | VR |
+
+### Scale and other features
+- **Vein sizes:** C 4–8k ore · U 3–6k · R 2–4k · VR 1–3k. About 2–4k veins planet-wide (tunable).
+- **Non-vein features:**
+  - clay soil along rivers
+  - surface flint and loose stone
+  - sand in deserts and beaches
+  - trees by biome (rubber trees in jungle and swamp)
+  - brine pools and oil/gas wells (found by scanning)
+  - geothermal hotspots (deep)
+
+---
+
+## 11c. Recipes by tier (Primitive → LV in detail)
+
+### Tools (in the 9 tool slots; wear per use)
+| Tool | Recipe | Use |
+|---|---|---|
+| Flint Knife | flint shard + stick | fiber from grass, cutting |
+| Flint Pick / Shovel / Axe | flint shards + stick + plant fiber | H0 mining, dig soil, chop |
+| Stone Hammer | stone + stick + fiber | crush ore (hand), early plates |
+| Mortar | stone + flint | grind to dust (wasteful) |
+| Treetap | planks + stick | sticky resin from rubber trees |
+| Prospector's Hammer | bronze head + stick | scan small radius, to stone depth |
+| Bronze Pick / Hammer / Saw / File / Wrench / Knife / Shovel | bronze tool head + stick (heads cast in molds or filed) | Pick: **H1** |
+| Steel tools (+ Screwdriver, Wire Cutter) | steel heads | Pick: **H2** |
+| Chrome-Vanadium tools | MV | Pick: **H3** |
+| Tungsten Carbide tools | HV | Pick: **H4** |
+| Electric Drill / Chainsaw / Scanner | LV+ (battery) | Same tier as the material of the drill head |
+
+**Hand-pick reach:** P bronze → H1 · S/P steel → H2 · LV Cr-V → H3 (`?` Cr-V is MV material; LV pick of Vanadium Steel instead?) · MV WC → H4.
+
+### Crafting Station (P, placeable)
+- 3×3 grid plus a **tool rack** of 6 slots: tools placed there are used by recipes and wear down. `(?)` Rack vs. using your 9 tool slots.
+- Hand recipes:
+  - log → 2 planks (4 with saw)
+  - plank → 2 sticks (4 with saw)
+  - 2 ingots + hammer → 1 plate
+  - plate + file → rod
+  - rod + saw → 2 bolts
+  - plate + wire cutter → wire
+  - etc.
+
+### Primitive structures & machines
+| Thing | Build | Does |
+|---|---|---|
+| Pit Kiln | clay + sticks + straw (place on tile) | Fire bricks, molds, crucibles, pottery (≤1100 K) |
+| Charcoal Pile (multiblock) | stacked logs covered in soil | Logs → charcoal + wood tar + ash. Pollution |
+| Clay Furnace | bricks + clay | Smelt ≤1400 K with charcoal; crucible melting |
+| Crucible + Molds | fired clay | Melt metal, **cast** into ingot / plate / tool-head molds. Alloy in crucible (3 Cu + 1 Sn → 4 Bronze) |
+| Stone Anvil → Bronze Anvil | stone / bronze | Hammering (bloom → wrought iron, plates) |
+| Quern (hand crank) | stone + wood | Crushed ore → dust (better than the mortar) |
+| Sluice Box (hand crank) | planks + bronze plate | Wash crushed ore / placer gravel with water |
+| Siphon Pump | planks + clay pipe | Pulls water from adjacent river or lake |
+| Wooden Fluid Pipe, Barrel | planks | Cold water only, ≤350 K, low throughput |
+| Bloomery (multiblock) | clay + bricks | Iron ore + charcoal → iron bloom + slag (≤1500 K) |
+| Coke Oven (multiblock) | fire bricks | Coal → coke + creosote / coal tar |
+| Primitive Blast Furnace (multiblock) | fire bricks + wrought iron | Wrought iron + coke (+ quicklime flux) → **steel** + slag (slow) |
+| Lime Kiln | bricks | Calcite → quicklime + CO₂ |
+| Evaporation Pan | clay | Brine → salt (slow, daylight only) |
+| Rubber (primitive) | — | Sticky resin + sulfur in clay furnace → rubber sheet (vulcanization) |
+| Glass | — | Sand + ash in clay furnace → glass |
+| Chests | wood, then bronze | Storage |
+
+### Steam age
+**Hulls:**
+- **Bronze Hull** = 8 bronze plates + wrench + bricks
+- **Steel Hull** = high-pressure versions, faster, more steam
+
+**Boilers:**
+
+| Machine | Key parts | Notes |
+|---|---|---|
+| Small Bronze Boiler | bronze hull + bricks + furnace | coal / charcoal / coke / creosote |
+| Solar Boiler | bronze hull + glass + silver plate | weak, daytime |
+| High-Pressure Steel Boiler | steel hull | 2.5× steam |
+| Large Boiler (multiblock) | bronze/steel casings, fire boxes | Steam gate multiblock |
+
+**Steam machines:**
+
+| Machine | Key parts |
+|---|---|
+| Steam Macerator | hull + **steel grinder head** + piston |
+| Steam Ore Washer | hull + bronze rotor + bronze pipe |
+| Steam Furnace | hull + bricks + furnace |
+| Steam Alloy Smelter | hull + bricks + crucible |
+| Steam Compressor | hull + 2 pistons |
+| Steam Forge Hammer | hull + piston + bronze anvil |
+| Steam Extractor | hull + piston + glass |
+| Steam Thumper (prospecting) | hull + 2 pistons + steel rod |
+| Steam Excavator (mining) | hull + steel drill head + bronze gears |
+| Steam Pump | hull + bronze pipes + rotor |
+
+**Pipes and parts:**
+- Bronze fluid pipes (steam, ≤ 1000 K), lead fluid pipes (acid-proof).
+- **Mechanical parts:** piston = bronze plate + rod + small gear. Bronze/steel gears via file + hammer, or a forge hammer.
+
+### LV
+**Basics:**
+- **LV Hull** = 8 steel plates + wrench + 2 tin cables.
+- **Magnetization bootstrap:** iron rod + **lodestone** (a hand-mined magnetite drop, used like a tool with durability) → magnetic iron rod. The Polarizer replaces this.
+- **Tin cable** = tin wire + rubber sheet.
+- **Circuit board** (LV) = wood pulp + sticky resin pressed (Steam Compressor) → **resin board** + copper foil.
+
+**Parts:**
+
+| Part | Recipe |
+|---|---|
+| LV Motor | 2 tin cable + 4 fine copper wire + 2 iron rod + 1 magnetic iron rod |
+| LV Pump | motor + steel rotor + 2 rubber rings + tin pipe + screw |
+| LV Piston | motor + 2 steel rod + steel gear + 2 steel plate |
+| LV Conveyor Module | 2 motors + 6 rubber plate + tin cable |
+| LV Robot Arm | 2 motors + piston + circuit + 2 tin cable + 2 steel rod |
+
+**Circuits:** see §11d.
+
+**Machine template:** LV Hull + parts + 2 LV circuits + 2 tin cables + a machine-specific part.
+
+| LV Machine | Specific parts |
+|---|---|
+| Macerator | piston, motor, steel grinder head |
+| Ore Washer | motor, steel rotor, glass |
+| Thermal Centrifuge | 2 motors, cupronickel coil wire |
+| Centrifuge | 2 motors |
+| Electrolyzer | 4 silver/gold wire, glass |
+| Chemical Reactor | motor, steel rotor, glass |
+| Chemical Bath | 2 pumps, conveyor module, glass |
+| Mixer | motor, steel rotor, glass |
+| Bender | 2 pistons, 2 motors |
+| Wiremill | 4 motors |
+| Lathe | piston, motor, diamond `(?)`/WC tip → LV uses **steel cutter** |
+| Cutter | motor, conveyor module, steel saw blade |
+| Assembler | 2 robot arms, 2 conveyor modules |
+| Fluid Extractor / Solidifier | pump, piston, glass |
+| Electric Furnace / Arc Furnace | 4 copper cable / graphite electrodes |
+| Polarizer | 2 tin cables, iron rods (coiled) |
+| Roaster | furnace, pump, bricks |
+| Canner | pump, conveyor module |
+| Electric Pump | pump, rotor |
+| Mining Rig | 2 motors, steel drill head, pipe |
+| Scanner (block) | circuit, emitter-lite, copper coil |
+| Battery Buffer | chest, cables |
+| Transformer | 2 copper cable + 1 tin cable + coil |
+
+**LV generators:**
+
+| Generator | Fuel / source |
+|---|---|
+| Steam Turbine | steam (from boilers) |
+| Combustion Generator | creosote, ethanol, (later) diesel |
+| Selenium Solar Panel | daylight (weak, the historical first PV cell) |
+| Wind Turbine | wind, stronger with height; bronze/steel rotor |
+| Water Turbine | river/lake tile |
+
+**Fuses & breakers:**
+- **Fuse:** tin wire in a glass tube. Burns out.
+- **Breaker:** LV, needs a circuit. Resettable.
+
+**Lead-acid battery (LV):** lead-antimony plates + sulfuric acid + rubber case.
+
+**LV gate multiblock:** **EBF**
+- steel casings + cupronickel coils
+- maintenance hatch
+- 2 LV energy hatches → MV power
+- I/O hatches
+
+---
+
+## 11d. Circuit chain
+
+| Tier | Circuit | Board | Key components |
+|---|---|---|---|
+| LV | **Basic Circuit** | Resin board (wood pulp + resin) + copper foil | Vacuum tube (glass tube + fine copper wire + steel bolt), carbon resistor (coal dust + fine copper wire + resin), solder |
+| MV | **Discrete Circuit** | **Phenolic board** (paper + phenolic resin; phenol from coal tar + formaldehyde from methanol on a silver catalyst) | Transistor (silicon + fine gold wire + plastic case `(?)` → MV case = phenolic), diode, capacitor (foil + paper/oil), resistor |
+| HV | **Integrated Circuit** | **FR-4** (fiberglass + epoxy) | Wafers: pure Si boule → cut → engrave (laser engraver + lens) → chips. Needs **Cleanroom** multiblock |
+| EHV | **Microprocessor** | Multilayer FR-4 | Doped wafers (phosphorus/boron), photolithography steps, SMD parts |
+| SV+ | outline | | Later |
+
+- Each tier's circuit is built from the previous tier's components plus the new tech.
+- Once a tier's tech is unlocked, it brings **cheaper recipes for older circuits**. For example, an IC-based recipe for the Basic Circuit.
+- The first Basic Circuits are **hand-crafted** at the crafting station (soldering iron tool). The Assembler makes them cheaper.
+
+---
+
+## 11e. Chemistry lines
+
+1. **Wood & coal (P → MV)**
+   - Charcoal pile: wood → charcoal + wood tar + ash.
+   - Coke oven: coal → coke + coal tar.
+   - **Pyrolyse Oven (MV):** wood → charcoal + **methanol** + **acetic acid** + wood tar.
+   - **Coal tar distillation (MV):** → **phenol**, benzene, toluene, naphthalene, creosote.
+2. **Ceramics & lime (P)**
+   - clay → bricks
+   - clay + brick dust → fireclay → fire bricks
+   - calcite → quicklime + CO₂
+   - quicklime + sand + water → mortar `(?)` used for casings
+3. **Salt & chlor-alkali (P → LV)**
+   - Brine → salt (pan).
+   - **Electrolysis (LV):** brine → **NaOH + Cl₂ + H₂**.
+   - H₂ + Cl₂ → **HCl**.
+   - Water electrolysis → H₂ + O₂.
+4. **Sulfuric acid (LV → MV)**
+   - Roast sulfides (Roaster, LV): e.g. 2 ZnS + 3 O₂ → 2 ZnO + 2 SO₂. Vented SO₂ = pollution, captured SO₂ = feedstock.
+   - **LV:** SO₂ + O₂ + H₂O → H₂SO₄ uncatalyzed (slow, low yield).
+   - **MV contact process:** V₂O₅ catalyst (reusable, wears) → SO₃ → H₂SO₄, 4× faster.
+5. **Aluminium (MV gate)**
+   - **Bayer:** bauxite + NaOH (heat, pressure) → sodium aluminate + **red mud** → seed + cool → Al(OH)₃ → calcine → **Al₂O₃**. NaOH is recycled.
+   - **Red mud** → iron, rutile and **gallium** recovery.
+   - **Cryolite:** fluorite + H₂SO₄ → HF; HF + NaOH + Al(OH)₃ → Na₃AlF₆.
+   - **Hall–Héroult Cell (multiblock, built at LV, takes many LV amps):** Al₂O₃ in molten cryolite + graphite anodes (consumed) + huge current → **Al + CO₂**.
+6. **Silicon (LV → HV)**
+   - SiO₂ + 2 C → Si + 2 CO in the EBF at ~2000 K → metallurgical silicon (LV/MV).
+   - **HV:** Si + HCl → SiHCl₃ → distill → H₂ reduction → polysilicon → **Czochralski boule** (crystal puller) → wafers.
+7. **Rubber**
+   - **P:** resin + sulfur → rubber.
+   - **LV:** extractor resin → raw rubber, then chemical reactor vulcanization (better yield).
+   - **HV:** styrene + butadiene → **SBR**.
+8. **Chromium (MV → HV)**
+   - Chromite + Na₂CO₃ + O₂ roast → sodium chromate → (H₂SO₄) sodium dichromate → Cr₂O₃.
+   - **Aluminothermic reduction:** Cr₂O₃ + 2 Al → 2 Cr + Al₂O₃. Uses aluminium, and the alumina is recycled.
+   - Na₂CO₃ (soda ash) comes from the **Solvay process**: brine + NH₃ + CO₂. That needs HV ammonia. MV alternative: NaOH + CO₂.
+9. **Nitrogen (HV)**
+   - Air separation (Distillation Tower) → N₂, O₂, Ar.
+   - **Haber:** N₂ + 3 H₂ → 2 NH₃ (iron catalyst).
+   - **Ostwald:** NH₃ → HNO₃ (platinum catalyst, late).
+10. **Petrochemicals (HV)**
+    - Crude distillation → gas, naphtha, kerosene, diesel, heavy fuel.
+    - Steam cracking → ethylene, propylene, butadiene.
+    - Ethylene → **polyethylene**.
+    - Benzene + ethylene → **styrene**.
+    - Ethylene + Cl₂ → vinyl chloride → PVC `(?)` later.
+    - Epoxy: phenol + acetone → bisphenol-A; + epichlorohydrin → **epoxy**.
+11. **Titanium (EHV gate)**
+    - **Chlorination:** TiO₂ + 2 Cl₂ + C → TiCl₄ + CO₂.
+    - **Kroll:** TiCl₄ + 2 Mg → Ti sponge + 2 MgCl₂ (EBF).
+    - MgCl₂ electrolysis → Mg + Cl₂, recycled. **Closed loop.**
+12. **Tungsten (HV → EHV)**
+    - Scheelite/wolframite + HCl → tungstic acid → APT → WO₃.
+    - H₂ reduction → W powder.
+    - W powder + C, sintered (HV) → **WC** (no melting needed).
+    - Tungsten ingots need 3695 K, so a Tungsten Steel coil (EHV).
+
+### Wastes, and where they go
+| Waste | Use |
+|---|---|
+| Slag | Cement / casings, fertilizer (phosphate slag) |
+| Stone dust | Sand → glass |
+| Red mud | Fe / Ti / Ga recovery |
+| CO₂ | Pollution unless captured; Solvay / Sabatier (HV: CO₂ + H₂ → CH₄) |
+| SO₂ | → H₂SO₄ |
+| Arsenic waste | Stabilize into storage blocks (toxic) |
+| Wastewater | Treatment plant (MV) → water |
+
+---
+
+## 11f. Quest book outline (chapters → key milestones)
+1. **Primitive:**
+   - gather flint/sticks/fiber
+   - flint tools
+   - crafting station
+   - clay & pit kiln
+   - charcoal pile
+   - clay furnace
+   - first copper & tin (placer + outcrop)
+   - crucible bronze
+   - bronze tools
+   - prospector's hammer
+   - bog iron → bloomery
+   - wrought iron
+   - fire bricks
+   - coke oven
+   - PBF steel
+   - quern & sluice
+   - rubber
+   - glass
+2. **Steam:**
+   - first boiler (explosion warning quest)
+   - bronze/lead pipes
+   - each steam machine
+   - ore washing & 2× processing
+   - steam thumper
+   - steam excavator
+   - high-pressure boilers
+   - Large Boiler
+   - steel hull
+3. **LV:**
+   - lodestone magnet
+   - first motor
+   - hand-made basic circuit
+   - LV hull
+   - steam turbine generator
+   - cables & loss
+   - fuses
+   - first explosion (lesson)
+   - each LV machine
+   - salt electrolysis
+   - roasting & sulfuric acid
+   - lead-acid battery
+   - electric tools
+   - scanner
+   - pollution & hazards
+   - EBF + cupronickel coils
+4. **MV:**
+   - Bayer
+   - cryolite
+   - Hall–Héroult
+   - aluminium hull
+   - pyrolyse oven
+   - coal tar distillation
+   - phenolic board
+   - transistors
+   - discrete circuit
+   - Kanthal coils
+   - contact process
+   - scrubber
+   - geothermal
+   - planner & blueprints
+5. **HV:**
+   - chromium (aluminothermic)
+   - stainless steel
+   - distillation tower & oil
+   - plastics
+   - cleanroom
+   - wafers
+   - integrated circuit
+   - AE network
+   - autocrafting
+   - nichrome coils
+   - vacuum freezer
+   - large turbines
+   - WC tools
+6. **EHV:**
+   - Kroll titanium
+   - microprocessor
+   - tungsten steel coil
+   - nuclear
+   - probes
+   - launch pad
+   - rocket
+   - moon landing
+   - auto-miner retrieval
+7. **Space** (outline).
+
+**Loot crates:** tiered (P / S / LV / MV / HV / EHV), with random useful items. Rare chance of a "lucky" item one tier up.
+
+---
+
+## 11g. Planets (starting system, outline; names are placeholders)
+| Body | Size | Unlock | Traits | Signature resources |
+|---|---|---|---|---|
+| Home `(name?)` | 1.0× | start | Earth-like, all biomes | Everything above |
+| Moon | 0.25× | EHV | No atmosphere (sealed machines), low gravity | Ilmenite-rich regolith, anorthite (Al), **helium-3** |
+| Inner hot planet | 0.4× | SV | Volcanic, high heat, sulfuric atmosphere | Sulfur, tungsten, platinum group |
+| Red planet | 0.5× | SV | Thin CO₂ atmosphere, cold, dust storms | Iron oxides, perchlorates, water ice, deuterium |
+| Ice moon (of gas giant) | 0.3× | PV | Subsurface ocean, extreme cold | Deuterium/tritium sources, ammonia ice |
+| Gas giant | — (no surface) | PV | Orbital harvesting only | H₂, He, He-3 |
+| Asteroid belt | many tiny | QV | Mining stations | Platinum group, exotic late materials |
