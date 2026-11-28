@@ -390,7 +390,7 @@ export const QUESTS: QuestDef[] = [
       'Steel comes from the primitive blast furnace. It is slow: start stockpiling now.',
     ],
     tasks: [have('hull:steel')] },
-  { id: 's_hp_boiler', chapter: 'S', title: 'High Pressure', req: ['s_steel_hull'], reward: S1,
+  { id: 's_hp_boiler', chapter: 'power', tier: 'S', title: 'High Pressure', req: ['s_steel_hull'], reward: S1,
     text: [
       'The **High-Pressure Steel Boiler** (steel hull + 8 fire bricks + 2 bronze pipes) runs hotter (600 K) and makes **2.5×** the steam of the small boiler — 30 L/tick — but burns fuel twice as fast.',
       'Everything else is the same: water in, steam out, and never let it run dry while hot.',
