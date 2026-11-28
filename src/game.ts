@@ -15,6 +15,9 @@ export class Game {
   /** Fired when a world is (re)loaded so the renderer can regenerate. */
   onWorld?: (s: GameState) => void;
 
+  /** Dev art showcase (`?showcase`): every machine drawn as working. */
+  showcase = false;
+
   async boot() {
     let state: GameState | undefined;
     try {
@@ -24,6 +27,8 @@ export class Game {
       this.onToast?.(`Could not load save: ${e}`, true);
     }
     const seed = Number(new URLSearchParams(location.search).get('seed')) || undefined; // dev: ?seed=N for a fresh game
+    const q = new URLSearchParams(location.search);
+    if (import.meta.env.DEV && q.has('showcase')) { const { showcase } = await import('./dev/showcase'); state = showcase(newGame(seed)); this.showcase = true; }
     this.start(state ?? newGame(seed));
     this.timer = window.setInterval(() => void this.autosave(), AUTOSAVE_MS);
     // No offline progress: pause + autosave when hidden; resume when visible unless user paused.

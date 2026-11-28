@@ -9,7 +9,7 @@ import { B, BLOCKS, isOre } from '../world/blocks';
 import { LAYERS, Tree, Water, worldGen, type WorldGen } from '../world/gen';
 import { planetMap } from '../world/map';
 import { buildChunk, CH, disposeChunk } from './chunks';
-import { buildStructs, ghostGeometry } from './structures';
+import { buildStructs, ghostGeometry, type Puff, type Spin } from './structures';
 import { multiCells } from '../data/structures';
 import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
@@ -86,6 +86,12 @@ export class Renderer {
   private structsGlass = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.3, depthWrite: false }));
   private ghostMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.45, depthWrite: false }));
   private multiGhost = new THREE.Mesh(new THREE.BufferGeometry(), this.ghostMesh.material);
+  /** Art v2 (P5g): hot parts of working machines (unlit), turning parts and smoke/steam puffs, animated per frame. */
+  private glowMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true }));
+  private spins: Spin[] = [];
+  private puffs: Puff[] = [];
+  private spinMesh: THREE.InstancedMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshLambertMaterial(), 256);
+  private puffMesh = new THREE.InstancedMesh(new THREE.BoxGeometry(1, 1, 1), new THREE.MeshBasicMaterial({ transparent: true, opacity: 0.5, depthWrite: false }), 1024);
   /** Machine statuses (sim) and multiblock casings to ghost (open machine panel). */
   private ms: Record<string, number> = {};
   private msSig = '';
@@ -156,7 +162,9 @@ export class Renderer {
     this.iso.add(this.terrain, this.hemi, this.sun, this.sun.target);
     (this.grid.material as THREE.Material).transparent = true;
     (this.grid.material as THREE.Material).opacity = 0.25;
-    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh, this.multiGhost, this.sel);
+    this.iso.add(this.grid, this.structs, this.structsGlass, this.ghostMesh, this.multiGhost, this.sel, this.glowMesh, this.spinMesh, this.puffMesh);
+    for (const m of [this.glowMesh, this.spinMesh, this.puffMesh]) m.frustumCulled = false;
+    this.spinMesh.count = this.puffMesh.count = 0;
     {
       const box = new THREE.BoxGeometry(1, 1, 1).translate(0.5, 0.5, 0.5);
       const edges = new THREE.LineSegments(new THREE.EdgesGeometry(box), new THREE.LineBasicMaterial({ color: 0xffd040, transparent: true, depthTest: false }));
@@ -338,13 +346,58 @@ export class Renderer {
     const cx = Math.round(v.x / 16) * 16, cy = Math.round(v.y / 16) * 16, zoomedOut = v.zoom >= 30, baseMode = this.act === 'base';
     const sig = `${this.structVer}|${v.level}|${v.rot}|${baseMode}|${zoomedOut}|${cx},${cy},${R}`;
     const show = v.level >= 0;
-    this.structs.visible = this.structsGlass.visible = this.multiGhost.visible = show;
-    if (!show || sig === this.structSig) return;
+    this.structs.visible = this.structsGlass.visible = this.multiGhost.visible = this.glowMesh.visible = this.spinMesh.visible = this.puffMesh.visible = show;
+    if (!show) return;
+    this.animate();
+    if (sig === this.structSig) return;
     this.structSig = sig;
-    const [a, b, c] = buildStructs({ ents: this.ents, base: this.base, w: this.p.w, cx, cy, radius: R, top: v.level, rot: v.rot, baseMode, zoomedOut, ms: this.ms, ghosts: this.ghosts });
-    this.multiGhost.geometry.dispose(); this.multiGhost.geometry = c;
-    this.structs.geometry.dispose(); this.structs.geometry = a;
-    this.structsGlass.geometry.dispose(); this.structsGlass.geometry = b;
+    const g = buildStructs({ ents: this.ents, base: this.base, w: this.p.w, cx, cy, radius: R, top: v.level, rot: v.rot, baseMode, zoomedOut, ms: this.ms, ghosts: this.ghosts });
+    this.multiGhost.geometry.dispose(); this.multiGhost.geometry = g.ghost;
+    this.structs.geometry.dispose(); this.structs.geometry = g.solid;
+    this.structsGlass.geometry.dispose(); this.structsGlass.geometry = g.glass;
+    this.glowMesh.geometry.dispose(); this.glowMesh.geometry = g.glow;
+    this.spins = g.spins; this.puffs = g.puffs;
+    if (this.spins.length > this.spinMesh.instanceMatrix.count) this.spinMesh = this.grow(this.spinMesh, this.spins.length);
+    const col = new THREE.Color();
+    this.spins.forEach((sp, i) => this.spinMesh.setColorAt(i, col.setHex(sp.c)));
+    this.spinMesh.count = this.spins.length;
+    if (this.spinMesh.instanceColor) this.spinMesh.instanceColor.needsUpdate = true;
+  }
+
+  private grow(m: THREE.InstancedMesh, n: number) {
+    const nm = new THREE.InstancedMesh(m.geometry, m.material, Math.max(n, m.instanceMatrix.count * 2));
+    nm.frustumCulled = false; this.iso.remove(m); m.dispose(); this.iso.add(nm);
+    return nm;
+  }
+
+  /** Spinning parts and rising puffs (P5g): pure functions of time, no sim state. */
+  private animate() {
+    const t = performance.now() / 1000, m = new THREE.Matrix4(), q = new THREE.Quaternion(), qa = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
+    const UPV = new THREE.Vector3(0, 1, 0), FWD = new THREE.Vector3(0, 0, 1);
+    this.spins.forEach((sp, i) => {
+      q.setFromAxisAngle(UPV, -sp.r * Math.PI / 2);
+      qa.setFromAxisAngle(sp.axis ? FWD : UPV, t * 4 + i);
+      q.multiply(qa);
+      // The box's own size is given before the model's rotation: undo it so the turning shape matches the model.
+      const odd = sp.r % 2 === 1;
+      sc.set(odd ? sp.sz : sp.sx, sp.sy, odd ? sp.sx : sp.sz);
+      m.compose(p.set(sp.x, sp.y, sp.z), q, sc); this.spinMesh.setMatrixAt(i, m);
+    });
+    if (this.spins.length) this.spinMesh.instanceMatrix.needsUpdate = true;
+    const N = 4, col = new THREE.Color(), cap = this.puffMesh.instanceMatrix.count;
+    let n = 0;
+    this.puffs.forEach((pf, i) => {
+      for (let j = 0; j < N && n < cap; j++, n++) {
+        const ph = (t / (pf.k ? 1.6 : 2.6) + j / N + ((i * 0.6180339) % 1)) % 1;
+        const s = (0.08 + ph * (pf.k ? 0.3 : 0.38)) * (ph > 0.75 ? (1 - ph) / 0.25 : 1);
+        const drift = Math.sin(i * 7.3 + j * 2.1) * 0.25 * ph;
+        q.identity(); m.compose(p.set(pf.x + drift, pf.y + ph * (pf.k ? 1.1 : 1.6), pf.z + drift * 0.6), q, sc.set(s, s, s));
+        this.puffMesh.setMatrixAt(n, m);
+        this.puffMesh.setColorAt(n, col.setHex(pf.k ? 0xeef2f4 : 0x4a4642));
+      }
+    });
+    this.puffMesh.count = n;
+    if (n) { this.puffMesh.instanceMatrix.needsUpdate = true; if (this.puffMesh.instanceColor) this.puffMesh.instanceColor.needsUpdate = true; }
   }
 
   /** Ghost height: structures stack on what's already in the storey. */

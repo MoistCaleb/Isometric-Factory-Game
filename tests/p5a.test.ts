@@ -23,7 +23,7 @@ function spot() {
   for (let i = 0; ; i++) {
     const x = s0.spawn.x + i, y = s0.spawn.y;
     let ok = true;
-    for (let dx = -3; dx <= 3 && ok; dx++) for (let dy = -2; dy <= 1 && ok; dy++) ok = dry(x + dx, y + dy);
+    for (let dx = -3; dx <= 3 && ok; dx++) for (let dy = -3; dy <= 1 && ok; dy++) ok = dry(x + dx, y + dy);
     if (ok) return { x, y };
   }
 }
@@ -40,7 +40,7 @@ function cell(s: GameState, two: boolean) {
   place(s, 'maintenance_hatch', x - 1, y - 2);
   const cells = multiCells(STRUCTURES.find((x) => x.id === 'hall_heroult')!, 0);
   give(s, 'struct:carbon_casing', cells.filter((c) => c.id === 'carbon_casing').length);
-  give(s, 'struct:cathode_block', 1);
+  give(s, 'struct:cathode_block', 2);
   expect(apply(s, gen, { k: 'mfill', key: k }).ok).toBe(true);
   const ts: string[] = [];
   for (const sx of two ? [-1, 1] : [-1]) {
@@ -67,7 +67,7 @@ describe('P5a aluminium', () => {
     const k = place(s, 'hall_heroult', x, y);
     expect(multiCheck(s.ents, gen.w, k).need.sort()).toEqual(['energy_hatch', 'maintenance_hatch']);
     const cells = multiCells(STRUCTURES.find((x) => x.id === 'hall_heroult')!, 0);
-    expect(cells.filter((c) => c.id === 'carbon_casing')).toHaveLength(15);
+    expect(cells.filter((c) => c.id === 'carbon_casing')).toHaveLength(9); // 3 × 4 pot line (P5g)
     expect(cells.find((c) => c.id === 'cathode_block')!.hatch).toBe(false);
   });
 

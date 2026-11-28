@@ -29,26 +29,26 @@ function spot() {
 describe('P3d', () => {
   it('Large Boiler: rotated pattern, hatches, pipes only through hatches, makes steam', () => {
     const s = structuredClone(s0), { x, y } = spot(), X = (dx: number) => gen.wrapX(x + dx);
-    // Rotation 1 faces west: the structure lies east of the controller (x..x+2, y-1..y+1).
+    // Rotation 1 faces west: the structure lies east of the controller (x..x+2, y..y+1; 2 wide × 3 deep × 3 high, P5g).
     const ctl = place(s, 'large_boiler', x, y, 1);
     const mc = multiCheck(s.ents, gen.w, ctl);
-    expect(mc.miss.length).toBe(26);
-    expect(mc.miss.every(([k]) => { const [kx, ky] = k.split(',').map(Number); return [X(0), X(1), X(2)].includes(kx) && Math.abs(ky - y) <= 1; })).toBe(true);
+    expect(mc.miss.length).toBe(17);
+    expect(mc.miss.every(([k]) => { const [kx, ky] = k.split(',').map(Number); return [X(0), X(1), X(2)].includes(kx) && (ky === y || ky === y + 1); })).toBe(true);
     expect(mc.need).toEqual(['input_hatch', 'output_hatch']);
-    for (const [id, n] of [['bronze_casing', 16], ['steel_firebox', 8], ['bronze_pipe_casing', 2]] as const) give(s, `struct:${id}`, n);
+    for (const [id, n] of [['bronze_casing', 8], ['steel_firebox', 5], ['bronze_pipe_casing', 4]] as const) give(s, `struct:${id}`, n);
     expect(apply(s, gen, { k: 'mfill', key: ctl }).ok).toBe(true);
     expect(multiCheck(s.ents, gen.w, ctl).miss).toEqual([]);
     expect(controllerAt(s.ents, gen.w, X(2), y, 2)).toBe(ctl);
     // Swap two top outer casings for hatches.
-    for (const [dy, id] of [[-1, 'input_hatch'], [1, 'output_hatch']] as const) {
+    for (const [dy, id] of [[0, 'input_hatch'], [1, 'output_hatch']] as const) {
       expect(apply(s, gen, { k: 'demolish', x: X(2), y: y + dy, f: 0 }).ok).toBe(true);
       place(s, id, X(2), y + dy);
     }
     expect(multiCheck(s.ents, gen.w, ctl).need).toEqual([]);
-    expect(controllerAt(s.ents, gen.w, X(2), y - 1, 2)).toBe(ctl);
+    expect(controllerAt(s.ents, gen.w, X(2), y, 2)).toBe(ctl);
     // Pipe column touching the input hatch at the top and a plain casing below: only the hatch links, as an input.
-    for (let i = 0; i < 3; i++) place(s, 'bronze_pipe', X(3), y - 1);
-    const net = networks(s.ents, gen.w).find((n) => n.keys.includes(`${X(3)},${y - 1},2`))!;
+    for (let i = 0; i < 3; i++) place(s, 'bronze_pipe', X(3), y);
+    const net = networks(s.ents, gen.w).find((n) => n.keys.includes(`${X(3)},${y},2`))!;
     expect(net.links).toEqual([expect.objectContaining({ ctl, hatch: 'in' })]);
     // Fuel + water → steam.
     const m = s.mach[ctl];

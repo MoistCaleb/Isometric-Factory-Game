@@ -12,11 +12,12 @@ export interface ChunkOpts { level: number; xray: boolean; diffs: Record<string,
 const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 const treeMat = new THREE.MeshLambertMaterial();
 const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
+/** Tree boxes [width, height, base y, colour]: trees stand 2 storeys (6 blocks) tall, cactus 1 storey (P5g). */
 const TREE_PARTS: Record<number, [w: number, h: number, y: number, color: number][]> = {
-  [Tree.Broadleaf]: [[0.16, 0.5, 0, 0x6a4a2a], [0.7, 0.55, 0.45, 0x3f7a2a]],
-  [Tree.Conifer]: [[0.14, 0.35, 0, 0x5a3e24], [0.6, 0.45, 0.3, 0x2d5a35], [0.38, 0.4, 0.7, 0x2d5a35]],
-  [Tree.Jungle]: [[0.2, 0.9, 0, 0x5a4a2a], [0.9, 0.45, 0.8, 0x2f8a30]],
-  [Tree.Cactus]: [[0.18, 0.7, 0, 0x4a8a3a]],
+  [Tree.Broadleaf]: [[0.22, 3.6, 0, 0x6a4a2a], [1.25, 1.9, 2.7, 0x3f7a2a], [0.95, 1.0, 4.5, 0x4a8a32], [0.5, 0.5, 5.5, 0x4a8a32]],
+  [Tree.Conifer]: [[0.2, 1.8, 0, 0x5a3e24], [1.15, 1.3, 1.0, 0x2d5a35], [0.9, 1.3, 2.2, 0x2d5a35], [0.65, 1.3, 3.4, 0x335f3a], [0.38, 1.3, 4.6, 0x335f3a]],
+  [Tree.Jungle]: [[0.28, 5.0, 0, 0x5a4a2a], [1.5, 0.9, 4.6, 0x2f8a30], [1.0, 0.6, 5.4, 0x3a9a38], [0.5, 1.2, 3.4, 0x2f8a30]],
+  [Tree.Cactus]: [[0.32, 2.8, 0, 0x4a8a3a], [0.75, 0.24, 1.4, 0x4a8a3a]],
 };
 
 const waterMat = new THREE.MeshLambertMaterial({ vertexColors: true, transparent: true, opacity: 0.72, depthWrite: false });
@@ -136,7 +137,7 @@ function addTrees(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: num
     const t = gen.tree(x, y);
     if (!t) continue;
     const ox = (hash01(gen.seed + 40, x, y) - 0.5) * 0.3, oz = (hash01(gen.seed + 41, x, y) - 0.5) * 0.3;
-    const sc = 0.85 + hash01(gen.seed + 42, x, y) * 0.35;
+    const sc = 0.9 + hash01(gen.seed + 42, x, y) * 0.2;
     TREE_PARTS[t].forEach(([w, h, yy, c], n) => {
       const leaf = n > 0 && blight && t !== Tree.Cactus, k = leaf ? 0.75 : 1; // withered crowns shrink and brown
       p.set(i + 0.5 + ox, yy * sc, j + 0.5 + oz); s.set(w * sc * k, h * sc * k, w * sc * k);

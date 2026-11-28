@@ -431,6 +431,28 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - **Water Treatment Plant** (MV): MV hull + 2 discrete circuits + MV pump + 2 steel pipes + 4 graphite dust + 2 copper cables. 1000 L wastewater → 900 L water, 10 s, 64 W
 - **Geothermal Generator** (MV gen, no circuits): MV hull + MV pump + 4 steel pipes + 2 aluminium plates + 2 copper cables. 128 W × ground heat (hotspot centre 1 → rim 0.25, radius 10); hotspots at layer 18, ≤ 1 per 256×256, found by the scanner block
 
+**Farming (P5h)** (rules: DESIGN §3 Trees & farming). Items: `sapling:<broadleaf|conifer|rubber>`, `seed:<crop>`, produce `crop:<crop>`, `crop_sticks`, `compost`; structures `planter`, `block_<metal>`, `harvester` (LV), `crop_manager` (MV).
+
+| Crop | Tier | Grow (s) | From | Produce → use | Needs below |
+|---|---|---|---|---|---|
+| Wheat | P | 120 | wild (plains, savanna) | wheat → straw (hand), compost | – |
+| Flax | P | 120 | wild (plains, forest) | flax → 2 fiber | – |
+| Reed | P | 120 | wild (by water) | reed → paper (LV) / compost | – |
+| Berry Bush | P | 120 | wild (forest, taiga) | berries → compost | – |
+| Stonecrop | P | 240 | wheat × reed | stonecrop → small stone dust (quern/macerator) | – |
+| Clayweed | P | 240 | reed × berry | clayweed → clay ball (hand, 2) | – |
+| Coalcap | P | 240 | flax × berry | coalcap → small coal dust | – |
+| Ironleaf | S | 360 | stonecrop × coalcap | → small iron dust | block of iron |
+| Copperbloom | S | 360 | stonecrop × clayweed | → small copper dust | block of copper |
+| Tinroot | S | 360 | clayweed × coalcap | → small tin dust | block of tin |
+| Leadwort | LV | 480 | ironleaf × tinroot | → small lead dust | block of lead |
+| Zincthistle | LV | 480 | copperbloom × tinroot | → small zinc dust | block of zinc |
+| Nickelvine | LV | 480 | ironleaf × copperbloom | → small nickel dust | block of nickel |
+| Silverbell | MV | 600 | leadwort × copperbloom | → small silver dust | block of silver |
+| Goldenrod | MV | 600 | silverbell × zincthistle | → small gold dust | block of gold |
+
+Harvest: 1 produce (2 for wild crops), 25 % a seed. Produce → dust in the macerator (steam + LV/MV, 1 produce → 1 small dust, 4 s) or quern (stonecrop, coalcap). Saplings grow in 300 s (rubber 400 s).
+
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
 ---
@@ -524,7 +546,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 
 ## 11f. Quest book outline (chapters → key milestones)
 
-Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power** — s_solar, s_hp_boiler, s_large_boiler; LV generators l_turbine / l_combustion / l_solar / l_wind / l_water_turbine (any one unlocks LV **Live Wire**), grid l_fuse / l_breaker / l_transformer / l_battery / l_battery_buffer · **⛏ Mining** — s_thumper, s_excavator, l_etools, l_scanner, l_scanner_block, l_mining_rig · **⚗ Chemistry** — l_cells … l_acid, l_hazards · **🔧 Logistics** — s_items, s_barrel, s_pump · **🚀 Space Race** — later.
+Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power** — s_solar, s_hp_boiler, s_large_boiler; LV generators l_turbine / l_combustion / l_solar / l_wind / l_water_turbine (any one unlocks LV **Live Wire**), grid l_fuse / l_breaker / l_transformer / l_battery / l_battery_buffer · **⛏ Mining** — s_thumper, s_excavator, l_etools, l_scanner, l_scanner_block, l_mining_rig · **⚗ Chemistry** — l_cells … l_acid, l_hazards · **🌱 Farming** (P5h) — f_sapling (plant), f_tree (harvest a planted tree), f_seeds (pick a wild plant), f_planter (planter + sticks + seed), f_cross (breed a new species), f_compost, f_resource (ironleaf on an iron block), f_harvester (LV), f_lv_crops (any LV crop), f_manager (MV), f_gold (goldenrod) · **🔧 Logistics** — s_items, s_barrel, s_pump · **🚀 Space Race** — later.
 1. **Primitive** (implemented, `src/data/quests.ts`, 34 quests). Tutorial branch first: overseer (pan/zoom) → loot crates, camera (rotate, levels), maps, time/pause/saves; then hands (gather, pockets, recipe book), then:
    - gather flint/sticks/fiber
    - flint tools

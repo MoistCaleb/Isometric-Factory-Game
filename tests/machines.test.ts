@@ -71,22 +71,19 @@ describe('machines', () => {
     run(s, 2);
     expect(s.mach[key].st).toBe(MS.incomplete);
     expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(false); // no casings
-    give(s, 'struct:fire_brick_wall', 10);
+    give(s, 'struct:fire_brick_wall', 3);
     expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(false); // runs out partway
-    give(s, 'struct:fire_brick_wall', 15);
+    give(s, 'struct:fire_brick_wall', 4);
     const r = apply(s, gen, { k: 'mfill', key });
     expect(r.ok).toBe(true);
-    expect(Object.keys(s.ents).filter((k) => s.ents[k].s === 'fire_brick_wall')).toHaveLength(25); // 3×3×3 blocks = 1 storey
-    expect(s.ents[`${at.x},${at.y},1`]).toBeUndefined(); // hollow chamber
-    expect(controllerAt(s.ents, gen.w, at.x + 1, at.y + 1, 0)).toBe(key);
-    expect(controllerAt(s.ents, gen.w, at.x, at.y, 2)).toBe(key); // roof centre
-    // Open the roof, put something in the chamber: incomplete. Clear it and re-fill.
+    expect(Object.keys(s.ents).filter((k) => s.ents[k].s === 'fire_brick_wall')).toHaveLength(7); // 2×2×2 (P5g)
+    expect(controllerAt(s.ents, gen.w, at.x + 1, at.y - 1, 0)).toBe(key);
+    expect(controllerAt(s.ents, gen.w, at.x, at.y, 1)).toBe(key); // above the controller
+    // Take a brick away: incomplete. Re-fill.
     expect(apply(s, gen, { k: 'demolish', x: at.x, y: at.y, f: 0 }).ok).toBe(true);
-    give(s, 'struct:chest', 1);
-    expect(apply(s, gen, { k: 'place', id: 'struct:chest', x: at.x, y: at.y, f: 0, r: 0 }).ents).toHaveProperty(`${at.x},${at.y},1`);
     run(s, 1);
     expect(s.mach[key].st).toBe(MS.incomplete);
-    expect(apply(s, gen, { k: 'demolish', x: at.x, y: at.y, f: 0 }).ok).toBe(true);
+    give(s, 'struct:fire_brick_wall', 1);
     expect(apply(s, gen, { k: 'mfill', key }).ok).toBe(true);
     run(s, 1800);
     expect(s.mach[key].out['lump:coke']).toBe(2);

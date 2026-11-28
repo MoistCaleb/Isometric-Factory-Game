@@ -49,11 +49,11 @@ describe('P5c organic chemistry + discrete circuit', () => {
     const s = structuredClone(s0), { x, y } = spot();
     const k = place(s, 'pyrolyse_oven', x, y);
     place(s, 'energy_hatch', x - 1, y); place(s, 'energy_hatch', x + 1, y);
-    place(s, 'maintenance_hatch', x - 1, y - 2);
+    place(s, 'maintenance_hatch', x - 1, y); // stacks on the left hatch: top layer (3 × 2 × 2 retort, P5g)
     const cells = multiCells(STRUCTURES.find((x) => x.id === 'pyrolyse_oven')!, 0);
-    expect(cells.filter((c) => c.id === 'cupronickel_coil').length).toBe(8);
+    expect(cells.filter((c) => c.id === 'cupronickel_coil').length).toBe(3);
     give(s, 'struct:heat_casing', cells.filter((c) => c.id === 'heat_casing').length);
-    give(s, 'struct:cupronickel_coil', 8);
+    give(s, 'struct:cupronickel_coil', 3);
     expect(apply(s, gen, { k: 'mfill', key: k }).ok).toBe(true);
     expect(multiCheck(s.ents, gen.w, k).need).toEqual([]);
     const r = recipe('pyrolyse_oven', 'methanol');

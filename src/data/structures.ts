@@ -2,9 +2,13 @@
 // `model`: voxel boxes on a 16³ tile, [x0,y0,z0,x1,y1,z1,color] with y = up, z = toward the tile's south (rot 0 front).
 import type { ToolType } from './forms';
 import { MV_BASE } from './machines';
+import { art, tierTint } from './models';
 import type { TierId } from './tiers';
 
-export type Box = [number, number, number, number, number, number, number];
+/** Voxel box in 16ths: x0 y0 z0 x1 y1 z1 colour, optional effect (P5g art v2): FX.hot glows while working, FX.spin turns
+ * about the vertical axis, FX.spinZ about the front–back axis. */
+export type Box = [number, number, number, number, number, number, number, number?];
+export const FX = { hot: 1, spin: 2, spinZ: 3 } as const;
 export interface StructDef {
   id: string; name: string; color: number;
   /** Machine id its recipes run in (CONTENT §11c); absent = storage/utility. */
@@ -22,6 +26,8 @@ export interface StructDef {
   coilK?: number;
   /** Energy hatch voltage tier (default LV; P5b MV). */
   tier?: TierId;
+  /** Smoke (0) / steam (1) puff points while working, in 16ths: [x, y, z, kind] (P5g). */
+  puff?: [number, number, number, 0 | 1][];
   /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
    * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
   pipe?: { rate: number; cap: number; item?: boolean; /** Acid-proof (P4b corrosion). */ acid?: boolean };
@@ -33,28 +39,28 @@ export interface StructDef {
  * storey; part i ≥ 1 = `multi.parts[i-1]`, else the casing). Rotation 0 faces south: cells behind it have dy < 0. */
 export type Cell = [number, number, number, number?];
 export interface Pattern { cells: Cell[]; /** Must stay empty (inner chamber). */ hollow: Cell[] }
-const ring = (f: number): Cell[] => [[-1, -1, f], [0, -1, f], [1, -1, f], [-1, 0, f], [1, 0, f], [-1, 1, f], [0, 1, f], [1, 1, f]];
-const full = (f: number): Cell[] => [...ring(f), [0, 0, f]];
-const plus = (f: number): Cell[] => [[0, -1, f], [-1, 0, f], [1, 0, f], [0, 1, f]];
-/** Controller sits at the bottom centre. A 3-high multiblock fills one storey; taller ones reach the next (DESIGN §5). */
+/** Box of cells dx ∈ [x0, x1], dy ∈ [y0, y1] (dy ≤ 0 = behind the front), db ∈ [b0, b1], minus the controller; `part` picks a part per cell. */
+const box = (x0: number, x1: number, y0: number, y1: number, b0: number, b1: number, part: (dx: number, dy: number, db: number) => number = () => 0): Cell[] => {
+  const out: Cell[] = [];
+  for (let db = b0; db <= b1; db++) for (let dy = y1; dy >= y0; dy--) for (let dx = x0; dx <= x1; dx++) {
+    if (!dx && !dy && !db) continue;
+    const p = part(dx, dy, db);
+    out.push(p ? [dx, dy, db, p] : [dx, dy, db]);
+  }
+  return out;
+};
+/** Shapes fit the machine (P5g, DESIGN §5): the controller is at the front (left of the front row when the width is even). */
 export const PATTERNS = {
-  /** Charcoal pile: 3×3 mound, 2 storeys. */
-  mound: { cells: [...ring(0), ...full(1)], hollow: [] },
-  /** Bloomery: plus-shaped base + 2-storey chimney above the hearth. */
-  stack: { cells: [...plus(0), [0, 0, 1], [0, 0, 2]], hollow: [] },
-  /** Coke oven: 3×3×3 with a hollow chamber, roofed. */
-  oven: { cells: [...ring(0), ...ring(1), ...full(2)], hollow: [[0, 0, 1]] },
-  /** Primitive blast furnace: 3×3×4 hollow shaft, open top. */
-  shaft: { cells: [...ring(0), ...ring(1), ...ring(2), ...ring(3)], hollow: [[0, 0, 1], [0, 0, 2], [0, 0, 3]] },
-  /** Large boiler (P3d): controller at the front of a 3×3 firebox (part 1), two layers of casing above around a pipe
-   * casing core (part 2). */
-  boiler: {
-    cells: [
-      ...[0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => [dx, dy, 0, 1])).filter(([dx, dy]) => dx || dy),
-      ...[1, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => (dx || dy !== -1 ? [dx, dy, b] : [dx, dy, b, 2])))),
-    ],
-    hollow: [],
-  },
+  /** Charcoal pile: low 3×3 mound behind/around the controller + a cap. */
+  mound: { cells: [...box(-1, 1, -2, 0, 0, 0), [0, -1, 1]], hollow: [] },
+  /** Bloomery: 1×1 chimney, 2 blocks above the hearth. */
+  stack: { cells: [[0, 0, 1], [0, 0, 2]], hollow: [] },
+  /** Coke oven: 2×2×2 brick chamber. */
+  oven: { cells: box(0, 1, -1, 0, 0, 1), hollow: [] },
+  /** Primitive blast furnace: 2×2×3 shaft. */
+  shaft: { cells: box(0, 1, -1, 0, 0, 2), hollow: [] },
+  /** Large boiler (P3d): 2 wide × 3 deep × 3 high — firebox floor (part 1), pipe casings (part 2) through the middle row above. */
+  boiler: { cells: box(0, 1, -2, 0, 0, 2, (_dx, dy, db) => (db === 0 ? 1 : dy === -1 ? 2 : 0)), hollow: [] },
   /** Electric blast furnace (P4e): controller at the front of a 3×3×4 stack behind it — casing floor and roof, two rings of
    * coils (part 1) around a hollow core. */
   ebf: {
@@ -62,25 +68,12 @@ export const PATTERNS = {
       .concat([1, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, b, 1])))),
     hollow: [[0, -1, 1], [0, -1, 2]],
   },
-  /** Hall–Héroult pot (P5a): controller at the front of a 3×3 carbon-lined floor with the cathode block (part 1) in the
-   * middle, one ring of casing above around the open bath. */
-  pot: {
-    cells: [0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => (dx === 0 && dy === -1 ? [dx, dy, 0, 1] : [dx, dy, 0]))).filter(([dx, dy]) => dx || dy)
-      .concat([0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, 1]))),
-    hollow: [[0, -1, 1]],
-  },
-  /** Pyrolyse oven (P5c): controller at the front of a closed 3×3×3 retort — casing floor and roof, a ring of coils (part 1)
-   * around the hollow middle. */
-  retort: {
-    cells: [0, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => [dx, dy, b]))).filter(([dx, dy, b]) => dx || dy || b)
-      .concat([0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, 1, 1]))),
-    hollow: [[0, -1, 1]],
-  },
-  /** Scrubber tower (P5e): controller at the front of a 3×3, 3-high ring of casing around a hollow core, open top. */
-  tower: {
-    cells: [0, 1, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => (dx || dy !== -1) && (dx || dy || b)).map((dx): Cell => [dx, dy, b]))),
-    hollow: [[0, -1, 0], [0, -1, 1], [0, -1, 2]],
-  },
+  /** Hall–Héroult pot line (P5a): 3 wide × 4 long, 1 high — carbon-lined casing around two cathode blocks (part 1) down the middle. */
+  pot: { cells: box(-1, 1, -3, 0, 0, 0, (dx, dy) => (dx === 0 && (dy === -1 || dy === -2) ? 1 : 0)), hollow: [] },
+  /** Pyrolyse oven (P5c): long low retort, 3 wide × 2 deep × 2 high — a row of coils (part 1) at the back of the bottom layer. */
+  retort: { cells: box(-1, 1, -1, 0, 0, 1, (_dx, dy, db) => (db === 0 && dy === -1 ? 1 : 0)), hollow: [] },
+  /** Scrubber (P5e): a 1×1 column, 5 casings above the controller. */
+  tower: { cells: [1, 2, 3, 4, 5].map((b): Cell => [0, 0, b]), hollow: [] },
 } satisfies Record<string, Pattern>;
 export type PatternId = keyof typeof PATTERNS;
 /** Structures that belong to multiblocks (controllers + casings) — rendered full height whatever the view level. */
@@ -222,6 +215,16 @@ export const STRUCTURES: StructDef[] = [
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
 ];
 
+// Art v2 (P5g): models from data/models; MV variants without their own art take the LV one, tinted.
+{
+  const ART = art();
+  for (const st of STRUCTURES) {
+    const lv = st.id.endsWith('_mv') ? ART[st.id.slice(0, -3)] : undefined;
+    const a = ART[st.id] ?? (lv && { model: tierTint(lv.model), puff: lv.puff });
+    if (a) { st.model = a.model; if (a.puff) st.puff = a.puff; }
+  }
+}
+
 /** MV variants (P5b): MV hull + 2 discrete circuits (P5c; 4 basic before) + 2 copper cables + the LV parts one tier up. */
 function mvMachines(lv: StructDef[]): StructDef[] {
   const MV_PART: Record<string, string> = { 'motor:lv': 'motor:mv', 'pump:lv': 'pump:mv', 'piston:lv': 'piston:mv', 'conveyor:lv': 'conveyor:mv',
@@ -231,7 +234,7 @@ function mvMachines(lv: StructDef[]): StructDef[] {
     const parts = d.cost.filter(([id]) => !['hull:lv', 'circuit:basic'].includes(id)).map(([id, n]): [string, number] => [MV_PART[id] ?? id, n]);
     const cost: [string, number][] = [['hull:mv', 1], ['circuit:discrete', 2], ...parts];
     return { ...d, id: `${b}_mv`, name: `MV ${d.name}`, machine: `${b}_mv`, color: MVC, cost,
-      model: d.model.map((x): Box => (x[6] === LVC ? [...x.slice(0, 6), MVC] as Box : x)) };
+      model: d.model.map((x): Box => (x[6] === LVC ? [x[0], x[1], x[2], x[3], x[4], x[5], MVC, x[7]] : x)) };
   });
 }
 

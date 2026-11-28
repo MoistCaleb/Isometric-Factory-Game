@@ -62,7 +62,8 @@
 | src/game.ts | controller: boot/load latest, autosave 5 min + on hide, pause on hide, export/import |
 | src/render/renderer.ts | `Renderer`: modes iso/map/globe, camera pan/zoom/rotate, Z-level, day/night, rain, input, hover text; view saved in localStorage `view:<seed>` |
 | src/render/veins.ts | vein overlay (hint circles / outlines / fills), `knownVeins`, `veinsAtTile` |
-| src/render/structures.ts | structures + base parts as one vertex-coloured mesh around the camera; ghost preview |
+| src/render/structures.ts | structures + base parts as one vertex-coloured mesh around the camera (+ glow geometry, spins, puffs for working machines); ghost preview |
+| src/data/models.ts | P5g art: voxel model kits + `art()` models/puffs by structure id |
 | src/render/chunks.ts | 32×32 chunk mesh for one layer slice + instanced trees; renderer builds only chunks overlapping the viewport ground quad (`rectInQuad`), frees off-screen ones after ~1.5 s |
 | src/ui/ | Preact App (top bar incl. view buttons, menu, modebar left, Z-bar right, feed), Inventory (hotbar + bag), Recipes (browser + hand crafting), Machine (panel, live via `sim.watch`), Quests (book, L), Veins (journal), style.css, format |
 | tests/ | vitest: content, sim, save, world |
@@ -80,14 +81,13 @@
 - Vein grid: 1 spot per 64×64 cell (±8 jitter), slots soil/stone/deep/abyssal (`VEIN_SLOTS`), radius ≤ 22 → no overlap (~2.7k on Earth); ore per block = richness.
 - Conduits (pipes + cables): `Ent.ch` channel, `Ent.cut` side bitmask (E W S N up down); joins via `conduitsJoin`/`sideOpen` (data/structures) in pipes, power and render; `conduit` cmd; panel ui/Conduit.
 - Machines: `StructDef.machine` → `MachineDef.run` fuel|self|crank|boiler|steam|pump|elec|gen (`steam` L/tick if set)|store (chest: items in `out`)|tank (barrel)|thump|dig (P3c; sim-made world changes/veins go out as `simEvents` with `sim: true`); steam machines use `power × STEAM_PER_POWER` L/tick from `Mach.steam`; sim-made changes (explosions) go out via `simEvents` as `act` messages; recipe `minHeatK` (else machine `heatK`). Multiblock = `StructDef.multi {casing, pattern}`. Worker streams statuses in `stats.ms` and the watched machine as `{t:'mach'}`. `player.ts` ↔ `machines.ts` import each other: no top-level use of imports.
-- Scripts: `npm run dev | test | validate | build | map`. Dev: `?seed=N` starts a fresh game on that seed when there's no save.
+- Scripts: `npm run dev | test | validate | build | map`. Dev: `?seed=N` starts a fresh game on that seed when there's no save; `&showcase` (dev server) builds the art showcase.
 
 ## Status
 - **P0 done**. **P1 done** (planet gen, chunk render, camera, Z-slider, day/night, weather, map + globe).
 - Validator warnings = content gaps to close in P2–P4 (alloys, bloomery iron, chemistry, primitive kiln items).
 - X-ray ore view is a dev toggle; real reveal = samples/outcrops/digging/prospecting (P2f).
 - TODO: offshore mining rig (tier + recipe) to reach seabed/trench ores.
-- TODO: machine art pass — current P2d voxel models look poor; redo models (detail, per-state visuals e.g. fire/smoke when working).
 - TODO: chunk loader design (keep chunks loaded off-screen for automation); sim will tick loaded chunks only.
 - **P2 Primitive** in progress:
   - [x] P2a mining mode, inventory, tool slots/wear, pits render
@@ -116,5 +116,7 @@
   - [x] P5e environment: pollution v2 thresholds (`BLIGHT` 800 trees wither: no absorption/resin, drawn brown · `ACID` 3000: in rain exposed (`roofed`) single-block machines 0.1 %/s and bare wires (`BARE_WIRES`) 2 %/s corrode), trees absorb `TREE_ABSORB`/s (`treesIn`, cached), scrubber (`tower` pattern, `smoke` −40), water treatment plant, geothermal hotspots (`gen.hotspot`/`heat`, scanner block survey reports them) + generator (`ambient: 'geo'`, `MS.noHeat`); flags roof acid_rain scrub treat hotspot; quests m_acid_rain m_scrubber + power m_geothermal + chem m_wastewater. Fixed elec machines double-counting smoke
   - [x] P5f player tools: blueprints (sim/blueprints: `copyArea`/`rotateBp`/`pasteBp` from inventory, multi-pass bottom-up, config kept; save v14 `bps` ≤ 20; 📋 mode Y, area + paste ghosts), planner (content/planner: `plan`/`totals`/`sketch`, defaults prefer non-looping, non-conversion, highest tier ≤ chosen; 📐 top bar + recipe browser), statistics (sim/stats: made/used per recipe finish, power J, poll; 10 s × 60 + 1 min × 60, not saved; `hist` msg; ui/Stats SVG charts); quests logistics m_blueprint m_planner m_stats
 - **P5 MV done.**
+- [x] P5g art pass: data/models (`art()` kits per tier: bronze/LV/MV hulls, fire doors, gauges, vents; MV variants `tierTint`), `Box[7]` = FX hot/spin/spinZ, `StructDef.puff` smoke/steam points; renderer glow mesh + per-frame spin/puff instancing (working status; the green working icon is gone); multiblock shapes by function (`box()` cells: mound, stack 1×1×3, oven 2×2×2, shaft 2×2×3, boiler 2×3×3, pot 3×4×1, retort 3×2×2, tower 1×1×6; EBF same); trees 2 storeys. Dev: `?seed=N&showcase` places every structure (src/dev/showcase)
+- [ ] P5h farming (DESIGN §3 Trees & farming, CONTENT 11c Farming)
 - TODO: ethanol source (fermentation); radiation hazard; battery buffer refunds batteries empty on demolish.
 - New mechanic ⇒ add/extend the quest that teaches it (data/quests.ts); UI-only actions go in `UI_FLAGS`. Main-path machines/gates go in the tier chapter; generators, grid, mining, chemistry, logistics in their topic chapter. A tier's spine needs **any one** generator of that tier (any-of `req`), never all.

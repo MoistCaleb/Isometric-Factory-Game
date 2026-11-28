@@ -66,7 +66,7 @@ describe('P5e environment', () => {
   it('the scrubber removes 40 pollution/s from its chunk while it runs', () => {
     const s = structuredClone(s0), { x, y } = spot();
     const k = place(s, 'scrubber', x, y);
-    place(s, 'energy_hatch_mv', x - 1, y); place(s, 'maintenance_hatch', x + 1, y);
+    place(s, 'energy_hatch_mv', x, y); place(s, 'maintenance_hatch', x, y); // the column above the controller (P5g)
     const cells = multiCells(STRUCTURES.find((st) => st.id === 'scrubber')!, 0);
     give(s, 'struct:scrubber_casing', cells.length);
     expect(apply(s, gen, { k: 'mfill', key: k }).ok).toBe(true);

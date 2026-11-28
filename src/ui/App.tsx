@@ -107,7 +107,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   };
   useEffect(() => {
     game.sim.onStats = (st) => {
-      setStats(st); renderer.setStatuses(st.ms); renderer.setPollution(st.pl); renderer.setPowerLoad(st.pn); renderer.setHaz(st.hz);
+      setStats(st); renderer.setStatuses(game.showcase ? Object.fromEntries(Object.keys(renderer.entities).map((k) => [k, 1])) : st.ms); renderer.setPollution(st.pl); renderer.setPowerLoad(st.pn); renderer.setHaz(st.hz);
       const now = performance.now(), list: Alert[] = [];
       for (const [k, s] of Object.entries(st.ms ?? {})) {
         const ma = machineAt(renderer.entities, k);
