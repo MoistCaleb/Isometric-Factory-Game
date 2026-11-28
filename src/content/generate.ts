@@ -8,6 +8,7 @@ import { MISC_ITEMS } from '../data/misc';
 import { STRUCTURES } from '../data/structures';
 import { TIER_NAME, type TierId } from '../data/tiers';
 import { CRATE_TIERS, crateId } from '../data/loot';
+import { CROPS, SAPLINGS } from '../data/crops';
 import type { FluidDef, ItemDef, Recipe, Stack } from './types';
 
 export const INGOT_L = 144;
@@ -236,6 +237,8 @@ export function generate(): Generated {
   organic({ addItem, hand, mach, itemIds });
   chromium({ addItem, hand, mach, itemIds });
   environment({ addItem, hand, mach, itemIds });
+
+  farming({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -596,4 +599,39 @@ function chem(c: Ctx) {
   mach('roaster', [s('dust:sulfur')], [], { fluidsOut: [s('sulfur_dioxide', 1000)], ticks: 100, power: 16 });
   // Mercury amalgamates gold out of crushed ore.
   mach('chemical_bath', [s('crushed_ore:native_gold')], [s('purified_ore:native_gold'), s('small_dust:gold', 2)], { fluidsIn: [s('mercury', 144)] });
+}
+
+/** Farming (P5h): seeds, produce, saplings, sticks, compost; produce processing; `planter` pseudo-recipes (growth and
+ * crosses) so the recipe browser and planner show where crops come from (the sim grows them, DESIGN §3). */
+function farming({ addItem, hand, mach }: Ctx) {
+  const SEC = 20; // ticks per second
+  for (const c of CROPS) {
+    addItem({ id: `seed:${c.id}`, name: `${c.name} Seeds`, kind: 'misc', color: c.color });
+    addItem({ id: `crop:${c.id}`, name: c.produce, kind: 'misc', color: c.color });
+  }
+  for (const sp of SAPLINGS) addItem({ id: `sapling:${sp.id}`, name: sp.name, kind: 'misc', color: sp.color });
+  addItem({ id: 'crop_sticks', name: 'Crop Sticks', kind: 'misc', color: 0xb08450 });
+  addItem({ id: 'compost', name: 'Compost', kind: 'misc', color: 0x4a3a24 });
+  hand([s('stick:wood', 4)], [s('crop_sticks', 2)]);
+  for (const id of ['wheat', 'reed', 'berry']) {
+    hand([s(`crop:${id}`, 8)], [s('compost')]);
+    mach('steam_compressor', [s(`crop:${id}`, 8)], [s('compost')], { power: 4 });
+  }
+  hand([s('crop:wheat')], [s('straw', 2)]);
+  hand([s('crop:flax')], [s('fiber', 2)]);
+  hand([s('crop:clayweed')], [s('ball:clay', 2)]);
+  for (const c of CROPS) {
+    if (c.dust) {
+      if (!c.needs) mach('quern', [s(`crop:${c.id}`)], [s(c.dust)], { ticks: 100 });
+      mach('steam_macerator', [s(`crop:${c.id}`)], [s(c.dust)], { ticks: 80, power: 4 });
+      mach('macerator', [s(`crop:${c.id}`)], [s(c.dust)], { ticks: 80 });
+    }
+    const keep = [`seed:${c.id}`, ...(c.needs ? [`struct:block_${c.needs}`] : [])];
+    mach('planter', [], [s(`crop:${c.id}`, c.wild ? 2 : 1), s(`seed:${c.id}`, 1, 0.25)], { keep, ticks: c.grow * SEC, power: 0, tier: c.tier });
+    if (c.parents) mach('planter', [], [s(`seed:${c.id}`)], { keep: c.parents.map((p) => `seed:${p}`), ticks: 60 * SEC, power: 0, tier: c.tier });
+  }
+  for (const sp of SAPLINGS) {
+    mach('planter', [], [s('log:wood', sp.tree === 3 ? 4 : 3), s(`sapling:${sp.id}`, 1), s(`sapling:${sp.id}`, 1, 0.5), ...(sp.tree === 3 ? [s('sticky_resin', 1, 0.5)] : [])],
+      { keep: [`sapling:${sp.id}`], ticks: sp.grow * SEC, power: 0 });
+  }
 }

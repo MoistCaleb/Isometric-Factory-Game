@@ -187,6 +187,16 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
           <div class="dim">{m.st === MS.minedOut ? 'Done' : `Layer ${Math.min(dg[1], 1 + Math.floor((m.cur ?? 0) / (2 * dg[0] + 1) ** 2))} of ${dg[1]}`} · mines ore of hardness ≤ {dg[2]} in the {2 * dg[0] + 1}×{2 * dg[0] + 1} square below it; leaves the rock. Pipe the ore away.</div>
         </>
       )}
+      {def.run === 'farm' && (
+        <>
+          <h3>{def.id === 'harvester' ? 'Harvesting' : 'Tending'}</h3>
+          <div class="dim">{def.id === 'harvester'
+            ? 'Every 2 s harvests one mature crop or grown planted tree within 4 tiles (its storey ± 1 block). Felled spots are replanted with saplings from its bag (or the ones it just cut). Pipe the harvest away.'
+            : 'Every 2 s puts crop sticks on a bare planter or composts a crop whose compost ran out, within 4 tiles (its storey ± 1 block). Feed it sticks + compost (pipes or below).'}</div>
+          <div class="row"><span class="io grow">{bag(m.inp).map((st) => <Chip key={st.id} st={st} onLook={onLook} />)}{!Object.keys(m.inp).length && <span class="dim">Bag empty</span>}</span>
+            <button onClick={() => cmd({ k: 'mload', n: 256 })}>{def.id === 'harvester' ? 'Load saplings' : 'Load sticks + compost'}</button></div>
+        </>
+      )}
       {chest && (
         <>
           <h3>Contents · {slotsUsed(m.out)} / {def.slots} slots</h3>

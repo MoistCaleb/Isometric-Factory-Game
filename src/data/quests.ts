@@ -19,14 +19,15 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium',
   'overclock', 'steam_turbine_mv', 'combustion_generator_mv',
   'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide', 'ebf_hot',
-  'roof', 'acid_rain', 'scrub', 'treat', 'hotspot', 'geothermal_generator', 'bp_copy', 'bp_paste', 'bp_sketch'] as const;
+  'roof', 'acid_rain', 'scrub', 'treat', 'hotspot', 'geothermal_generator', 'bp_copy', 'bp_paste', 'bp_sketch',
+  'sapling', 'tree_farm', 'forage', 'plant_crop', 'cross', 'compost', 'harvest', 'harvester', 'crop_manager'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
   | { k: 'build'; id: string; n: number }
   | { k: 'flag'; id: string; label: string };
 /** Topic chapters (GT-style side books) next to the tier chapters: a topic quest still has a tier (layout, rewards). */
-export const TOPICS = [['power', '⚡ Power'], ['mining', '⛏ Mining'], ['chem', '⚗ Chemistry'], ['logistics', '🔧 Logistics'], ['space', '🚀 Space Race']] as const;
+export const TOPICS = [['power', '⚡ Power'], ['mining', '⛏ Mining'], ['chem', '⚗ Chemistry'], ['logistics', '🔧 Logistics'], ['farm', '🌱 Farming'], ['space', '🚀 Space Race']] as const;
 export type TopicId = (typeof TOPICS)[number][0];
 export type ChapterId = TierId | TopicId;
 export interface QuestDef {
@@ -771,6 +772,57 @@ export const QUESTS: QuestDef[] = [
       '**📈 Statistics** shows what your factory did: power generated and used, total pollution, and every item and fluid made or used by machines per minute — over the last 10 minutes or the last hour. Tap an item for its graph. History starts fresh each time you load.',
     ],
     tasks: [flag('stats', 'Open statistics')] },
+  // ---- 🌱 Farming (P5h): renewable wood and, by breeding, renewable ores ----
+  { id: 'f_sapling', chapter: 'farm', tier: 'P', title: 'Saplings', req: ['flint_tools'], reward: P1,
+    text: [
+      'Felling a tree drops **saplings**. In **Machine Build**, pick a sapling and tap dry ground to plant it: it grows into a full tree in about 5 minutes (rubber trees take longer).',
+      'Planted trees soak up pollution like wild ones once grown. Nothing can be built over a planted tree.',
+    ],
+    tasks: [flag('sapling', 'Plant a sapling')] },
+  { id: 'f_tree', chapter: 'farm', tier: 'P', title: 'Tree Farm', req: ['f_sapling'], reward: P1,
+    text: ['When it is grown, fell your planted tree in **Mining** mode with an axe: logs, sticks and new saplings. Replant and the wood never runs out.'],
+    tasks: [flag('tree_farm', 'Fell a tree you planted')] },
+  { id: 'f_seeds', chapter: 'farm', tier: 'P', title: 'Wild Seeds', req: ['gather'], reward: P1,
+    text: [
+      'Small **wild plants** grow on open land: **wheat** and **flax** on the plains, **reeds** in swamps and by the sea, **berry bushes** in forests and the tundra. Hover to see one; tap it in **Mining** mode for seeds and a first harvest.',
+      'Wheat → straw, flax → fibre (crafting).',
+    ],
+    tasks: [flag('forage', 'Pick a wild plant')] },
+  { id: 'f_planter', chapter: 'farm', tier: 'P', title: 'Planters', req: ['f_seeds'], reward: P1,
+    text: [
+      'Crops grow in a **planter** (planks + dirt). Place one, then — still in Machine Build — put **crop sticks** on it, then a **seed** on the sticks.',
+      'A crop needs water nearby (sea, lake or river within 4 tiles) or rain, else it grows at half speed. When it is **mature**, tap the planter in **View** mode to harvest: it drops back to half grown and ripens again. Sometimes a seed comes back too.',
+    ],
+    tasks: [build('planter'), flag('plant_crop', 'Plant a seed on crop sticks'), flag('harvest', 'Harvest a crop')] },
+  { id: 'f_cross', chapter: 'farm', tier: 'P', title: 'Cross-Breeding', req: ['f_planter'], reward: P2,
+    text: [
+      'Empty **crop sticks** next to two or more **mature** crops (side by side, same level) catch pollen: every so often the sticks sprout — a copy of a neighbour, or, if the pair crosses, a **new species**. Wheat × reed → **stonecrop**, reed × berry → **clayweed**, flax × berry → **coalcap**.',
+      'Look up any seed in the recipe book (**Planter** recipes) to see what it crosses into. Keep breeding: stonecrop × coalcap leads to **ironleaf**.',
+    ],
+    tasks: [flag('cross', 'Breed a new species')] },
+  { id: 'f_compost', chapter: 'farm', tier: 'P', title: 'Compost', req: ['f_planter'], reward: P1,
+    text: ['8 wheat, reeds or berries → **compost** (by hand, or the steam compressor). Put it on a planter in Machine Build: **2× growth** for 10 minutes.'],
+    tasks: [flag('compost', 'Compost a planter')] },
+  { id: 'f_resource', chapter: 'farm', tier: 'S', title: 'Ironleaf', req: ['f_cross', 's_macerator'], reward: S2,
+    text: [
+      '**Resource crops** pull metal out of the ground — but only ripen with a **block of that metal** right under the planter (9 ingots; stack the planter on it). Without one they stall at three quarters grown.',
+      '**Ironleaf** (stonecrop × coalcap) on a **block of iron**: its leaves macerate into small iron dust. Copperbloom and tinroot work the same way. Once your veins run dry, this is how a planet keeps giving.',
+    ],
+    tasks: [have('crop:ironleaf', 4)] },
+  { id: 'f_harvester', chapter: 'farm', tier: 'LV', title: 'Harvester', req: ['f_tree', 'l_circuit'], reward: L1,
+    text: [
+      'The **Harvester** (LV, 16 W) harvests a mature crop or a grown planted tree within 4 tiles every 2 seconds into its output bag — pipe it away. It replants felled trees with saplings from its bag (or the ones it cuts).',
+    ],
+    tasks: [build('harvester'), flag('harvester', 'Let it harvest')] },
+  { id: 'f_lv_crops', chapter: 'farm', tier: 'LV', title: 'Base Metals', req: ['f_resource'], reward: L1,
+    text: ['Cross the steam-age resource crops: ironleaf × tinroot → **leadwort**, copperbloom × tinroot → **zincthistle**, ironleaf × copperbloom → **nickelvine**. Each needs its own metal block.'],
+    tasks: [any(['seed:leadwort', 'seed:zincthistle', 'seed:nickelvine'], 1, 'Any LV crop seed')] },
+  { id: 'f_manager', chapter: 'farm', tier: 'MV', title: 'Crop Manager', req: ['f_harvester', 'm_hull'], reward: M1,
+    text: ['The **Crop Manager** (MV, 32 W) tends planters within 4 tiles: crop sticks on bare planters (so crops keep spreading and crossing) and compost when it runs out. Feed it both by pipe.'],
+    tasks: [build('crop_manager'), flag('crop_manager', 'Let it tend a planter')] },
+  { id: 'f_gold', chapter: 'farm', tier: 'MV', title: 'Goldenrod', req: ['f_lv_crops'], reward: M2,
+    text: ['Leadwort × copperbloom → **silverbell** (silver block); silverbell × zincthistle → **goldenrod** (gold block). Precious metals from a field.'],
+    tasks: [have('crop:goldenrod', 1)] },
   { id: 'm_lithium', chapter: 'chem', tier: 'MV', title: 'Lithium', req: ['m_hull', 'l_acid'], reward: M1,
     text: [
       '**Spodumene** (pegmatite veins under desert and tundra) holds lithium. **Chemical reactor:** spodumene dust + 1000 L sulfuric acid → **lithium sulfate** solution, leaving quartz behind.',

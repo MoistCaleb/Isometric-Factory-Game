@@ -5,6 +5,7 @@ import type { BaseKind } from '../sim/build';
 import type { Slot } from '../sim/state';
 import type { Act } from '../render/renderer';
 import { isConduit } from '../data/structures';
+import { isPlantItem } from '../data/crops';
 import { Channels } from './Conduit';
 
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
@@ -33,7 +34,7 @@ export function BuildBar({ act, inv, buildId, onBuildId, rot, onRot, baseKind, o
     );
   }
   const have = new Map<string, number>();
-  for (const sl of inv) if (sl && reg.item(sl.id)?.kind === 'structure') have.set(sl.id, (have.get(sl.id) ?? 0) + sl.n);
+  for (const sl of inv) if (sl && (reg.item(sl.id)?.kind === 'structure' || isPlantItem(sl.id))) have.set(sl.id, (have.get(sl.id) ?? 0) + sl.n);
   return (
     <div class="buildbar">
       {[...have].map(([id, n]) => {
@@ -44,9 +45,10 @@ export function BuildBar({ act, inv, buildId, onBuildId, rot, onRot, baseKind, o
           </button>
         );
       })}
-      {!have.size && <span class="dim">No structures — craft some in 📖</span>}
+      {!have.size && <span class="dim">No structures or plants — craft some in 📖</span>}
       {buildId && isConduit(buildId.replace('struct:', '')) && <><span class="dim">Channel:</span><Channels ch={ch} onPick={onCh} /></>}
       <button onClick={onBook} title="Recipes">📖</button>
+      {buildId && isPlantItem(buildId) && <span class="dim">{buildId.startsWith('sapling:') ? 'Plant on dry ground' : buildId.startsWith('seed:') ? 'Plant on crop sticks' : 'Tap a planter'}</span>}
       <button onClick={onRot} title="Rotate (F)">↻ {['S', 'W', 'N', 'E'][rot]}</button>
     </div>
   );

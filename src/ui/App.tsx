@@ -9,7 +9,8 @@ import { ACID, BLIGHT, HAZE, pollKey, SMOG } from '../sim/pollution';
 const pollAt = (pl: Record<string, number> | undefined, key: string) => { const [x, y] = key.split(',').map(Number); return pl?.[pollKey(x, y)] ?? 0; };
 import { STOREY } from '../sim/state';
 import type { ActResult, SlotRef } from '../sim/player';
-import { nearSide, type BaseKind } from '../sim/build';
+import { nearSide, topInStorey, type BaseKind } from '../sim/build';
+import { isPlantItem } from '../data/crops';
 import { BuildBar } from './BuildBar';
 import { bytes, duration, gameClock, levelName, weatherText } from './format';
 import { hoverItem, Inventory } from './Inventory';
@@ -179,7 +180,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
 
   // Tile clicks + ghost preview for the active mode.
   useEffect(() => {
-    renderer.ghost = act === 'build' && buildId ? { kind: 'struct', id: buildId.replace('struct:', ''), r: rot }
+    renderer.ghost = act === 'build' && buildId ? (isPlantItem(buildId) ? null : { kind: 'struct', id: buildId.replace('struct:', ''), r: rot })
       : act === 'base' ? { kind: 'base', part: baseKind } : act === 'demolish' ? { kind: 'demolish' }
       : act === 'blueprint' && bpTool === 'copy' && bpAnchor ? { kind: 'area', ax: bpAnchor.x, ay: bpAnchor.y }
       : act === 'blueprint' && typeof bpTool === 'number' && game.sim.bps[bpTool] ? bpGhost(game.sim.bps[bpTool], rot) : null;
@@ -195,7 +196,10 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         const ents = renderer.entities, xx = ((x % renderer.width) + renderer.width) % renderer.width;
         const ck = block && ents[block] && isConduit(ents[block].s) ? block
           : level >= 0 ? [2, 1, 0].map((i) => `${xx},${y},${level * STOREY + i}`).find((kk) => ents[kk] && isConduit(ents[kk].s)) : undefined;
-        if (ck) { openMach(null); setConKey(ck); }
+        if (ck) { openMach(null); setConKey(ck); return; }
+        // Planter (P5h): harvest a mature crop.
+        const pk = level >= 0 ? topInStorey(ents, xx, y, level) : null;
+        if (pk && ents[pk].s === 'planter') game.sim.cmd({ k: 'harvest', x, y, f: level });
         return;
       }
       if (act === 'mine' && mineTool === 'prospect') return game.sim.cmd({ k: 'prospect', x, y });

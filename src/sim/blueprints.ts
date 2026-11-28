@@ -53,7 +53,7 @@ export function copyArea(s: GameState, gen: WorldGen, x0: number, y0: number, x1
     const x = gen.wrapX(x0 + dx), y = y0 + dy;
     for (let b = f * STOREY; b < (FLOORS + 1) * STOREY; b++) {
       const k = `${x},${y},${b}`, e = s.ents[k];
-      if (!e) continue;
+      if (!e || e.s === 'tree') continue; // planted trees are not structures (P5h)
       const o: BpEnt = { x: dx, y: dy, b: b - f * STOREY, s: e.s, r: e.r };
       if (e.ch) o.ch = e.ch;
       if (e.cut) o.cut = e.cut;

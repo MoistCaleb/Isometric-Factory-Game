@@ -1,5 +1,6 @@
 // Chunk meshes: one layer slice (surface, or depth d) of CH×CH tiles, vertex-colored quads + instanced trees.
 import * as THREE from 'three';
+import { CROP } from '../data/crops';
 import { B, BLOCKS, isOre, oreBlock } from '../world/blocks';
 import { Tree, type WorldGen } from '../world/gen';
 import { waterColor } from '../world/map';
@@ -13,7 +14,7 @@ const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 const treeMat = new THREE.MeshLambertMaterial();
 const unitBox = new THREE.BoxGeometry(1, 1, 1).translate(0, 0.5, 0);
 /** Tree boxes [width, height, base y, colour]: trees stand 2 storeys (6 blocks) tall, cactus 1 storey (P5g). */
-const TREE_PARTS: Record<number, [w: number, h: number, y: number, color: number][]> = {
+export const TREE_PARTS: Record<number, [w: number, h: number, y: number, color: number][]> = {
   [Tree.Broadleaf]: [[0.22, 3.6, 0, 0x6a4a2a], [1.25, 1.9, 2.7, 0x3f7a2a], [0.95, 1.0, 4.5, 0x4a8a32], [0.5, 0.5, 5.5, 0x4a8a32]],
   [Tree.Conifer]: [[0.2, 1.8, 0, 0x5a3e24], [1.15, 1.3, 1.0, 0x2d5a35], [0.9, 1.3, 2.2, 0x2d5a35], [0.65, 1.3, 3.4, 0x335f3a], [0.38, 1.3, 4.6, 0x335f3a]],
   [Tree.Jungle]: [[0.28, 5.0, 0, 0x5a4a2a], [1.5, 0.9, 4.6, 0x2f8a30], [1.0, 0.6, 5.4, 0x3a9a38], [0.5, 1.2, 3.4, 0x2f8a30]],
@@ -122,6 +123,7 @@ export function buildChunk(gen: WorldGen, cx: number, cy: number, o: ChunkOpts):
   }
   if (o.level >= 0) addTrees(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs, !!o.blight);
   if (o.level >= 0) addSamples(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs);
+  if (o.level >= 0) addWild(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs);
   return g;
 }
 
@@ -177,6 +179,30 @@ function addSamples(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: n
   g.add(im);
 }
 const UP = new THREE.Vector3(0, 1, 0);
+
+/** Wild plants (P5h): a tuft of green stems with the crop's colour on top. */
+function addWild(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: number, diffs: Record<string, number>) {
+  const parts: [THREE.Matrix4, number][] = [];
+  const m = new THREE.Matrix4(), q = new THREE.Quaternion(), sc = new THREE.Vector3(), p = new THREE.Vector3();
+  for (let j = 0; j < CH; j++) for (let i = 0; i < wN; i++) {
+    const x = x0 + i, y = y0 + j;
+    if (!gen.inBounds(y) || diffs[`${x},${y},p`] !== undefined || diffs[`${x},${y},0`] === B.air) continue;
+    const c = gen.plant(x, y);
+    if (!c) continue;
+    const col = CROP.get(c)!.color;
+    for (let k = 0; k < 3; k++) {
+      const ox = 0.3 + hash01(gen.seed + 72 + k, x, y) * 0.4, oz = 0.3 + hash01(gen.seed + 75 + k, x, y) * 0.4, h = 0.25 + hash01(gen.seed + 78 + k, x, y) * 0.2;
+      parts.push([m.compose(p.set(i + ox, 0, j + oz), q, sc.set(0.05, h, 0.05)).clone(), 0x4a8a2a]);
+      parts.push([m.compose(p.set(i + ox, h, j + oz), q, sc.set(0.12, 0.1, 0.12)).clone(), col]);
+    }
+  }
+  if (!parts.length) return;
+  const im = new THREE.InstancedMesh(unitBox, treeMat, parts.length);
+  const col = new THREE.Color();
+  parts.forEach(([mx, c], n) => { im.setMatrixAt(n, mx); im.setColorAt(n, col.setHex(c)); });
+  im.computeBoundingSphere();
+  g.add(im);
+}
 
 export function disposeChunk(g: THREE.Group) {
   g.traverse((o) => { if (o instanceof THREE.InstancedMesh) o.dispose(); else if (o instanceof THREE.Mesh) o.geometry.dispose(); });

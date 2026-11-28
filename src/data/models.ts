@@ -202,6 +202,12 @@ export function art(): Record<string, Art> {
     hall_heroult: { model: [bx(0, 0, 0, 16, 16, 16, P.CARBON), bx(0, 0, 0, 16, 2, 16, P.STEEL), bx(2, 10, 15.5, 14, 14, 16.2, P.ALU), bx(4, 3, 15.5, 12, 8, 16.2, P.MOLTEN, HOT),
       bx(6, 12, 15.9, 10, 14, 16.5, P.VOLT)], puff: [[8, 17, -8, 0], [8, 17, -24, 0]] },
     carbon_casing: { model: [bx(0, 0, 0, 16, 16, 16, P.STEEL), bx(1, 1, -0.2, 15, 15, 16.2, P.CARBON), bx(-0.2, 1, 1, 16.2, 15, 15, P.CARBON), bx(0, 14, 0, 16, 16, 16, 0x5a5e64)] },
+    // ---- farming (P5h): crops on a planter are drawn by the renderer from Ent.pl / Ent.g ----
+    planter: { model: [bx(0, 0, 0, 16, 6, 16, P.WOOD), ...posts(0, 0, 16, 16, 0, 6.5, 2, P.DARK), bx(0, 2.5, -0.2, 16, 3.3, 16.2, P.DARK), bx(1.5, 5, 1.5, 14.5, 5.8, 14.5, 0x4a3420)] },
+    harvester: { model: [...lv(), bx(2, 12, 6, 4, 18, 10, P.STEEL_D), bx(2, 17, 7, 13, 18.5, 9, 0xa08a50), bx(11, 13, 6.5, 14, 17, 9.5, 0xa08a50), bx(11.5, 12.5, 4, 13.5, 15.5, 12, P.STEEL_L, SPINZ),
+      bx(5, 12, 3, 9, 14, 7, P.GREEN), ...screen(4, 4, 12, 8, 0xa0e060)] },
+    crop_manager: { model: [...lv().map(mv), ...[3, 11].flatMap((x) => [bx(x, 12, 7, x + 2, 17, 9, 0xa08a50), bx(x - 0.5, 16, 7.5, x + 2.5, 17, 11, 0xa08a50)]),
+      bx(5.5, 12, 3, 10.5, 16, 7, P.WOOD), bx(6, 15.5, 3.5, 10, 16.2, 6.5, 0x4a3a24), bx(6, 12, 10, 10, 13, 13, P.GREEN), ...screen(4, 4, 12, 8, 0xa0e060)] },
     cathode_block: { model: [bx(0, 0, 0, 16, 14, 16, P.CARBON), bx(0, 14, 0, 16, 15, 16, P.MOLTEN, HOT), bx(6, 0, 6, 10, 16, 10, P.STEEL), bx(2, 15, 2, 14, 15.5, 14, 0x202024)] },
   };
   return A;
@@ -228,3 +234,8 @@ function coil(core: number, wire: number): Box[] {
 /** LV → MV hull tint. */
 function mv(b: Box): Box { const c = b[6] === P.LVC ? P.MVC : b[6] === P.LV_S ? P.MV_S : b[6]; return [b[0], b[1], b[2], b[3], b[4], b[5], c, b[7]]; }
 export const tierTint = (m: Box[]) => m.map(mv);
+/** Metal storage block (P5h, resource crops stand on them): bevelled block with a lighter face inset. */
+export function metalBlock(c: number): Box[] {
+  const lt = (((c >> 16) & 255) * 1.15 > 255 ? 255 : Math.round(((c >> 16) & 255) * 1.15)) << 16 | Math.min(255, Math.round(((c >> 8) & 255) * 1.15)) << 8 | Math.min(255, Math.round((c & 255) * 1.15));
+  return [bx(0, 0, 0, 16, 16, 16, c), bx(2, 2, -0.2, 14, 14, 16.2, lt), bx(-0.2, 2, 2, 16.2, 14, 14, lt), bx(2, 15.8, 2, 14, 16.2, 14, lt)];
+}

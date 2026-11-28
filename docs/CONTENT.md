@@ -451,7 +451,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Silverbell | MV | 600 | leadwort × copperbloom | → small silver dust | block of silver |
 | Goldenrod | MV | 600 | silverbell × zincthistle | → small gold dust | block of gold |
 
-Harvest: 1 produce (2 for wild crops), 25 % a seed. Produce → dust in the macerator (steam + LV/MV, 1 produce → 1 small dust, 4 s) or quern (stonecrop, coalcap). Saplings grow in 300 s (rubber 400 s).
+Harvest: 1 produce (2 for wild crops), 25 % a seed. Produce → dust in the macerator (steam + LV/MV, 1 produce → 1 small dust, 4 s) or quern (stonecrop, coalcap). Saplings grow in 300 s (rubber 400 s). Felling a wild tree drops 1 sapling (+30 % a second); a planted one 1 (+50 %).
 
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 

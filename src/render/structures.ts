@@ -4,6 +4,8 @@
 import * as THREE from 'three';
 import { CABLES, CHANNELS, FX, MULTI_PARTS, PIPES, conduitsJoin, isConduit, sideOpen, STRUCTURES, multiCells, type Box } from '../data/structures';
 import { STOREY, type Ent } from '../sim/state';
+import { CROP, SAPLING, stage } from '../data/crops';
+import { TREE_PARTS } from './chunks';
 
 const MODELS = new Map(STRUCTURES.map((s) => [s.id, s.model]));
 const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
@@ -77,6 +79,28 @@ function edge(bx: Boxes, x: number, y: number, z: number, along: 'x' | 'z', v: n
   seg(0, 0.2, 0, 1, C.wall); seg(0.8, 1, 0, 1, C.wall); seg(0.2, 0.8, 0.85, 1, C.wall); seg(0.25, 0.75, 0, 0.82, C.door);
 }
 
+/** Crop sticks / a crop on a planter (P5h): 3×3 tufts, taller per stage, the crop's colour on top when mature. */
+function crop(bx: Boxes, e: Ent, x: number, y: number, z: number) {
+  const top = y + 6 / 16, STICK = 0xc8a070;
+  for (const u of [3, 13]) for (const w of [3, 13]) bx.add(x + u / 16 - 0.03, top, z + w / 16 - 0.03, x + u / 16 + 0.03, top + 0.55, z + w / 16 + 0.03, STICK);
+  bx.add(x + 3 / 16, top + 0.45, z + 3 / 16 - 0.02, x + 13 / 16, top + 0.49, z + 3 / 16 + 0.02, STICK);
+  bx.add(x + 3 / 16, top + 0.45, z + 13 / 16 - 0.02, x + 13 / 16, top + 0.49, z + 13 / 16 + 0.02, STICK);
+  if (e.pl === 'sticks') return;
+  const c = CROP.get(e.pl!), st = stage(e.g ?? 0), h = [0.08, 0.18, 0.3, 0.42][st], GREEN = st < 2 ? 0x6ab040 : 0x4a8a2a;
+  for (const u of [4.5, 8, 11.5]) for (const w of [4.5, 8, 11.5]) {
+    const hh = h * (0.85 + ((u * 7 + w * 3) % 5) * 0.06), X = x + u / 16, Z = z + w / 16;
+    bx.add(X - 0.025, top, Z - 0.025, X + 0.025, top + hh, Z + 0.025, GREEN);
+    if (st >= 1) bx.add(X - 0.07, top + hh * 0.55, Z - 0.02, X + 0.07, top + hh * 0.65, Z + 0.02, GREEN);
+    if (st === 3 && c) bx.add(X - 0.05, top + hh, Z - 0.05, X + 0.05, top + hh + 0.09, Z + 0.05, c.color);
+  }
+}
+
+/** Planted tree (P5h): grows from a sapling to a full 2-storey tree by stage. */
+function plantedTree(bx: Boxes, e: Ent, x: number, y: number, z: number) {
+  const parts = TREE_PARTS[SAPLING.get(e.pl ?? '')?.tree ?? 1], k = [0.12, 0.3, 0.6, 1][stage(e.g ?? 0)];
+  for (const [w, h, yy, c] of parts) bx.add(x + 0.5 - (w * k) / 2, y + yy * k, z + 0.5 - (w * k) / 2, x + 0.5 + (w * k) / 2, y + (yy + h) * k, z + 0.5 + (w * k) / 2, c);
+}
+
 export interface StructView {
   ents: Record<string, Ent>; base: Record<string, number>; w: number;
   cx: number; cy: number; radius: number;
@@ -118,7 +142,9 @@ export function buildStructs(v: StructView): StructGeo {
       // Channel band around the hub.
       if (e.ch) arms.push([lo - 0.5, lo + h * 0.6, lo - 0.5, hi + 0.5, hi - h * 0.6, hi + 0.5, CHANNELS[e.ch]]);
       solid.model(arms, wx(x), y0, y, 0);
-    } else if (m) {
+    } else if (e.s === 'tree') plantedTree(solid, e, wx(x), y0, y);
+    else if (m) {
+      if (e.s === 'planter' && e.pl) crop(solid, e, wx(x), y0, y);
       const st = v.ms?.[k] ?? 0, hot = HOT_MS.has(st);
       solid.model(m, wx(x), y0, y, e.r, undefined, { hot, spin: st === 1, glow, spins });
       if (hot) for (const [px, py, pz, kind] of PUFF.get(e.s) ?? []) { const [u, w] = rot16(px, pz, e.r); puffs.push({ x: wx(x) + u / 16, y: y0 + py / 16, z: y + w / 16, k: kind }); }

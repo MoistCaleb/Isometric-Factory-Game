@@ -25,6 +25,15 @@ export function showcase(s: GameState): GameState {
     for (const c of cells) put(c.c[0], c.c[1], c.c[2], c.id);
     x += hi - lo + 2; rowH = Math.max(rowH, back + 2);
   }
+  // Farming (P5h): planters at every stage, sticks, a resource crop on its block, planted trees growing.
+  y += rowH + 1;
+  const crops = ['wheat', 'flax', 'reed', 'berry', 'stonecrop', 'coalcap', 'ironleaf', 'goldenrod'];
+  crops.forEach((c, i) => [0, 0.3, 0.6, 1].forEach((g, j) => { s.ents[`${(x0 + i * 2 + w) % w},${y0 + y + j},0`] = { s: 'planter', r: 0, pl: c, g }; }));
+  s.ents[`${(x0 + 17 + w) % w},${y0 + y},0`] = { s: 'planter', r: 0, pl: 'sticks' };
+  s.ents[`${(x0 + 17 + w) % w},${y0 + y + 1},0`] = { s: 'block_iron', r: 0 };
+  s.ents[`${(x0 + 17 + w) % w},${y0 + y + 1},1`] = { s: 'planter', r: 0, pl: 'ironleaf', g: 1 };
+  ['broadleaf', 'conifer', 'rubber'].forEach((t, i) => [0, 0.3, 0.6, 1].forEach((g, j) => { s.ents[`${(x0 + 20 + j * 2 + w) % w},${y0 + y + i * 2},0`] = { s: 'tree', r: 0, pl: t, g }; }));
+  rowH = 6;
   // Clear trees and lay a foundation under the whole showcase.
   for (let j = -2; j < y + rowH + 2; j++) for (let i = -2; i < 32; i++) {
     const X = (x0 + i + w) % w, Y = y0 + j;

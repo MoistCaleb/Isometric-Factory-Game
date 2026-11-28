@@ -1,3 +1,4 @@
+import { CROPS, SAPLINGS } from './crops';
 // Non-material items and world sources (things gathered/mined directly).
 export interface MiscItemDef { id: string; name: string; color: number }
 
@@ -61,5 +62,7 @@ export const MISC_ITEMS: MiscItemDef[] = [
 export const WORLD_ITEMS = [
   'log:wood', 'stick:wood', 'shard:flint', 'dirt', 'cobble:stone', 'gravel:stone', 'ball:clay', 'dust:sand',
   'fiber', 'straw', 'sticky_resin', 'lodestone',
+  // P5h: wild plants and chopped trees.
+  ...CROPS.filter((c) => c.wild).flatMap((c) => [`seed:${c.id}`, `crop:${c.id}`]), ...SAPLINGS.map((sp) => `sapling:${sp.id}`),
 ];
 export const WORLD_FLUIDS = ['water', 'brine', 'air', 'crude_oil', 'natural_gas'];

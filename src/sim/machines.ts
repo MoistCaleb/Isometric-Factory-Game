@@ -11,6 +11,7 @@ import { B, BLOCKS } from '../world/blocks';
 import { COILS, PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
 import { placeAt } from './build';
+import { stepFarmMachine } from './farm';
 import { accepts, topoChanged } from './pipes';
 import type { ActResult } from './player';
 import { STACK, bestTool, blockAt, count, give, take, wear } from './player';
@@ -293,6 +294,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     }
     if (def.run === 'thump') { stepThumper(s, gen, key, m, def); continue; }
     if (def.run === 'dig') { stepDig(s, gen, key, m, def); continue; }
+    if (def.run === 'farm') { stepFarmMachine(s, gen, key, m, def, () => usePower(m, def)); continue; }
     if (def.maint && m.mt === undefined) m.mt = (1 << MAINT.length) - 1; // a new multiblock has every issue
     const b = blocker(s, gen, key, m, def, r);
     if (def.run === 'fuel') {
@@ -488,6 +490,9 @@ function drain(s: GameState, bag: Record<string, number>): { id: string; n: numb
   return got;
 }
 
+/** Items a farm machine takes (P5h): harvester saplings, crop manager crop sticks + compost. */
+export const farmInput = (id: string, item: string) => (id === 'harvester' ? item.startsWith('sapling:') : item === 'crop_sticks' || item === 'compost');
+
 /** Empty a machine into the inventory before demolition. Returns false if anything didn't fit. */
 export function refund(s: GameState, key: string): { ok: boolean; gained: { id: string; n: number }[] } {
   const m = s.mach[key];
@@ -511,6 +516,12 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       return { ok: true };
     }
     case 'mload': {
+      if (def.run === 'farm') {
+        // Harvester: saplings to replant · crop manager: crop sticks + compost (P5h).
+        let n = 0;
+        for (const sl of s.inv) if (sl && farmInput(def.id, sl.id)) { const k = Math.min(sl.n, BAG - (m.inp[sl.id] ?? 0), c.n - n); if (k > 0) { take(s, sl.id, k); m.inp[sl.id] = (m.inp[sl.id] ?? 0) + k; n += k; } }
+        return n ? { ok: true, msg: `Loaded ×${n}` } : { ok: false, msg: def.id === 'harvester' ? 'No saplings in inventory' : 'No crop sticks or compost in inventory' };
+      }
       if (!r) return { ok: false, msg: 'Pick a recipe first' };
       let done = 0;
       for (const k of r.keep ?? []) if (!m.inp[k]) {

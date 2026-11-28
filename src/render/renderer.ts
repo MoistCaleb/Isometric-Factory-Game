@@ -1,5 +1,6 @@
 // World renderer (DESIGN §3/§8): iso chunk view ⇄ region map ⇄ 3D globe. Camera pan/zoom/4-way rotate, Z-level,
 // day/night lighting, rain. Reads sim stats for time/weather; world is generated locally from seed + diffs.
+import { CROP, plantLabel } from '../data/crops';
 import * as THREE from 'three';
 import { planet, type PlanetDef } from '../data/planets';
 import type { SimClient } from '../sim/client';
@@ -862,10 +863,10 @@ export class Renderer {
     const place = sf.ice ? 'Polar ice cap' : sf.water === Water.Ocean ? `${sf.depth > 8 ? 'Ocean trench' : 'Ocean'}, depth ${sf.depth}` : sf.water === Water.River ? `River (${sf.biome}), depth ${sf.depth}` : sf.water === Water.Lake ? `Lake (${sf.biome}), depth ${sf.depth}` : `${sf.biome[0].toUpperCase()}${sf.biome.slice(1)}${sf.volcanic ? ', volcanic' : ''}`;
     const head = `${x}, ${y} · ${Math.abs(lat).toFixed(1)}°${lat >= 0 ? 'N' : 'S'} ${Math.abs(lon).toFixed(1)}°${lon >= 0 ? 'E' : 'W'} · ${place}`;
     if (v.mode !== 'iso') return head;
-    if (v.level > 0) { const tk = topInStorey(this.ents, x, y, v.level), e = tk ? this.ents[tk] : undefined; return `${head}\nStorey ${v.level}${e ? ` · ${STRUCT.get(e.s)?.name ?? e.s}` : this.base[`${x},${y},${v.level},f`] ? ' · Floor' : ''}`; }
+    if (v.level > 0) { const tk = topInStorey(this.ents, x, y, v.level), e = tk ? this.ents[tk] : undefined; return `${head}\nStorey ${v.level}${e ? ` · ${plantLabel(e) ?? STRUCT.get(e.s)?.name ?? e.s}` : this.base[`${x},${y},${v.level},f`] ? ' · Floor' : ''}`; }
     const z = Math.max(0, -v.level);
     const tk0 = z === 0 ? topInStorey(this.ents, x, y, 0) : null, ent = tk0 ? this.ents[tk0] : undefined;
-    if (ent) return `${head}\n${STRUCT.get(ent.s)?.name ?? ent.s}`;
+    if (ent) return `${head}\n${plantLabel(ent) ?? STRUCT.get(ent.s)?.name ?? ent.s}`;
     let b = this.diffs[`${x},${y},${z}`];
     let extra = '';
     if (b === undefined) {
@@ -875,6 +876,7 @@ export class Renderer {
       b = shown ? gen.block(x, y, z, sf) : gen.terrain(x, y, z, sf);
     }
     if (z === 0 && this.diffs[`${x},${y},s`] === undefined) { const smp = gen.sample(x, y, sf); if (smp) extra += ` · ${mineralName(smp.mineral)} sample`; }
+    if (z === 0 && this.diffs[`${x},${y},p`] === undefined) { const wp = gen.plant(x, y, sf); if (wp) extra += ` · Wild ${CROP.get(wp)!.name.toLowerCase()} (pick in Mining)`; }
     for (const k of veinsAtTile(gen, this.knownList, x, y)) extra += k.level === 1 ? ` · ${k.v.def.name} hint` : ` · ${k.v.def.name} vein (layers ${k.v.z0}–${k.v.z1})`;
     const tree = z === 0 ? gen.tree(x, y, sf) : Tree.None;
     const treeName = ['', ' · Tree', ' · Conifer', ' · Rubber tree', ' · Cactus'][tree];

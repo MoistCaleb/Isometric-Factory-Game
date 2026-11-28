@@ -14,7 +14,7 @@ import { Water, worldGen } from '../src/world/gen';
 const s0 = newGame(7);
 const gen = worldGen(7, planet('earth'));
 const H = new Map(MINERALS.map((m) => [m.id, m.hardness]));
-const dry = (x: number, y: number) => { const sf = gen.surface(gen.wrapX(x), y); return sf.water === Water.None && !sf.ice && !gen.tree(gen.wrapX(x), y, sf); };
+const dry = (x: number, y: number) => { const sf = gen.surface(gen.wrapX(x), y); return sf.water === Water.None && !sf.ice && !gen.tree(gen.wrapX(x), y, sf) && !gen.plant(gen.wrapX(x), y, sf); };
 const place = (s: GameState, id: string, x: number, y: number) => {
   give(s, `struct:${id}`, 1);
   const res = apply(s, gen, { k: 'place', id: `struct:${id}`, x: gen.wrapX(x), y, f: 0, r: 0 });

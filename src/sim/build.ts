@@ -59,14 +59,17 @@ export function placeAt(s: GameState, gen: WorldGen, id: string, xIn: number, y:
   if (b < 0 || b >= (FLOORS + 1) * STOREY) return { ok: false, msg: 'Too high' };
   if (!count(s, item)) return { ok: false, msg: `No ${st.name} in inventory` };
   if (s.ents[key]) return { ok: false, msg: 'Occupied' };
+  if (s.ents[`${x},${y},0`]?.s === 'tree') return { ok: false, msg: 'A planted tree grows here' };
   const why = support(s, gen, x, y, b);
   if (why) return { ok: false, msg: why };
   take(s, item, 1);
   s.ents[key] = { s: st.id, r: mod(r, 4) };
+  // Building over a wild plant (P5h) clears it.
+  const pk = `${x},${y},p`, changes = b === 0 && s.diffs[pk] === undefined && gen.plant(x, y) ? { [pk]: (s.diffs[pk] = 0) } : undefined;
   if (ch && (st.pipe || st.cable)) s.ents[key].ch = ch;
   if (st.machine) s.mach[key] = newMach();
   topoChanged();
-  return { ok: true, ents: { [key]: s.ents[key] } };
+  return { ok: true, ents: { [key]: s.ents[key] }, changes };
 }
 
 /** Top structure key at a tile within storey f (null if none). */
@@ -107,7 +110,18 @@ export function demolish(s: GameState, gen: WorldGen, xIn: number, y: number, f:
   const x = gen.wrapX(xIn), key = `${x},${y},${f}`, ek = topInStorey(s.ents, x, y, f), e = ek ? s.ents[ek] : undefined;
   if (ek && e) {
     if (s.ents[`${x},${y},${+ek.split(',')[2] + 1}`]) return { ok: false, msg: 'Remove what is above it first' };
+    if (e.s === 'tree') {
+      // Planted tree (P5h): a sapling comes back up; a grown tree is felled in Mining mode.
+      if ((e.g ?? 0) >= 1) return { ok: false, msg: 'Fell grown trees in Mining mode' };
+      if (give(s, `sapling:${e.pl}`, 1)) return { ok: false, msg: 'Inventory full' };
+      delete s.ents[ek];
+      return { ok: true, ents: { [ek]: null }, gained: [{ id: `sapling:${e.pl}`, n: 1 }] };
+    }
+    // Planter contents come back first: crop sticks (and the seed of a crop still growing).
+    const extra = e.s === 'planter' && e.pl ? [{ id: 'crop_sticks', n: 1 }, ...(e.pl !== 'sticks' ? [{ id: `seed:${e.pl}`, n: 1 }] : [])] : [];
+    for (const d of extra) give(s, d.id, d.n);
     const st = STRUCT.get(e.s), back = refund(s, ek);
+    back.gained.push(...extra);
     if (!back.ok || give(s, `struct:${e.s}`, 1)) return { ok: false, msg: 'Inventory full', gained: back.gained };
     delete s.ents[ek]; delete s.pipes[ek];
     topoChanged();

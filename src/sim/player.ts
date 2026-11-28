@@ -18,6 +18,8 @@ import { KNOW, STOREY, type Ent, type GameState, type Slot } from './state';
 import { BATT, BATT_FULL, BATT_J } from '../data/machines';
 import { UI_FLAGS } from '../data/quests';
 import { bpCmd, type Blueprint, type BpCmd } from './blueprints';
+import { harvest, plant, reap } from './farm';
+import { saplingOfTree } from '../data/crops';
 
 export const STACK = 64;
 /** Just the inventory part of the state (the UI checks craftability against its copy). */
@@ -26,6 +28,7 @@ export type SlotRef = { box: 'inv' | 'tools'; i: number };
 
 export type Cmd =
   | { k: 'mine'; x: number; y: number; z: number }
+  | { k: 'harvest'; x: number; y: number; f: number }
   | { k: 'move'; a: SlotRef; b: SlotRef }
   | { k: 'trash'; a: SlotRef }
   | { k: 'craft'; recipe: string; n: number }
@@ -260,8 +263,31 @@ function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
   if (p) return { ...p, target };
   const broke = wear(s, axe.i);
   s.diffs[key] = 0;
-  const drops: Stack[] = tree === Tree.Cactus ? [{ id: 'fiber', n: 2 }] : [{ id: 'log:wood', n: TREE_LOGS[tree] }, ...chance(s, 0.5, 'stick:wood', 2), ...(tree === Tree.Jungle && !dead ? chance(s, 0.5, 'sticky_resin') : [])];
+  const sap = saplingOfTree(tree), drops: Stack[] = tree === Tree.Cactus ? [{ id: 'fiber', n: 2 }] : [{ id: 'log:wood', n: TREE_LOGS[tree] }, ...chance(s, 0.5, 'stick:wood', 2), ...(tree === Tree.Jungle && !dead ? chance(s, 0.5, 'sticky_resin') : []),
+    ...(sap ? [{ id: `sapling:${sap}`, n: 1 }, ...chance(s, 0.3, `sapling:${sap}`)] : [])]; // P5h saplings
   return collect(s, drops, { ok: true, target, msg: broke, changes: { [key]: 0 } });
+}
+
+/** Wild plant on a surface tile (P5h): picking it gives seeds + produce. */
+function pickPlant(s: GameState, gen: WorldGen, x: number, y: number): ActResult | null {
+  const key = `${x},${y},p`, c = s.diffs[key] === undefined ? gen.plant(x, y) : null;
+  if (!c) return null;
+  s.diffs[key] = 0;
+  s.flags.forage = (s.flags.forage ?? 0) + 1;
+  return collect(s, [{ id: `seed:${c}`, n: 1 }, ...chance(s, 0.5, `seed:${c}`), { id: `crop:${c}`, n: 1 }], { ok: true, target: 'Wild plant', changes: { [key]: 0 } });
+}
+
+/** A grown planted tree (P5h): felled like a wild one, needs an axe. */
+function chopPlanted(s: GameState, x: number, y: number): ActResult {
+  const key = `${x},${y},0`, e = s.ents[key];
+  if ((e.g ?? 0) < 1) return { ok: false, target: 'Sapling', msg: `Still growing (${Math.floor((e.g ?? 0) * 100)} %)` };
+  const axe = bestTool(s, 'axe');
+  if (!axe) return { ok: false, target: 'Tree', msg: 'Needs an axe' };
+  const p = hit(s, `${key},pt`, Math.ceil(5 / tspeed(axe)));
+  if (p) return { ...p, target: 'Tree' };
+  const broke = wear(s, axe.i), r = reap(s, key)!;
+  s.flags.chop = (s.flags.chop ?? 0) + 1;
+  return collect(s, r.drops, { ok: true, target: 'Tree', msg: broke, ents: { [key]: null } });
 }
 
 /** One click/tap of mining at (x, y, z). Digging a hole continues downward through open blocks. */
@@ -269,7 +295,9 @@ export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: n
   const x = gen.wrapX(xIn);
   if (!gen.inBounds(y)) return { ok: false };
   if (zIn === 0) { const smp = pickSample(s, gen, x, y); if (smp) return smp; }
+  if (zIn === 0 && s.ents[`${x},${y},0`]?.s === 'tree') return chopPlanted(s, x, y);
   if (zIn === 0 && builtOn(s, x, y)) return { ok: false, msg: 'Something is built here — demolish it first' };
+  if (zIn === 0) { const wild = pickPlant(s, gen, x, y); if (wild) return wild; }
   if (zIn === 0 && s.diffs[`${x},${y},t`] === undefined) {
     const tree = gen.tree(x, y);
     if (tree && blockAt(s, gen, x, y, 0) !== B.air) return chop(s, x, y, tree);
@@ -340,7 +368,8 @@ function run(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'move': return move(s, c.a, c.b);
     case 'trash': box(s, c.a)[c.a.i] = null; return { ok: true };
     case 'craft': return craft(s, c.recipe, c.n);
-    case 'place': return place(s, gen, c.id, c.x, c.y, c.f, c.r, c.ch);
+    case 'place': return c.id.startsWith('struct:') ? place(s, gen, c.id, c.x, c.y, c.f, c.r, c.ch) : plant(s, gen, c.id, c.x, c.y, c.f);
+    case 'harvest': return harvest(s, gen, c.x, c.y, c.f);
     case 'conduit': {
       const e = s.ents[c.key];
       if (!e || !isConduit(e.s)) return { ok: false, msg: 'Not a pipe or cable' };

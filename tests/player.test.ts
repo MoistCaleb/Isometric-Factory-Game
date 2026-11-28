@@ -14,7 +14,7 @@ function landTile(pred: (x: number, y: number) => boolean = () => true) {
   for (let r = 0; r < 200; r++) for (let dx = -r; dx <= r; dx++) {
     const x = s0.spawn.x + dx, y = s0.spawn.y + r;
     const sf = gen.surface(x, y);
-    if (sf.water === Water.None && !sf.ice && !gen.tree(x, y) && pred(x, y)) return { x: gen.wrapX(x), y };
+    if (sf.water === Water.None && !sf.ice && !gen.tree(x, y) && !gen.plant(x, y) && pred(x, y)) return { x: gen.wrapX(x), y };
   }
   throw new Error('no tile');
 }

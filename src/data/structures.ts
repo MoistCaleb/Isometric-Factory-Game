@@ -2,7 +2,9 @@
 // `model`: voxel boxes on a 16³ tile, [x0,y0,z0,x1,y1,z1,color] with y = up, z = toward the tile's south (rot 0 front).
 import type { ToolType } from './forms';
 import { MV_BASE } from './machines';
-import { art, tierTint } from './models';
+import { art, metalBlock, tierTint } from './models';
+import { CROP_METALS } from './crops';
+import { MATERIALS } from './materials';
 import type { TierId } from './tiers';
 
 /** Voxel box in 16ths: x0 y0 z0 x1 y1 z1 colour, optional effect (P5g art v2): FX.hot glows while working, FX.spin turns
@@ -213,7 +215,21 @@ export const STRUCTURES: StructDef[] = [
   ...lvMachines(),
   { id: 'stone_anvil', name: 'Stone Anvil', color: STONE, machine: 'anvil', cost: [['cobble:stone', 8]], tools: ['hammer'],
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
+  ...farmStructs(),
 ];
+
+/** Farming (P5h): planter box, metal blocks for resource crops, harvester (LV), crop manager (MV). Models in data/models. */
+function farmStructs(): StructDef[] {
+  const mat = (id: string) => MATERIALS.find((m) => m.id === id)!;
+  return [
+    { id: 'planter', name: 'Planter', color: WOOD, cost: [['plank:wood', 4], ['dirt', 4]], model: [] },
+    ...CROP_METALS.map((m): StructDef => ({ id: `block_${m}`, name: `Block of ${mat(m).name}`, color: mat(m).color, cost: [[`ingot:${m}`, 9]], tools: ['hammer'], model: [] })),
+    { id: 'harvester', name: 'Harvester', color: LVC, machine: 'harvester', tools: ['wrench'],
+      cost: [['hull:lv', 1], ['circuit:basic', 2], ['cable:tin', 2], ['robot_arm:lv', 1], ['head_saw:steel', 1]], model: [] },
+    { id: 'crop_manager', name: 'Crop Manager', color: MVC, machine: 'crop_manager', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['circuit:discrete', 2], ['cable:copper', 2], ['robot_arm:mv', 2]], model: [] },
+  ];
+}
 
 // Art v2 (P5g): models from data/models; MV variants without their own art take the LV one, tinted.
 {
@@ -222,6 +238,7 @@ export const STRUCTURES: StructDef[] = [
     const lv = st.id.endsWith('_mv') ? ART[st.id.slice(0, -3)] : undefined;
     const a = ART[st.id] ?? (lv && { model: tierTint(lv.model), puff: lv.puff });
     if (a) { st.model = a.model; if (a.puff) st.puff = a.puff; }
+    else if (st.id.startsWith('block_')) st.model = metalBlock(st.color);
   }
 }
 

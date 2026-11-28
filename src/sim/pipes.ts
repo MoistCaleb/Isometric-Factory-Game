@@ -9,7 +9,7 @@ import { BOILER_WATER, BOOM_K, CORRODE_P, FACE, LEAK_POLL, FUELS, ITEM_EVERY, MA
 import { PIPES, STRUCTURES, conduitsJoin, sideOpen } from '../data/structures';
 import { registry } from '../content/registry';
 import type { WorldGen } from '../world/gen';
-import { BAG as BAG_N, addFl, controllerAt, explode, flCap, hatchOf, newMach, simEvents, singleTank, type Mach } from './machines';
+import { BAG as BAG_N, addFl, farmInput, controllerAt, explode, flCap, hatchOf, newMach, simEvents, singleTank, type Mach } from './machines';
 import { addPoll } from './pollution';
 import { contaminate } from './hazards';
 import { next } from './rng';
@@ -218,6 +218,7 @@ export function accepts(m: Mach, def: MachineDef, id: string): [number, Record<s
   if (r?.inputs.some((i) => i.id === id)) return [Math.max(0, BAG_N - (m.inp[id] ?? 0)), m.inp];
   if (r?.keep?.includes(id)) return [m.inp[id] ? 0 : 1, m.inp];
   if ((def.run === 'fuel' || def.run === 'boiler') && !def.solar && FUELS[id]) return [Math.max(0, BAG_N - (m.fuel[id] ?? 0)), m.fuel];
+  if (def.run === 'farm' && farmInput(def.id, id)) return [Math.max(0, BAG_N - (m.inp[id] ?? 0)), m.inp];
   return null;
 }
 

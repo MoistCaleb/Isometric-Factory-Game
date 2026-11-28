@@ -1,5 +1,6 @@
 // Deterministic planet generation (DESIGN §3): pure functions of (seed, planet, x, y, z).
 // World = seed + diffs; diffs are applied by callers (see sim/state `diffs`).
+import { CROPS } from '../data/crops';
 import type { PlanetDef } from '../data/planets';
 import { RARITY_SIZE, VEINS, type Biome, type VeinDef } from '../data/veins';
 import { B, oreBlock } from './blocks';
@@ -7,6 +8,8 @@ import { fbm, hash, hash01, sfbm, spherePoint } from './noise';
 
 export const Water = { None: 0, River: 1, Lake: 2, Ocean: 3 } as const;
 export type Water = (typeof Water)[keyof typeof Water];
+/** Share of land tiles with a wild plant (before biome/terrain filters). */
+export const WILD_DENSITY = 0.012;
 export const Tree = { None: 0, Broadleaf: 1, Conifer: 2, Jungle: 3, Cactus: 4 } as const;
 export type Tree = (typeof Tree)[keyof typeof Tree];
 export const LAYERS = { surface: 0, soil: [1, 2], stone: [3, 8], deep: [9, 16], abyssal: [17, 24], bedrock: 25 } as const;
@@ -261,6 +264,16 @@ export class WorldGen {
       for (const p of parts) if ((w -= p.weight) < 0) return { vein: v, mineral: p.ref };
     }
     return null;
+  }
+
+  /** Wild plant on a surface tile (P5h, DESIGN §3): crop id, on dry treeless land without an ore sample, by biome. */
+  plant(xIn: number, y: number, sf?: Surface): string | null {
+    const x = this.wrapX(xIn);
+    if (hash01(this.seed + 70, x, y) >= WILD_DENSITY) return null;
+    sf ??= this.surface(x, y);
+    if (sf.water !== Water.None || sf.ice || sf.volcanic || this.tree(x, y, sf) || this.sample(x, y, sf)) return null;
+    const kinds = CROPS.filter((c) => c.wild?.includes(sf!.biome) || (sf!.coast && c.wild?.includes('coast')));
+    return kinds.length ? kinds[Math.floor(hash01(this.seed + 71, x, y) * kinds.length)].id : null;
   }
 
   /** Ore at a block; never inside water (z < surface depth). Outcrop veins also show their core at layer 0. */

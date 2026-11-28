@@ -7,9 +7,9 @@ import type { ToolType } from './forms';
  * player cranks/strikes it (P2d) · `boiler` burns fuel to turn piped water into steam · `steam` draws steam from pipes ·
  * `pump` fills its tank from adjacent water (P3a) · `store` chest (item slots) · `tank` barrel (one fluid) (P3b) ·
  * `thump` steam thumper (surveys deep veins once) · `dig` steam excavator (mines ore below it) (P3c) · `elec` draws power from its
- * buffer, filled by cables · `gen` generator feeding cables (P4a).
+ * buffer, filled by cables · `gen` generator feeding cables (P4a) · `farm` harvester / crop manager (P5h, sim/farm).
  */
-export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig' | 'elec' | 'gen' | 'batt' | 'xfmr';
+export type RunMode = 'fuel' | 'self' | 'crank' | 'boiler' | 'steam' | 'pump' | 'store' | 'tank' | 'thump' | 'dig' | 'elec' | 'gen' | 'batt' | 'xfmr' | 'farm';
 export interface MachineDef {
   id: string; name: string; tier: TierId; maxHeatK?: number;
   run?: RunMode;
@@ -130,6 +130,11 @@ const ROWS: Row[] = [
   ['water_treatment', 'Water Treatment Plant', 'MV', undefined, { run: 'elec', tank: 16000 }],
   ['geothermal_generator', 'Geothermal Generator', 'MV', undefined, { run: 'gen', gen: 128, ambient: 'geo' }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
+  // P5h farming: `planter` only names the growth/cross pseudo-recipes (sim/farm grows plants); harvester + crop manager work
+  // the plants within FARM_R tiles.
+  ['planter', 'Planter', 'P'],
+  ['harvester', 'Harvester', 'LV', undefined, { run: 'farm', elec: 16 }],
+  ['crop_manager', 'Crop Manager', 'MV', undefined, { run: 'farm', elec: 32 }],
 ];
 /** LV recipe machines with an MV variant `<id>_mv` (P5b): 128 V, same recipes, overclocked (DESIGN §5). */
 export const MV_BASE = ['macerator', 'electric_furnace', 'bender', 'wiremill', 'lathe', 'cutter', 'assembler', 'ore_washer', 'centrifuge',
