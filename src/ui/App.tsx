@@ -5,7 +5,7 @@ import { LEVEL_MAX, LEVEL_MIN, type Act, type Renderer, type View } from '../ren
 import * as store from '../save/store';
 import type { MachView, SimStats } from '../sim/client';
 import { controllerAt, controllerInStorey, machineAt, MS, MS_TEXT } from '../sim/machines';
-import { HAZE, pollKey, SMOG } from '../sim/pollution';
+import { ACID, BLIGHT, HAZE, pollKey, SMOG } from '../sim/pollution';
 const pollAt = (pl: Record<string, number> | undefined, key: string) => { const [x, y] = key.split(',').map(Number); return pl?.[pollKey(x, y)] ?? 0; };
 import { STOREY } from '../sim/state';
 import type { ActResult, SlotRef } from '../sim/player';
@@ -40,7 +40,7 @@ let lastView: View | null = null, lastPaused: boolean | null = null;
 
 /** Alerts (DESIGN §8): machines stuck in a bad status for ALERT_MS, plus explosions. Tap one to fly there. */
 export interface Alert { key: string; st: number; msg: string; t: number; boom?: boolean }
-const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower, MS.noFlow, MS.coils, MS.hatchW, MS.tier];
+const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower, MS.noFlow, MS.noHeat, MS.coils, MS.hatchW, MS.tier];
 const ALERT_MS = 3000;
 /** First time each machine was seen in its current bad status (`key` → [status, ms]). */
 const badSince = new Map<string, [number, number]>();
@@ -249,7 +249,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button onClick={() => game.togglePause()} title="Space">{stats.paused ? '▶' : '❚❚'}</button>
         <span>{gameClock(stats.tick)}</span>
         <span>{weatherText(stats)}</span>
-        {iso && pollHere >= 5 && <span class={pollHere >= SMOG ? 'err' : pollHere >= HAZE ? 'warn' : 'dim'} title={`Pollution here (haze ${HAZE}, smog ${SMOG}: machines −25 % speed)`}>☁ {Math.round(pollHere)}{pollHere >= SMOG ? ' smog' : pollHere >= HAZE ? ' haze' : ''}</span>}
+        {iso && pollHere >= 5 && <span class={pollHere >= SMOG ? 'err' : pollHere >= HAZE ? 'warn' : 'dim'} title={`Pollution here (haze ${HAZE}, blight ${BLIGHT}: trees wither, smog ${SMOG}: machines −25 % speed, acid rain ${ACID}: exposed machines and bare wire corrode in rain)`}>☁ {Math.round(pollHere)}{pollHere >= ACID ? ' acid' : pollHere >= SMOG ? ' smog' : pollHere >= BLIGHT ? ' blight' : pollHere >= HAZE ? ' haze' : ''}</span>}
         <span class="dim tps">{stats.paused ? 'Paused' : `${stats.tps} TPS · ${stats.mspt.toFixed(2)} ms`}</span>
         <span class="grow" />
         {iso && <button onClick={() => renderer.rotate(-1)} title="Q">⟲</button>}

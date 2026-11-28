@@ -51,7 +51,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow, MS.coils, MS.hatchW, MS.tier].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow, MS.noHeat, MS.coils, MS.hatchW, MS.tier].includes(m.st as 2);
   const meter = (label: string, n: number, cap: number, col: string) => (
     <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
       <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
@@ -149,6 +149,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
       )}
       {def.ambient && <div class="dim">{def.ambient === 'sun' ? 'Follows the sun: full output at noon, less in rain, nothing at night.'
         : def.ambient === 'wind' ? `Follows the wind (top bar). Height ×${Math.min(1, 0.3 + (0.7 * Number(key.split(',')[2])) / WIND_FULL_B).toFixed(2)}: full at block level ${WIND_FULL_B} (storey ${WIND_FULL_B / 3}).`
+        : def.ambient === 'geo' ? 'Draws heat from a deep hotspot: full output at its centre, a quarter at its rim (10 tiles), nothing outside. The scanner block finds hotspots.'
         : `Beside a river: full output, more in rain. Beside a lake: ${Math.round(LAKE_FLOW * 100)} %.`}</div>}
       {def.run === 'batt' && (() => {
         const B = battOf(def), n = m.inp[B.empty] ?? 0, bw = TIER_VOLTAGE[def.tier];

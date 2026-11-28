@@ -1,6 +1,6 @@
 // Player actions (DESIGN §3/§8): global inventory, tool slots + wear, click-gather mining.
 // Pure functions on GameState so they run in the worker and in tests.
-import { pollKey } from './pollution';
+import { blighted, pollKey } from './pollution';
 import { registry } from '../content/registry';
 import type { Recipe, Stack } from '../content/types';
 import type { ToolType } from '../data/forms';
@@ -238,6 +238,8 @@ function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
   const key = `${x},${y},t`, target = tree === Tree.Cactus ? 'Cactus' : 'Tree';
   // Rubber trees (jungle, some swamp): a treetap in the tool slots taps them for resin and leaves them standing (P3c).
   const tap = tree === Tree.Jungle ? bestTool(s, 'treetap') : null;
+  const dead = blighted(s, x, y); // P5e: withered by pollution — no resin
+  if (tap && dead) return { ok: false, target: 'Withered rubber tree', msg: 'Withered by pollution — no resin until the air clears' };
   if (tap) {
     const p = hit(s, `${x},${y},r`, 3);
     if (p) return { ...p, target: 'Rubber tree' };
@@ -254,7 +256,7 @@ function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
   if (p) return { ...p, target };
   const broke = wear(s, axe.i);
   s.diffs[key] = 0;
-  const drops: Stack[] = tree === Tree.Cactus ? [{ id: 'fiber', n: 2 }] : [{ id: 'log:wood', n: TREE_LOGS[tree] }, ...chance(s, 0.5, 'stick:wood', 2), ...(tree === Tree.Jungle ? chance(s, 0.5, 'sticky_resin') : [])];
+  const drops: Stack[] = tree === Tree.Cactus ? [{ id: 'fiber', n: 2 }] : [{ id: 'log:wood', n: TREE_LOGS[tree] }, ...chance(s, 0.5, 'stick:wood', 2), ...(tree === Tree.Jungle && !dead ? chance(s, 0.5, 'sticky_resin') : [])];
   return collect(s, drops, { ok: true, target, msg: broke, changes: { [key]: 0 } });
 }
 

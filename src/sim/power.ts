@@ -93,7 +93,7 @@ function burn(s: GameState, w: number, key: string, msg: string) {
 }
 
 /** Generators whose first output sets a quest flag (P4d). */
-const GEN_FLAGS = new Set(['combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'steam_turbine_mv', 'combustion_generator_mv']);
+const GEN_FLAGS = new Set(['combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'steam_turbine_mv', 'combustion_generator_mv', 'geothermal_generator']);
 
 const HV = TIER_VOLTAGE.MV, LV = TIER_VOLTAGE.LV;
 

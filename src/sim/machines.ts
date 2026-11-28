@@ -53,11 +53,11 @@ export interface Mach {
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19, coils: 20, hatchW: 21, tier: 22 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19, coils: 20, hatchW: 21, tier: 22, noHeat: 23 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
   'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some', 'No wind', 'Needs a river or lake next to it',
-  'Coils not hot enough for this recipe', 'Needs more energy hatches for this recipe', 'Recipe needs a higher-tier machine'];
+  'Coils not hot enough for this recipe', 'Needs more energy hatches for this recipe', 'Recipe needs a higher-tier machine', 'No ground heat — build it on a geothermal hotspot (scanner block finds them)'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -184,6 +184,7 @@ export function genW(s: GameState, gen: WorldGen, key: string, m: Mach, d: Machi
   if (d.burns) return m.tank && d.burns[m.tank.id] ? Math.min(g, m.tank.n * d.burns[m.tank.id] * TPS) : 0;
   if (d.ambient === 'sun') return g * sunlight(s);
   if (d.ambient === 'wind') return g * s.weather.wind * Math.min(1, 0.3 + (0.7 * parse(key)[2]) / WIND_FULL_B);
+  if (d.ambient === 'geo') { const [x, y] = parse(key); return g * gen.heat(x, y); }
   if (d.ambient === 'water') { const f = flowAt(gen, key); return f >= 1 ? g * Math.min(1, 0.8 + s.weather.rain * 0.5) : g * f; }
   return g;
 }
@@ -257,7 +258,7 @@ function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
     if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
   const fl = def.id === 'ebf' ? ['ebf', ...r.power > hatchW('LV') ? ['ebf_mv'] : [], ...(r.minHeatK ?? 0) > 2000 ? ['ebf_hot'] : []] : (def.base ?? def.id) === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']
-    : def.id === 'hall_heroult' ? ['aluminium'] : [];
+    : def.id === 'hall_heroult' ? ['aluminium'] : def.id === 'scrubber' ? ['scrub'] : def.id === 'water_treatment' ? ['treat'] : [];
   for (const f of fl) s.flags[f] = (s.flags[f] ?? 0) + 1;
   m.prog = 0;
 }
@@ -285,7 +286,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     if (def.run === 'xfmr') { m.st = m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'gen') {
       m.st = m.pw ? MS.working : genW(s, gen, key, m, def) > 1e-6 ? MS.noLoad : def.steam ? MS.noSteam : def.burns ? MS.noFuel
-        : def.ambient === 'sun' ? MS.noSun : def.ambient === 'wind' ? MS.noWind : def.ambient === 'water' ? MS.noFlow : MS.noLoad;
+        : def.ambient === 'sun' ? MS.noSun : def.ambient === 'wind' ? MS.noWind : def.ambient === 'water' ? MS.noFlow : def.ambient === 'geo' ? MS.noHeat : MS.noLoad;
       if (def.smoke && m.pw && s.tick % TPS === 0) addPoll(s, key, def.smoke);
       continue;
     }
@@ -321,7 +322,6 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       s.flags.powered = (s.flags.powered ?? 0) + 1;
     }
     m.st = MS.working;
-    if (def.smoke && def.run === 'elec' && s.tick % TPS === 0) addPoll(s, key, def.smoke);
     if (s.tick % 4 === 0 && smoggy(s, key)) continue; // smog: −25 % speed
     if (def.maint) {
       if (s.tick % TPS === 0 && next(s) < MAINT_P) m.mt = (m.mt ?? 0) | (1 << Math.floor(next(s) * MAINT.length));

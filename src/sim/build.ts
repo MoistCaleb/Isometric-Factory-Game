@@ -98,6 +98,7 @@ export function addBase(s: GameState, gen: WorldGen, kind: BaseKind, xIn: number
   }
   if (s.base[key] === v) return { ok: true };
   s.base[key] = v;
+  if (kind === 'roof') s.flags.roof = (s.flags.roof ?? 0) + 1;
   return { ok: true, base: { [key]: v } };
 }
 

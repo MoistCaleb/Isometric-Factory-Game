@@ -30,14 +30,14 @@ export interface MachineDef {
   /** Boiler (P3d): burn ticks used per tick (bigger boilers eat fuel faster) · water tank (L, default BOILER_WATER) ·
    * heated by daylight instead of fuel. */
   fuelUse?: number; waterTank?: number; solar?: boolean;
-  /** Pollution per second while burning (P3e). */
+  /** Pollution per second while burning (P3e); negative = removed from its chunk while working (P5e scrubber). */
   smoke?: number;
   /** Generator (P4a): W at full output. */
   gen?: number;
   /** Recipe-less electric machine (P4b electric pump): W drawn while working. */
   elec?: number;
   /** Generators (P4d): liquid fuels burned (J per L) from a `tank` · output scaled by sunlight / wind × height / flowing water. */
-  burns?: Record<string, number>; ambient?: 'sun' | 'wind' | 'water';
+  burns?: Record<string, number>; ambient?: 'sun' | 'wind' | 'water' | 'geo';
   /** Surveyors (P4d, `thump`): [reach tiles, deepest layer, ticks] (default thumper) · diggers (`dig`): [square radius, deepest
    * layer, max hardness, ticks per block × (1 + H)] (default excavator). */
   survey?: [number, number, number]; dig?: [number, number, number, number];
@@ -125,6 +125,10 @@ const ROWS: Row[] = [
   // P5c: organic chemistry (MV only, no LV version).
   ['pyrolyse_oven', 'Pyrolyse Oven', 'MV', undefined, { run: 'elec', maint: true, ehatch: true, tank: 32000, smoke: 3 }],
   ['distillery', 'Coal Tar Distillery', 'MV', undefined, { run: 'elec', tank: 32000 }],
+  // P5e: environment.
+  ['scrubber', 'Scrubber', 'MV', undefined, { run: 'elec', maint: true, ehatch: true, tank: 16000, smoke: -40 }],
+  ['water_treatment', 'Water Treatment Plant', 'MV', undefined, { run: 'elec', tank: 16000 }],
+  ['geothermal_generator', 'Geothermal Generator', 'MV', undefined, { run: 'gen', gen: 128, ambient: 'geo' }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
 ];
 /** LV recipe machines with an MV variant `<id>_mv` (P5b): 128 V, same recipes, overclocked (DESIGN §5). */

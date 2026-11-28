@@ -76,6 +76,11 @@ export const PATTERNS = {
       .concat([0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, 1, 1]))),
     hollow: [[0, -1, 1]],
   },
+  /** Scrubber tower (P5e): controller at the front of a 3×3, 3-high ring of casing around a hollow core, open top. */
+  tower: {
+    cells: [0, 1, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => (dx || dy !== -1) && (dx || dy || b)).map((dx): Cell => [dx, dy, b]))),
+    hollow: [[0, -1, 0], [0, -1, 1], [0, -1, 2]],
+  },
 } satisfies Record<string, Pattern>;
 export type PatternId = keyof typeof PATTERNS;
 /** Structures that belong to multiblocks (controllers + casings) — rendered full height whatever the view level. */
@@ -233,7 +238,7 @@ function mvMachines(lv: StructDef[]): StructDef[] {
 /** LV machines (P4a): hull box + a machine-specific top, a yellow power socket on the back. */
 function lvMachines(): StructDef[] {
   const lv = lvRows();
-  return [...lv, ...mvMachines(lv), ...mvGrid(), ...organic()];
+  return [...lv, ...mvMachines(lv), ...mvGrid(), ...organic(), ...environment()];
 }
 
 /** P5b: MV generators, battery buffer, energy hatch. */
@@ -266,6 +271,26 @@ function organic(): StructDef[] {
       cost: [['hull:mv', 1], ['circuit:basic', 4], ['pump:mv', 2], ['pipe:steel', 4], ['pane:glass', 2], ['cable:copper', 2]],
       model: [[1, 0, 1, 15, 8, 15, MVC], [6, 3, 0, 10, 7, 1, VOLT], [4, 8, 4, 12, 16, 12, STEEL], [3, 10, 3, 13, 11, 13, MVC], [3, 13, 3, 13, 14, 13, MVC],
         [12, 9, 7, 15, 10, 9, STEEL], [12, 12, 7, 15, 13, 9, STEEL], [5, 2, 15, 11, 6, 16, GLASS]] },
+  ];
+}
+
+/** P5e: environment — scrubber tower, water treatment, geothermal generator. */
+function environment(): StructDef[] {
+  const SCRUB = 0x8aa0a8, MVB: Box = [1, 0, 1, 15, 8, 15, MVC];
+  return [
+    { id: 'scrubber', name: 'Scrubber', color: SCRUB, machine: 'scrubber', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['pump:mv', 2], ['rotor:steel', 2], ['circuit:discrete', 2], ['cable:copper', 2]],
+      multi: { casing: 'scrubber_casing', pattern: 'tower',
+        hatches: ['energy_hatch', 'energy_hatch_mv', 'maintenance_hatch', 'input_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
+      model: [[0, 0, 0, 16, 16, 16, SCRUB], [3, 3, 15, 13, 11, 16, STEEL], [4, 4, 15, 12, 10, 16, WATER], [6, 12, 15, 10, 14, 16, VOLT]] },
+    { id: 'scrubber_casing', name: 'Scrubber Casing', color: SCRUB, cost: [['plate:aluminium', 2], ['frame:steel', 1], ['pane:glass', 1]], tools: ['hammer', 'wrench'],
+      model: [[0, 0, 0, 16, 16, 16, SCRUB], [0, 0, 0, 16, 2, 16, ALU], [0, 14, 0, 16, 16, 16, ALU], [3, 4, 0, 13, 12, 16, 0xa8c8d0]] },
+    { id: 'water_treatment', name: 'Water Treatment Plant', color: MVC, machine: 'water_treatment', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['circuit:discrete', 2], ['pump:mv', 1], ['pipe:steel', 2], ['dust:graphite', 4], ['cable:copper', 2]],
+      model: [MVB, [6, 3, 0, 10, 7, 1, VOLT], [2, 8, 2, 14, 13, 14, STEEL], [3, 12, 3, 13, 13, 13, WATER], [7, 13, 7, 9, 16, 9, STEEL]] },
+    { id: 'geothermal_generator', name: 'Geothermal Generator', color: MVC, machine: 'geothermal_generator', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['pump:mv', 1], ['pipe:steel', 4], ['plate:aluminium', 2], ['cable:copper', 2]],
+      model: [MVB, [6, 3, 0, 10, 7, 1, VOLT], [5, 8, 5, 11, 14, 11, STEEL], [4, 14, 4, 12, 16, 12, 0xd8d8d8], [0, 0, 6, 1, 4, 10, GLOW]] },
   ];
 }
 

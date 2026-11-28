@@ -15,7 +15,7 @@ import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile,
 import type { Ent } from '../sim/state';
 import { hazGeometry, pipeGeometry, pollGeometry, powerGeometry } from './overlays';
 import { findNets, type PNet } from '../sim/power';
-import { HAZE, POLL_CH, SMOG } from '../sim/pollution';
+import { BLIGHT, HAZE, POLL_CH, SMOG } from '../sim/pollution';
 
 export type Mode = 'iso' | 'map' | 'globe';
 /** Player action mode (DESIGN §3 Building). */
@@ -39,7 +39,7 @@ const CULL_PAD = 3; // tiles: side faces and trees poke slightly past a chunk's 
 const mod = (a: number, n: number) => ((a % n) + n) % n;
 const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
 
-interface ChunkEntry { g: THREE.Group; used: number }
+interface ChunkEntry { g: THREE.Group; used: number; blight?: boolean }
 
 /** Axis-aligned rect vs convex quad overlap (separating axes: the quad's edge normals; rect axes handled by the caller's bounds). */
 export function rectInQuad(rx0: number, rz0: number, rx1: number, rz1: number, q: readonly { x: number; z: number }[]): boolean {
@@ -422,9 +422,11 @@ export class Renderer {
     for (const { cx, cy } of want) {
       const cxw = mod(cx, ncx), key = `${cxw},${cy}`;
       let e = this.chunks.get(key);
+      const blight = (this.pl[key] ?? 0) >= BLIGHT; // CH = POLL_CH: same chunk key
+      if (e && e.blight !== blight) { disposeChunk(e.g); this.terrain.remove(e.g); this.chunks.delete(key); e = undefined; }
       if (!e) {
         if (performance.now() - t0 > 8) continue; // build budget per frame
-        e = { g: buildChunk(gen, cxw, cy, { level: lvl, xray: v.xray, diffs: this.diffs }), used: 0 };
+        e = { g: buildChunk(gen, cxw, cy, { level: lvl, xray: v.xray, diffs: this.diffs, blight }), used: 0, blight };
         this.chunks.set(key, e);
         this.terrain.add(e.g);
       }

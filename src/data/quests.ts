@@ -18,7 +18,8 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig',
   'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium',
   'overclock', 'steam_turbine_mv', 'combustion_generator_mv',
-  'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide', 'ebf_hot'] as const;
+  'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide', 'ebf_hot',
+  'roof', 'acid_rain', 'scrub', 'treat', 'hotspot', 'geothermal_generator'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -669,7 +670,7 @@ export const QUESTS: QuestDef[] = [
     ],
     tasks: [build('combustion_generator_mv'), flag('combustion_generator_mv', 'Feed power at 128 V')] },
   // ---- MV (P5c): organic chemistry → discrete circuit ----
-  { id: 'm_pyrolyse', chapter: 'MV', title: 'Pyrolyse Oven', req: ['m_motor', ['m_turbine', 'm_combustion']], reward: M2,
+  { id: 'm_pyrolyse', chapter: 'MV', title: 'Pyrolyse Oven', req: ['m_motor', ['m_turbine', 'm_combustion', 'm_geothermal']], reward: M2,
     text: [
       'The **Pyrolyse Oven** bakes wood and coal without air. Its controller stands in front of a closed 3×3×3 retort: **heat-proof casing** floor and roof, a ring of **cupronickel coils** around the hollow middle. Hatches as the EBF.',
       'It needs **96 W**: two LV energy hatches, or one MV hatch. 16 logs → 12 charcoal + **methanol**, acetic acid and wood tar. 16 coal → 16 coke + **coal tar** and hydrogen.',
@@ -715,6 +716,20 @@ export const QUESTS: QuestDef[] = [
       'Above 2000 K you can now smelt **chromium**, **vanadium** and other high-melting metals.',
     ],
     tasks: [have('struct:kanthal_coil', 16), flag('ebf_hot', 'Smelt above 2000 K')] },
+  // ---- MV (P5e): environment ----
+  { id: 'm_acid_rain', chapter: 'MV', title: 'Acid Rain', req: ['m_hull'], reward: M1,
+    text: [
+      'Pollution climbs in steps. **Haze** (300) browns the sky. **Blight** (800): trees wither — they stop cleaning the air and rubber trees give no resin. **Smog** (1500): machines run 25 % slower.',
+      '**Acid rain** (3000): while it rains, machines with nothing over them slowly **corrode away**, and bare tin/copper **wire** dissolves fast. Put a **roof** (Base Build) or a floor above your machines and run insulated cable.',
+      'Living trees soak up pollution — keep forests near your smoke stacks.',
+    ],
+    tasks: [flag('roof', 'Build a roof')] },
+  { id: 'm_scrubber', chapter: 'MV', title: 'Scrubber', req: ['m_discrete', 'm_acid_rain'], reward: M2,
+    text: [
+      'The **Scrubber** washes the air of its chunk. Its controller stands in front of a 3×3, 3-high ring of **scrubber casing** (2 aluminium plates + steel frame + glass) around a hollow core, open on top. Energy + maintenance hatches; pipe water in through an input hatch.',
+      '1000 L water + 1 **quicklime** dust → 1000 L wastewater every 10 s at 64 W, removing **40 pollution/s** from its chunk while it runs.',
+    ],
+    tasks: [build('scrubber'), flag('scrub', 'Scrub the air')] },
   { id: 'm_overclock', chapter: 'MV', title: 'Overclocking', req: ['m_discrete'], reward: M2,
     text: [
       'Every LV machine has an **MV version** (MV hull + 2 discrete circuits + 2 copper cables + the MV parts). It runs all the LV recipes, and **overclocks** them: one tier above the recipe means **2× speed for 4× power** — a 16 W recipe runs twice as fast at 64 W.',
@@ -727,6 +742,17 @@ export const QUESTS: QuestDef[] = [
       'A multiblock overclocks to the tier of its **lowest** hatch, so swap them all.',
     ],
     tasks: [build('energy_hatch_mv', 2)] },
+  { id: 'm_geothermal', chapter: 'power', tier: 'MV', title: 'Geothermal', req: ['m_motor', 'l_scanner_block'], reward: M2,
+    text: [
+      'Hot rock lies deep — at layer 18, about one hotspot per 256×256 tiles. Only the **scanner block** reaches that deep: its survey lists hotspots in range with distance and direction.',
+      'A **Geothermal Generator** (MV hull + MV pump + 4 steel pipes + 2 aluminium plates + 2 copper cables) on a hotspot gives **128 W at 128 V**, day and night, no fuel — full at the centre, a quarter at the rim 10 tiles out.',
+    ],
+    tasks: [flag('hotspot', 'Find a hotspot'), build('geothermal_generator'), flag('geothermal_generator', 'Feed power at 128 V')] },
+  { id: 'm_wastewater', chapter: 'chem', tier: 'MV', title: 'Water Treatment', req: ['m_discrete'], reward: M1,
+    text: [
+      'Wastewater is **toxic**: dumping it pollutes and poisons the ground. The **Water Treatment Plant** (MV) turns 1000 L wastewater into 900 L clean water at 64 W.',
+    ],
+    tasks: [build('water_treatment'), flag('treat', 'Treat wastewater')] },
   { id: 'm_lithium', chapter: 'chem', tier: 'MV', title: 'Lithium', req: ['m_hull', 'l_acid'], reward: M1,
     text: [
       '**Spodumene** (pegmatite veins under desert and tundra) holds lithium. **Chemical reactor:** spodumene dust + 1000 L sulfuric acid → **lithium sulfate** solution, leaving quartz behind.',

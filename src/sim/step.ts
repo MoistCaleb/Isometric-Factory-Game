@@ -12,6 +12,6 @@ export function step(s: GameState, gen?: WorldGen): void {
   s.tick++;
   s.playSeconds = s.tick / TPS;
   stepWeather(s);
-  if (gen) { stepMachines(s, gen); stepPipes(s, gen); stepPower(s, gen); stepPollution(s, gen.w, gen.h); }
+  if (gen) { stepMachines(s, gen); stepPipes(s, gen); stepPower(s, gen); stepPollution(s, gen); }
   stepQuests(s);
 }

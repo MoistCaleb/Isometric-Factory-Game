@@ -1,7 +1,7 @@
 // Vein discovery (DESIGN §3): surface samples give hints, mining ore exposes a vein, the prospector's hammer surveys.
 import { MINERALS } from '../data/minerals';
 import { SCAN_DEPTH, SCAN_R } from '../data/machines';
-import { PROSPECT_DEPTH, PROSPECT_R, type WorldGen } from '../world/gen';
+import { HOT_DEPTH, PROSPECT_DEPTH, PROSPECT_R, type WorldGen } from '../world/gen';
 import type { ActResult } from './player';
 import { bestTool, give, wear } from './player';
 import { KNOW, type GameState } from './state';
@@ -42,6 +42,8 @@ export function prospect(s: GameState, gen: WorldGen, xIn: number, y: number): A
   return { ok: true, veins, msg: [msg, broke].filter(Boolean).join(' · ') };
 }
 
+const dir = (dx: number, dy: number) => (Math.hypot(dx, dy) < 1 ? 'here' : `${dy < -Math.abs(dx) / 2 ? 'N' : dy > Math.abs(dx) / 2 ? 'S' : ''}${dx > Math.abs(dy) / 2 ? 'E' : dx < -Math.abs(dy) / 2 ? 'W' : ''}`);
+
 /** Survey every vein whose top is at most `depth` and that reaches within `r` tiles of (x, y). */
 export function survey(s: GameState, gen: WorldGen, x: number, y: number, r: number, depth: number, what: string) {
   const veins: Record<string, number> = {}, found: string[] = [];
@@ -51,6 +53,9 @@ export function survey(s: GameState, gen: WorldGen, x: number, y: number, r: num
     found.push(v.def.name);
     Object.assign(veins, know(s, v.id, KNOW.surveyed));
   }
-  const msg = found.length ? `${what}: ${found.join(', ')}` : `No veins within ${r} tiles down to layer ${depth}`;
+  // Geothermal hotspots (P5e) lie at HOT_DEPTH: only surveys that reach that deep feel them.
+  const hot = depth >= HOT_DEPTH ? gen.hotspotsNear(x, y, r).map((h) => `geothermal hotspot ${Math.round(h.d)} tiles ${dir(gen.dx(h.x, x), h.y - y)}`) : [];
+  if (hot.length) s.flags.hotspot = (s.flags.hotspot ?? 0) + 1;
+  const msg = [found.length ? `${what}: ${found.join(', ')}` : `No veins within ${r} tiles down to layer ${depth}`, ...hot].join(' · ');
   return { veins, msg };
 }

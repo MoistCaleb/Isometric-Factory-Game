@@ -235,6 +235,7 @@ export function generate(): Generated {
   mvParts({ addItem, hand, mach, itemIds });
   organic({ addItem, hand, mach, itemIds });
   chromium({ addItem, hand, mach, itemIds });
+  environment({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -541,6 +542,14 @@ function chromium(c: Ctx) {
   mach('ebf', [s('dust:chromium_oxide'), s('dust:aluminium', 2)], [s('dust:chromium', 2), s('dust:alumina')], { minHeatK: 1300, ticks: 200, power: 96, tier: 'MV' });
   // Kanthal (FeCrAl): mixed as dust, smelted in the EBF at 1800 K, drawn into wire for 2600 K coils.
   mach('mixer', [s('dust:iron', 3), s('dust:chromium'), s('dust:aluminium')], [s('dust:kanthal', 5)], { ticks: 200, power: 30 });
+}
+
+/** Environment (DESIGN §4 pollution v2, P5e): the scrubber washes flue gas through lime water; treatment cleans wastewater. */
+function environment(c: Ctx) {
+  const { mach } = c;
+  // SO₂ + CaO (+ ½O₂) → CaSO₄ slurry: the scrubber removes 40 pollution/s from its chunk while this runs.
+  mach('scrubber', [s('dust:quicklime')], [], { fluidsIn: [s('water', 1000)], fluidsOut: [s('wastewater', 1000)], ticks: 200, power: 64, tier: 'MV' });
+  mach('water_treatment', [], [], { fluidsIn: [s('wastewater', 1000)], fluidsOut: [s('water', 900)], ticks: 200, power: 64, tier: 'MV' });
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

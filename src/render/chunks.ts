@@ -6,7 +6,8 @@ import { waterColor } from '../world/map';
 import { hash01 } from '../world/noise';
 
 export const CH = 32;
-export interface ChunkOpts { level: number; xray: boolean; diffs: Record<string, number> }
+/** `blight`: pollution withered this chunk's trees (P5e; chunk = pollution chunk). */
+export interface ChunkOpts { level: number; xray: boolean; diffs: Record<string, number>; blight?: boolean }
 
 const terrainMat = new THREE.MeshLambertMaterial({ vertexColors: true });
 const treeMat = new THREE.MeshLambertMaterial();
@@ -118,12 +119,15 @@ export function buildChunk(gen: WorldGen, cx: number, cy: number, o: ChunkOpts):
     wm.renderOrder = 1;
     g.add(wm);
   }
-  if (o.level >= 0) addTrees(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs);
+  if (o.level >= 0) addTrees(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs, !!o.blight);
   if (o.level >= 0) addSamples(g, gen, x0, y0, Math.min(CH, wLimit), o.diffs);
   return g;
 }
 
-function addTrees(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: number, diffs: Record<string, number>) {
+/** Withered foliage colour (blight). */
+const DEAD = 0x7a6a52;
+
+function addTrees(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: number, diffs: Record<string, number>, blight: boolean) {
   const parts: [THREE.Matrix4, number][] = [];
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), s = new THREE.Vector3(), p = new THREE.Vector3();
   for (let j = 0; j < CH; j++) for (let i = 0; i < wN; i++) {
@@ -133,10 +137,11 @@ function addTrees(g: THREE.Group, gen: WorldGen, x0: number, y0: number, wN: num
     if (!t) continue;
     const ox = (hash01(gen.seed + 40, x, y) - 0.5) * 0.3, oz = (hash01(gen.seed + 41, x, y) - 0.5) * 0.3;
     const sc = 0.85 + hash01(gen.seed + 42, x, y) * 0.35;
-    for (const [w, h, yy, c] of TREE_PARTS[t]) {
-      p.set(i + 0.5 + ox, yy * sc, j + 0.5 + oz); s.set(w * sc, h * sc, w * sc);
-      parts.push([m.compose(p, q, s).clone(), c]);
-    }
+    TREE_PARTS[t].forEach(([w, h, yy, c], n) => {
+      const leaf = n > 0 && blight && t !== Tree.Cactus, k = leaf ? 0.75 : 1; // withered crowns shrink and brown
+      p.set(i + 0.5 + ox, yy * sc, j + 0.5 + oz); s.set(w * sc * k, h * sc * k, w * sc * k);
+      parts.push([m.compose(p, q, s).clone(), leaf ? DEAD : c]);
+    });
   }
   if (!parts.length) return;
   const im = new THREE.InstancedMesh(unitBox, treeMat, parts.length);

@@ -30,6 +30,8 @@ const SAMPLE_DENSITY = (z0: number) => (z0 <= 2 ? 0.06 : z0 <= 5 ? 0.035 : z0 <=
 export const HINT_R = 12, HINT_JITTER = 5;
 /** Prospector's hammer reach (tiles, max layer). */
 export const PROSPECT_R = 24, PROSPECT_DEPTH = 8;
+/** Geothermal hotspots (P5e): at most one per HOT_CELL² cell, radius HOT_R tiles, at layer HOT_DEPTH. */
+export const HOT_CELL = 256, HOT_R = 10, HOT_DEPTH = 18;
 
 const RARITY_W = { C: 10, U: 6, R: 3, VR: 1.5 };
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -180,6 +182,37 @@ export class WorldGen {
     });
     this.cells.set(key, list);
     return list;
+  }
+
+  /** Geothermal hotspot of a HOT_CELL cell, if it has one (P5e). */
+  hotspot(cxIn: number, cy: number): { x: number; y: number } | null {
+    const ncx = Math.ceil(this.w / HOT_CELL), cx = mod(cxIn, ncx);
+    if (cy < 0 || cy >= Math.ceil(this.h / HOT_CELL)) return null;
+    const s = this.seed + 300;
+    if (hash01(s, cx, cy, 0) > 0.5) return null;
+    const x = Math.min(this.w - 1, cx * HOT_CELL + 32 + Math.floor(hash01(s, cx, cy, 1) * (HOT_CELL - 64)));
+    const y = Math.min(this.h - 1, cy * HOT_CELL + 32 + Math.floor(hash01(s, cx, cy, 2) * (HOT_CELL - 64)));
+    return this.surface(x, y).ice ? null : { x, y };
+  }
+
+  /** Hotspots whose centre lies within r tiles of (x, y). */
+  hotspotsNear(x: number, y: number, r: number): { x: number; y: number; d: number }[] {
+    const out: { x: number; y: number; d: number }[] = [], n = Math.ceil(r / HOT_CELL) + 1;
+    const cx = Math.floor(this.wrapX(x) / HOT_CELL), cy = Math.floor(y / HOT_CELL), seen = new Set<string>();
+    for (let j = -n; j <= n; j++) for (let i = -n; i <= n; i++) {
+      const h = this.hotspot(cx + i, cy + j);
+      if (!h || seen.has(`${h.x},${h.y}`)) continue;
+      seen.add(`${h.x},${h.y}`);
+      const d = Math.hypot(this.dx(h.x, x), h.y - y);
+      if (d <= r) out.push({ ...h, d });
+    }
+    return out.sort((a, b) => a.d - b.d);
+  }
+
+  /** Ground heat 0–1 (geothermal generator): 1 at a hotspot's centre → 0.25 at its rim, 0 outside. */
+  heat(x: number, y: number): number {
+    const h = this.hotspotsNear(x, y, HOT_R)[0];
+    return h ? 1 - 0.75 * (h.d / HOT_R) : 0;
   }
 
   /** All veins with center in cells overlapping the tile rect (for overlays/tests). */

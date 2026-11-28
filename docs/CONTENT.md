@@ -425,6 +425,12 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - Mixer: 3 iron + Cr + Al dust → 5 Kanthal dust; EBF 1800 K → ingot; wiremill → wire
 - **Kanthal Coil**: 8 Kanthal wire + aluminium foil (wire cutter), 2600 K. Unlocks EBF smelting of chromium (2180 K), vanadium (2183 K) and other 2000–2600 K metals
 
+**Environment (P5e)** (rules: DESIGN §4 pollution v2)
+- **Scrubber** (MV multiblock `tower`: controller + 23 scrubber casings, hollow core, open top; energy + maintenance hatches, input bus/hatch, output hatch): MV hull + 2 MV pumps + 2 steel rotors + 2 discrete circuits + 2 copper cables. Recipe: 1000 L water + quicklime dust → 1000 L wastewater, 10 s, 64 W; −40 pollution/s in its chunk while working
+- **Scrubber Casing**: 2 aluminium plates + steel frame + glass pane
+- **Water Treatment Plant** (MV): MV hull + 2 discrete circuits + MV pump + 2 steel pipes + 4 graphite dust + 2 copper cables. 1000 L wastewater → 900 L water, 10 s, 64 W
+- **Geothermal Generator** (MV gen, no circuits): MV hull + MV pump + 4 steel pipes + 2 aluminium plates + 2 copper cables. 128 W × ground heat (hotspot centre 1 → rim 0.25, radius 10); hotspots at layer 18, ≤ 1 per 256×256, found by the scanner block
+
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
 ---
@@ -564,7 +570,7 @@ Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power*
    - scanner
    - pollution & hazards
    - EBF + cupronickel coils
-4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact · P5d done: m_kanthal; chem m_chromium)
+4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact · P5d done: m_kanthal; chem m_chromium · P5e done: m_acid_rain, m_scrubber; power m_geothermal (counts as an MV generator for m_pyrolyse); chem m_wastewater)
    - Bayer
    - cryolite
    - Hall–Héroult
