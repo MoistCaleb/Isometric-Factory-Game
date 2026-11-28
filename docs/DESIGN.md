@@ -150,7 +150,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Autosave with rolling **backups** + manual save in settings + export/import.
 
 ## 9. Tech
-- TypeScript · Vite · **Three.js** (orthographic iso + perspective globe/space) · **Preact** HTML UI overlay · sim in **Web Worker** at 20 TPS · IndexedDB + compression · Vitest · GitHub Pages **PWA** · desktop + mobile, **landscape only** (no portrait layout; portrait touch shows a rotate prompt).
+- TypeScript · Vite · **Three.js** (orthographic iso + perspective globe/space) · **Preact** HTML UI overlay · sim in **Web Worker** at 20 TPS · IndexedDB + compression · Vitest · GitHub Pages **PWA** · desktop + mobile, **landscape only** (no portrait layout; portrait touch shows a rotate prompt). UI respects safe-area insets (notch / Dynamic Island on either side); phones (≤ 500 px tall) get a compact icon-only top bar, with Veins / Planner / Stats moved into the ☰ menu.
 - Art: **voxel** models (e.g. 16³ per tile) defined in code with palettes, greedy-meshed; tier color stripe. Sound later.
 - Rules: deterministic sim separate from render; sleeping idle machines; pooled networks; world = seed + diffs; chunk meshes + instancing, viewport-culled (loaded set = viewport ∪ chunk loaders); **content validator** (every item obtainable, every byproduct used, no unresolved conflicts, tier reachability); versioned saves with migrations.
 - Layout: `src/{data,content,sim,world,render,ui,save}`, `tools/`.

@@ -292,15 +292,15 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <span class="grow" />
         {iso && <button onClick={() => renderer.rotate(-1)} title="Q">⟲</button>}
         {iso && <button onClick={() => renderer.rotate(1)} title="E">⟳</button>}
-        <button class={iso ? 'on' : ''} onClick={() => renderer.setMode('iso')}>Local</button>
-        <button class={view.mode === 'map' ? 'on' : ''} onClick={() => renderer.setMode('map')} title="M">Map</button>
-        <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
-        <button class={qbook ? 'on' : ''} onClick={() => { setQbook(!qbook); setMenu(false); }} title="Quest book (L)">📜 Quests{claimable(stats.q) > 0 && <span class="badge">{claimable(stats.q)}</span>}</button>
-        <button class={journal ? 'on' : ''} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎ Veins</button>
-        <button class={planner !== null ? 'on' : ''} onClick={() => openPanel('planner', planner === null)} title="Planner / ratio calculator">📐</button>
-        <button class={statsOpen ? 'on' : ''} onClick={() => openPanel('stats', !statsOpen)} title="Statistics">📈</button>
+        <button class={iso ? 'on' : ''} onClick={() => renderer.setMode('iso')} title="Local view">📍<span class="lbl"> Local</span></button>
+        <button class={view.mode === 'map' ? 'on' : ''} onClick={() => renderer.setMode('map')} title="Map (M)">🗺<span class="lbl"> Map</span></button>
+        <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="Globe (G)">🌐<span class="lbl"> Globe</span></button>
+        <button class={qbook ? 'on' : ''} onClick={() => { setQbook(!qbook); setMenu(false); }} title="Quest book (L)">📜<span class="lbl"> Quests</span>{claimable(stats.q) > 0 && <span class="badge">{claimable(stats.q)}</span>}</button>
+        <button class={`wide ${journal ? 'on' : ''}`} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎<span class="lbl"> Veins</span></button>
+        <button class={`wide ${planner !== null ? 'on' : ''}`} onClick={() => openPanel('planner', planner === null)} title="Planner / ratio calculator">📐</button>
+        <button class={`wide ${statsOpen ? 'on' : ''}`} onClick={() => openPanel('stats', !statsOpen)} title="Statistics">📈</button>
         <span class="popwrap">
-          <button class={ovOpen ? 'on' : ''} onClick={() => { setOvOpen(!ovOpen); setAlertsOpen(false); }} title="Overlays: veins O · pipes H · pollution K · power T">Overlays</button>
+          <button class={ovOpen ? 'on' : ''} onClick={() => { setOvOpen(!ovOpen); setAlertsOpen(false); }} title="Overlays: veins O · pipes H · pollution K · power T">🎛<span class="lbl"> Overlays</span></button>
           {ovOpen && (
             <div class="pop">
               <label><input type="checkbox" checked={view.veins} onChange={() => renderer.toggleVeins()} /> Veins (O)</label>
@@ -325,6 +325,14 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       </div>
       {menu && (
         <div class="panel">
+          <div class="menuonly">
+            <h3>Tools</h3>
+            <div class="row">
+              <button onClick={() => { setMenu(false); setJournal(true); }}>◎ Veins</button>
+              <button onClick={() => { setMenu(false); openPanel('planner', true); }}>📐 Planner</button>
+              <button onClick={() => { setMenu(false); openPanel('stats', true); }}>📈 Stats</button>
+            </div>
+          </div>
           <h3>Save</h3>
           <div class="row">
             <button class="primary" onClick={() => game.saveManual()}>Save now</button>
