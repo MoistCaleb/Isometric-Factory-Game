@@ -18,7 +18,7 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig',
   'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium',
   'overclock', 'steam_turbine_mv', 'combustion_generator_mv',
-  'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide'] as const;
+  'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide', 'ebf_hot'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -708,6 +708,13 @@ export const QUESTS: QuestDef[] = [
       'Discrete board + 2 transistors + 2 diodes + 2 capacitors + 2 resistors + solder → the **Discrete Circuit**, the MV circuit. Every MV machine and the MV battery buffer need two.',
     ],
     tasks: [have('circuit:discrete', 2)] },
+  { id: 'm_kanthal', chapter: 'MV', title: 'Kanthal Coils', req: ['m_discrete', 'm_chromium'], reward: M2,
+    text: [
+      'Mixer: 3 iron + chromium + aluminium dust → 5 **Kanthal** dust; the EBF smelts it at 1800 K. Wiremill it, then 8 wire + aluminium foil → a **Kanthal coil** (2600 K).',
+      'Any coil fits any coil slot, but a furnace runs at its **coolest** coil — swap all 16. Auto-fill uses your hottest coils first. Spare heat saves power: −5 % per full 900 K above what the recipe needs.',
+      'Above 2000 K you can now smelt **chromium**, **vanadium** and other high-melting metals.',
+    ],
+    tasks: [have('struct:kanthal_coil', 16), flag('ebf_hot', 'Smelt above 2000 K')] },
   { id: 'm_overclock', chapter: 'MV', title: 'Overclocking', req: ['m_discrete'], reward: M2,
     text: [
       'Every LV machine has an **MV version** (MV hull + 2 discrete circuits + 2 copper cables + the MV parts). It runs all the LV recipes, and **overclocks** them: one tier above the recipe means **2× speed for 4× power** — a 16 W recipe runs twice as fast at 64 W.',
@@ -738,6 +745,12 @@ export const QUESTS: QuestDef[] = [
       'Four times the acid per minute of the uncatalysed reactor. The catalyst is kept and wears out 1 % per run.',
     ],
     tasks: [have('catalyst:vanadium_pentoxide'), flag('sulfur_trioxide', 'Make SO₃')] },
+  { id: 'm_chromium', chapter: 'chem', tier: 'MV', title: 'Chromium', req: ['m_hall', 'l_chloralkali'], reward: M2,
+    text: [
+      'Chemical reactor: 2000 L NaOH + 1000 L CO₂ → **soda ash**. Roast chromite dust + 2 soda ash in oxygen → 2 **sodium chromate**; sulfuric acid turns 2 of those into **sodium dichromate** (the sodium sulfate leaves as wastewater).',
+      'Roast dichromate with 2 coal dust → **chromium oxide** + 1 soda ash back. Then the **thermite** step in the EBF: Cr₂O₃ + 2 aluminium dust → 2 **chromium dust** + alumina for the Hall–Héroult cell (96 W: two energy hatches).',
+    ],
+    tasks: [have('dust:soda_ash'), have('dust:chromium', 4)] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));
 /** Every quest id a quest's requirements mention (any-of groups flattened). */

@@ -18,6 +18,8 @@ export interface StructDef {
   multi?: { casing: string; pattern: PatternId; parts?: string[]; hatches?: string[]; need?: string[]; /** Part numbers no hatch may replace (coils). */ solid?: number[] };
   /** Hatch (P3d): fluid in / fluid out / item in, for a multiblock that lists it · item out, energy, maintenance (P4e). */
   hatch?: 'fluid_in' | 'fluid_out' | 'item_in' | 'item_out' | 'energy' | 'maint';
+  /** Coil heat (K) for coil parts (P5d): any coil fills any coil cell; a multiblock runs at its coolest coil. */
+  coilK?: number;
   /** Energy hatch voltage tier (default LV; P5b MV). */
   tier?: TierId;
   /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
@@ -88,7 +90,7 @@ export function rotCell([dx, dy, db]: Cell, r: number): [number, number, number]
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
 const LEAD = 0x5c5a78, TIN = 0xc8ccd0, HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
 const MVC = 0xb0c4d8, LVC = 0x8a8e94, VOLT = 0xf0d040, CABLE = 0x3a3a40, CABLE_CU = 0x4a3a34, COPPER = 0xd87a3c, GLASS = 0xb8d8e0;
-const HEAT = 0x8a6a50, CUNI = 0xc49a6c, CARBON = 0x3a3a40, ALU = 0xb0c4d8, BATH = 0xffa040;
+const HEAT = 0x8a6a50, CUNI = 0xc49a6c, KANTHAL = 0xb8a888, CARBON = 0x3a3a40, ALU = 0xb0c4d8, BATH = 0xffa040;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
 export const STRUCTURES: StructDef[] = [
@@ -343,8 +345,11 @@ function lvRows(): StructDef[] {
       model: [[0, 0, 0, 16, 16, 16, HEAT], [3, 3, 15, 13, 11, 16, SOOT], [4, 4, 15, 12, 9, 16, GLOW], [6, 12, 15, 10, 14, 16, VOLT]] },
     { id: 'heat_casing', name: 'Heat-Proof Casing', color: HEAT, cost: [['plate:steel', 6], ['frame:steel', 1]], tools: ['hammer', 'wrench'],
       model: [[0, 0, 0, 16, 16, 16, HEAT], [0, 0, 0, 16, 2, 16, STEEL], [0, 14, 0, 16, 16, 16, STEEL], [2, 6, 0, 14, 10, 16, 0x9a8a70]] },
-    { id: 'cupronickel_coil', name: 'Cupronickel Coil', color: CUNI, cost: [['wire:cupronickel', 8], ['foil:cupronickel', 1]], tools: ['wire_cutter'],
+    { id: 'cupronickel_coil', name: 'Cupronickel Coil', color: CUNI, coilK: 2000, cost: [['wire:cupronickel', 8], ['foil:cupronickel', 1]], tools: ['wire_cutter'],
       model: [[0, 0, 0, 16, 16, 16, 0x5a4a3a], ...[1, 4, 7, 10, 13].map((y): Box => [0, y, 0, 16, y + 2, 16, CUNI])] },
+    // P5d: Kanthal coils (2600 K), aluminium foil insulation.
+    { id: 'kanthal_coil', name: 'Kanthal Coil', color: KANTHAL, coilK: 2600, cost: [['wire:kanthal', 8], ['foil:aluminium', 1]], tools: ['wire_cutter'],
+      model: [[0, 0, 0, 16, 16, 16, 0x4a4a50], ...[1, 4, 7, 10, 13].map((y): Box => [0, y, 0, 16, y + 2, 16, KANTHAL])] },
     { id: 'energy_hatch', name: 'LV Energy Hatch', color: VOLT, hatch: 'energy', cost: [['hull:lv', 1], ['cable:tin', 2]], tools: ['wrench'],
       model: [[0, 0, 0, 16, 16, 16, LVC], [3, 3, 0, 13, 13, 16, CABLE], [5, 5, 0, 11, 11, 16, VOLT]] },
     { id: 'maintenance_hatch', name: 'Maintenance Hatch', color: 0x4080c0, hatch: 'maint', cost: [['hull:lv', 1], ['plate:steel', 2], ['screw:steel', 4]], tools: ['screwdriver'],
@@ -384,6 +389,9 @@ export const isConduit = (id: string) => PIPES.has(id) || CABLES.has(id);
 /** Cable structures by id (P4a). */
 export const CABLES = new Map(STRUCTURES.filter((s) => s.cable).map((s) => [s.id, s.cable!]));
 for (const s of STRUCTURES) if (s.multi) for (const id of [s.id, s.multi.casing, ...s.multi.parts ?? [], ...s.multi.hatches ?? []]) MULTI_PARTS.add(id);
+/** Coil heat by structure id (P5d), hottest first. */
+export const COILS = new Map(STRUCTURES.filter((s) => s.coilK).sort((a, b) => b.coilK! - a.coilK!).map((s) => [s.id, s.coilK!]));
+for (const id of COILS.keys()) MULTI_PARTS.add(id);
 
 export interface MultiCell { c: [number, number, number]; id: string; /** A hatch may stand here instead (outer casing). */ hatch: boolean }
 /** Pattern cells of a multiblock controller at rotation r, with the casing each needs. */

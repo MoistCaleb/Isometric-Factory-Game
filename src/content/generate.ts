@@ -234,6 +234,7 @@ export function generate(): Generated {
   aluminium(hand, mach);
   mvParts({ addItem, hand, mach, itemIds });
   organic({ addItem, hand, mach, itemIds });
+  chromium({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -522,6 +523,24 @@ function organic(c: Ctx) {
   mach('chemical_reactor', [], [], { fluidsIn: [s('sulfur_dioxide', 1000), s('oxygen', 500)], fluidsOut: [s('sulfur_trioxide', 1000)],
     keep: ['catalyst:vanadium_pentoxide'], wear: 0.01, ticks: 600, power: 64, ...MV });
   mach('chemical_reactor', [], [], { fluidsIn: [s('sulfur_trioxide', 1000), s('water', 1000)], fluidsOut: [s('sulfuric_acid', 1000)], ticks: 100, power: 16 });
+}
+
+/** Chromium + Kanthal (CONTENT §11e.8, P5d): soda ash from NaOH + CO₂, chromite roast, dichromate, aluminothermic reduction. */
+function chromium(c: Ctx) {
+  const { mach } = c;
+  // 2 NaOH + CO₂ → Na₂CO₃ + H₂O (the MV stand-in for the Solvay process).
+  mach('chemical_reactor', [], [s('dust:soda_ash')], { fluidsIn: [s('sodium_hydroxide', 2000), s('carbon_dioxide', 1000)], fluidsOut: [s('water', 1000)], ticks: 200, power: 30 });
+  // Chromite + soda ash roasted in air/O₂ → sodium chromate (iron stays behind as oxide).
+  mach('roaster', [s('mdust:chromite'), s('dust:soda_ash', 2)], [s('dust:sodium_chromate', 2), { ...s('small_dust:iron'), chance: 0.5 }],
+    { fluidsIn: [s('oxygen', 1000)], fluidsOut: [s('carbon_dioxide', 1000)], ticks: 300, power: 30 });
+  // 2 Na₂CrO₄ + H₂SO₄ → Na₂Cr₂O₇ + Na₂SO₄(aq) + H₂O.
+  mach('chemical_reactor', [s('dust:sodium_chromate', 2)], [s('dust:sodium_dichromate')], { fluidsIn: [s('sulfuric_acid', 1000)], fluidsOut: [s('wastewater', 1000)], ticks: 200, power: 30 });
+  // Na₂Cr₂O₇ + 2 C → Cr₂O₃ + Na₂CO₃ + CO: half the soda ash comes back.
+  mach('roaster', [s('dust:sodium_dichromate'), s('dust:coal', 2)], [s('dust:chromium_oxide'), s('dust:soda_ash')], { fluidsOut: [s('carbon_dioxide', 1000)], ticks: 200, power: 30 });
+  // Aluminothermic: Cr₂O₃ + 2 Al → 2 Cr + Al₂O₃ (ignite at 1300 K; the alumina goes back to the Hall–Héroult cell).
+  mach('ebf', [s('dust:chromium_oxide'), s('dust:aluminium', 2)], [s('dust:chromium', 2), s('dust:alumina')], { minHeatK: 1300, ticks: 200, power: 96, tier: 'MV' });
+  // Kanthal (FeCrAl): mixed as dust, smelted in the EBF at 1800 K, drawn into wire for 2600 K coils.
+  mach('mixer', [s('dust:iron', 3), s('dust:chromium'), s('dust:aluminium')], [s('dust:kanthal', 5)], { ticks: 200, power: 30 });
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

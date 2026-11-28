@@ -416,6 +416,15 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - **Discrete circuit:** discrete board + 2 transistors + 2 diodes + 2 capacitors + 2 resistors + solder wire (20 s). Cheaper basic circuit: basic board + transistor + 2 resistors + solder → 3.
 - **Contact process:** roaster, vanadium dust + 1000 L O₂ → V₂O₅ catalyst · chemical reactor (**MV** recipe, 64 W): 1000 L SO₂ + 500 L O₂ → 1000 L SO₃ (kept catalyst, 1 % wear, 30 s) · 1000 L SO₃ + 1000 L water → 1000 L H₂SO₄ (5 s). 4× the uncatalysed rate.
 
+**Chromium + Kanthal coils (P5d)**
+- Soda ash: chemical reactor 2000 L NaOH + 1000 L CO₂ → soda ash dust + 1000 L water (Solvay stays HV)
+- Roaster: chromite dust + 2 soda ash + 1000 L O₂ → 2 sodium chromate + small iron dust (50 %) + 1000 L CO₂
+- Chemical reactor: 2 sodium chromate + 1000 L H₂SO₄ → sodium dichromate + 1000 L wastewater (Na₂SO₄)
+- Roaster: dichromate + 2 coal dust → Cr₂O₃ dust + soda ash (recycled) + 1000 L CO₂
+- EBF aluminothermic (1300 K, 96 W, MV recipe): Cr₂O₃ + 2 Al dust → 2 Cr dust + alumina (→ Hall–Héroult)
+- Mixer: 3 iron + Cr + Al dust → 5 Kanthal dust; EBF 1800 K → ingot; wiremill → wire
+- **Kanthal Coil**: 8 Kanthal wire + aluminium foil (wire cutter), 2600 K. Unlocks EBF smelting of chromium (2180 K), vanadium (2183 K) and other 2000–2600 K metals
+
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
 ---
@@ -555,7 +564,7 @@ Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power*
    - scanner
    - pollution & hazards
    - EBF + cupronickel coils
-4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact)
+4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact · P5d done: m_kanthal; chem m_chromium)
    - Bayer
    - cryolite
    - Hall–Héroult

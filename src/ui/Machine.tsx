@@ -11,7 +11,7 @@ import { TIER_VOLTAGE, tierIndex } from '../data/tiers';
 import { bufJ, inputW } from '../sim/power';
 import { fmtJ, fmtW } from './format';
 import type { MachView } from '../sim/client';
-import { MS, MS_TEXT, flCap, issues, overclock, type MachCmd } from '../sim/machines';
+import { MS, MS_TEXT, flCap, heatDiscount, issues, overclock, type MachCmd } from '../sim/machines';
 import { slotsUsed } from '../sim/pipes';
 import { count, type Cmd, type Inv } from '../sim/player';
 import type { Ent } from '../sim/state';
@@ -126,7 +126,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
       {def.coilK && (
         <>
           <h3>Blast furnace</h3>
-          <div class="dim">Cupronickel coils: {def.coilK} K{r?.minHeatK ? ` · recipe needs ${r.minHeatK} K` : ''}. Each energy hatch takes 2 A on its own line: LV {fmtW(hatchW('LV'))}, MV {fmtW(hatchW('MV'))}. Two LV hatches run MV-level recipes; MV hatches overclock LV recipes.{def.smoke ? ` Smoke ${def.smoke}/s while working.` : ''}</div>
+          <div class="dim">Coils: {view!.heat ?? def.coilK} K (cupronickel 2000 K, Kanthal 2600 K; the coolest coil counts){r?.minHeatK ? ` · recipe needs ${r.minHeatK} K` : ''}{r && heatDiscount(def, m, r) < 1 ? ` · ${Math.round((1 - heatDiscount(def, m, r)) * 100)} % less power from spare heat` : ''}. Each energy hatch takes 2 A on its own line: LV {fmtW(hatchW('LV'))}, MV {fmtW(hatchW('MV'))}. Two LV hatches run MV-level recipes; MV hatches overclock LV recipes.{def.smoke ? ` Smoke ${def.smoke}/s while working.` : ''}</div>
         </>
       )}
       {def.maint && (

@@ -50,6 +50,11 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'diode', name: 'Diode', color: 0xd8d0c0 },
   { id: 'capacitor', name: 'Capacitor', color: 0x4060a0 },
   { id: 'circuit:discrete', name: 'Discrete Circuit', color: 0x3070c0 },
+  // P5d chromium line.
+  { id: 'dust:soda_ash', name: 'Soda Ash', color: 0xf0f0ec },
+  { id: 'dust:sodium_chromate', name: 'Sodium Chromate Dust', color: 0xe8d030 },
+  { id: 'dust:sodium_dichromate', name: 'Sodium Dichromate Dust', color: 0xe07020 },
+  { id: 'dust:chromium_oxide', name: 'Chromium(III) Oxide Dust', color: 0x3a7a3a },
 ];
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */

@@ -8,7 +8,7 @@ import { AMBIENT_K, BOIL_K, BOILER_RATE, BOILER_WATER, CELL_FLUIDS, CELL_L, DUMP
 import { MINERALS } from '../data/minerals';
 import { TIER_VOLTAGE, tierIndex, type TierId } from '../data/tiers';
 import { B, BLOCKS } from '../world/blocks';
-import { PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
+import { COILS, PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
 import { placeAt } from './build';
 import { accepts, topoChanged } from './pipes';
@@ -49,7 +49,7 @@ export interface Mach {
   up?: boolean;
   /** Multiblocks with maintenance (P4e): open issues, bit i = MAINT[i] · energy hatches counted last tick, their total W and
    * lowest tier (P5b). */
-  mt?: number; eh?: number; ehw?: number; eht?: TierId;
+  mt?: number; eh?: number; ehw?: number; eht?: TierId; /** Coil heat now (K; P5d). */ ck?: number;
 }
 
 /** Machine status (DESIGN §5 status icons). */
@@ -120,6 +120,8 @@ export interface MultiCheck {
   need: string[];
   /** Hatches in place by structure id (P4e: energy hatches). */
   has: Record<string, number>;
+  /** Coolest coil in place (K; P5d), if the pattern has coils. */
+  heat?: number;
 }
 const NO_MULTI: MultiCheck = { miss: [], blocked: [], need: [], has: {} };
 /** Multiblock check (rotated with the controller); hatches count as casings on outer tiles. */
@@ -127,10 +129,12 @@ export function multiCheck(ents: GameState['ents'], w: number, key: string): Mul
   const ctl = ents[key], st = STRUCT.get(ctl?.s ?? ''), m = st?.multi;
   if (!m) return NO_MULTI;
   const [x, y, f] = parse(key), miss: [string, string][] = [], has: Record<string, number> = {};
+  let heat: number | undefined;
   // Bottom-up, outer before centre, so auto-fill always has support.
   const cells = multiCells(st, ctl.r).sort((a, b) => a.c[2] - b.c[2] || Math.abs(b.c[0]) + Math.abs(b.c[1]) - Math.abs(a.c[0]) - Math.abs(a.c[1]));
   for (const { c, id, hatch } of cells) {
     const k = cellKey(w, x, y, f, c), s = ents[k]?.s;
+    if (COILS.has(id) && s && COILS.has(s)) { heat = Math.min(heat ?? Infinity, COILS.get(s)!); continue; } // any coil tier (P5d)
     if (s === id) continue;
     if (hatch && s && m.hatches!.includes(s)) { has[s] = (has[s] ?? 0) + 1; continue; }
     miss.push([k, id]);
@@ -140,6 +144,7 @@ export function multiCheck(ents: GameState['ents'], w: number, key: string): Mul
     blocked: PATTERNS_HOLLOW(st).map((c) => cellKey(w, x, y, f, rotCell(c, ctl.r))).filter((k) => ents[k]),
     need: (m.need ?? []).filter((h) => !has[h] && !Object.keys(has).some((k) => HATCH.get(k) === HATCH.get(h))), // any tier of that hatch
     has,
+    heat,
   };
 }
 const PATTERNS_HOLLOW = (st: StructDef) => PATTERNS[st.multi!.pattern].hollow as Cell[];
@@ -221,7 +226,8 @@ function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: Machine
     }
   }
   if (incomplete(mc)) return MS.incomplete;
-  if (def.coilK && (r.minHeatK ?? 0) > def.coilK) return MS.coils;
+  if (def.coilK) m.ck = mc.heat ?? def.coilK;
+  if (def.coilK && (r.minHeatK ?? 0) > m.ck!) return MS.coils;
   if (def.ehatch && r.power > (m.ehw ?? 0)) return MS.hatchW;
   if (!def.ehatch && tierIndex(r.tier) > tierIndex(def.tier)) return MS.tier;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
@@ -250,7 +256,7 @@ function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
     addFl(m, f.id, f.n);
     if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
-  const fl = def.id === 'ebf' ? (r.power > hatchW('LV') ? ['ebf', 'ebf_mv'] : ['ebf']) : (def.base ?? def.id) === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']
+  const fl = def.id === 'ebf' ? ['ebf', ...r.power > hatchW('LV') ? ['ebf_mv'] : [], ...(r.minHeatK ?? 0) > 2000 ? ['ebf_hot'] : []] : (def.base ?? def.id) === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']
     : def.id === 'hall_heroult' ? ['aluminium'] : [];
   for (const f of fl) s.flags[f] = (s.flags[f] ?? 0) + 1;
   m.prog = 0;
@@ -309,7 +315,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     }
     const oc = overclock(def, m, r!);
     if (def.run === 'elec') {
-      const need = (r!.power * OC_POWER ** oc) / TPS;
+      const need = (r!.power * OC_POWER ** oc * heatDiscount(def, m, r!)) / TPS;
       if ((m.e ?? 0) < need - 1e-9) { m.st = MS.noPower; continue; }
       m.e! -= need;
       s.flags.powered = (s.flags.powered ?? 0) + 1;
@@ -324,6 +330,13 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     if (oc) s.flags.overclock = (s.flags.overclock ?? 0) + 1;
     if ((m.prog += OC_SPEED ** oc) >= r!.ticks) finish(s, m, r!, def);
   }
+}
+
+/** Coil heat bonus (P5d): −HEAT_DISCOUNT power per full HEAT_STEP K the coils run above the recipe's heat. */
+export const HEAT_STEP = 900, HEAT_DISCOUNT = 0.05;
+export function heatDiscount(def: MachineDef, m: Mach, r: Recipe): number {
+  if (!def.coilK || !r.minHeatK) return 1;
+  return (1 - HEAT_DISCOUNT) ** Math.max(0, Math.floor(((m.ck ?? def.coilK) - r.minHeatK) / HEAT_STEP));
 }
 
 /** Overclocks for a recipe (DESIGN §5, P5b): one per tier the machine (multiblock: its lowest energy hatch) is above the
@@ -616,7 +629,9 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       for (const [k, id] of miss) {
         const [x, y, f] = parse(k);
         if (s.ents[k]) { why = 'Something else is in the way'; continue; }
-        const res = placeAt(s, gen, `struct:${id}`, x, y, f, 0);
+        // Coil cells take the hottest coil in the bag (P5d).
+        const pick = COILS.has(id) ? [...COILS.keys()].find((c) => count(s, `struct:${c}`) > 0) ?? id : id;
+        const res = placeAt(s, gen, `struct:${pick}`, x, y, f, 0);
         if (!res.ok && res.msg?.startsWith('No ')) { why = res.msg; continue; }
         if (res.ok) Object.assign(ents, res.ents); else why = res.msg;
       }
