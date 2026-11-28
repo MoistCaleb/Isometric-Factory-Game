@@ -381,11 +381,15 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 
 **Lead-acid battery (LV):** lead-antimony (4 Pb + 1 Sb, alloy smelter / mixer) → case (2 plates + 2 rubber sheets + tin cable) → canner + 1000 L sulfuric acid → battery (36 kJ).
 
-**LV gate multiblock:** **EBF**
-- steel casings + cupronickel coils
-- maintenance hatch
-- 2 LV energy hatches → MV power
-- I/O hatches
+**LV gate multiblock:** **EBF** (P4e)
+- controller: LV hull + 2 electric furnaces + 3 basic circuits + 2 tin cables
+- 17 **Heat-Proof Casings** (6 steel plates + steel frame; hammer, wrench) + 16 **Cupronickel Coils** (8 cupronickel wire + cupronickel foil; wire cutter) — 2000 K
+- **Maintenance Hatch** (LV hull + 2 steel plates + 4 steel screws; screwdriver)
+- **LV Energy Hatch** (LV hull + 2 tin cables): 2 A = 64 W each; 2 → 128 W = MV power
+- I/O: bronze input bus / hatches, **Steel Output Bus** (4 steel plates + chest)
+- Recipes: dust → ingot for 1750–2000 K metals (iron, cobalt, kanthal, titanium; 120 W = 2 hatches); iron dust + 1000 L O₂ → steel (1000 K, 60 W = 1 hatch)
+
+**Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
 ---
 
@@ -505,7 +509,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - steam excavator (s_excavator)
    - P3e: pollution, overlays, alerts (s_smoke, flags poll_overlay / pipe_overlay / alerts)
    - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
-3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid; P4c done: l_battery, l_battery_buffer, l_breaker, l_transformer; P4d done: l_combustion, l_solar, l_wind, l_water_turbine, l_etools, l_scanner, l_scanner_block, l_mining_rig)
+3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid; P4c done: l_battery, l_battery_buffer, l_breaker, l_transformer; P4d done: l_combustion, l_solar, l_wind, l_water_turbine, l_etools, l_scanner, l_scanner_block, l_mining_rig; P4e done: l_assembly, l_hazards, l_ebf, l_maint, l_ebf_mv)
    - lodestone magnet
    - first motor
    - hand-made basic circuit

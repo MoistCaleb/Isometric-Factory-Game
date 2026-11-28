@@ -8,6 +8,7 @@ import type { ActResult } from './player';
 import { count, give, take } from './player';
 import { newMach, refund } from './machines';
 import { topoChanged } from './pipes';
+import { clean, contaminated } from './hazards';
 import { EDGE, FLOORS, STOREY, type BasePart, type GameState } from './state';
 
 export const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
@@ -36,6 +37,7 @@ function groundBlock(s: GameState, gen: WorldGen, x: number, y: number, needFoun
   if (sf.ice) return 'Polar ice is unbuildable';
   if (s.diffs[`${x},${y},0`] === B.air) return 'Fill the pit first';
   if (gen.tree(x, y, sf) && s.diffs[`${x},${y},t`] === undefined) return 'Fell the tree first';
+  if (needFoundation && contaminated(s, x, y)) return 'Contaminated ground — neutralise it with quicklime first (Demolition mode)';
   if (needFoundation && sf.water !== Water.None && !s.base[`${x},${y},0,f`]) return 'Water: lay a foundation first (Base Build)';
   return null;
 }
@@ -120,6 +122,7 @@ export function demolish(s: GameState, gen: WorldGen, xIn: number, y: number, f:
     delete s.base[k];
     return { ok: true, base: { [k]: null } };
   }
+  if (f === 0 && contaminated(s, x, y)) return clean(s, x, y);
   return { ok: false, msg: 'Nothing to demolish' };
 }
 

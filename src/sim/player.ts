@@ -348,12 +348,12 @@ function run(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'base': return addBase(s, gen, c.kind, c.x, c.y, c.f, c.side);
     case 'demolish': return demolish(s, gen, c.x, c.y, c.f, c.side);
     case 'prospect': return prospect(s, gen, c.x, c.y);
-    case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': case 'mface': case 'cput': case 'mcell': case 'mbat': case 'mxf': return machCmd(s, gen, c);
+    case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': case 'mface': case 'cput': case 'mcell': case 'mbat': case 'mxf': case 'mfix': return machCmd(s, gen, c);
     case 'qclaim': case 'open': return questCmd(s, c);
     case 'flag': if ((UI_FLAGS as readonly string[]).includes(c.id)) s.flags[c.id] = (s.flags[c.id] ?? 0) + 1; return { ok: true };
     case 'devpoll': { const k = pollKey(c.x, c.y); s.poll[k] = (s.poll[k] ?? 0) + 2000; return { ok: true, msg: 'Dev: +2000 pollution here' }; }
     case 'devkit': {
-      const kit: [string, number][] = [...registry().items.filter((i) => i.kind === 'structure').reverse().map((i): [string, number] => [i.id, /wall|cover/.test(i.id) ? 64 : /pipe|cable|wire/.test(i.id) ? 16 : 1]),
+      const kit: [string, number][] = [...registry().items.filter((i) => i.kind === 'structure').reverse().map((i): [string, number] => [i.id, /wall|cover|casing|coil/.test(i.id) ? 64 : /pipe|cable|wire/.test(i.id) ? 16 : 1]),
         ['tool:prospector:bronze', 1], ['tool:hammer:stone', 1], ['lump:charcoal', 32], ['log:wood', 16], ['unfired_brick:clay', 8], ['ingot:copper', 6], ['ingot:tin', 2], ['mold_ingot:clay', 1]];
       const gained = kit.map(([id, n]) => ({ id, n: n - give(s, id, n) }));
       return { ok: true, gained };

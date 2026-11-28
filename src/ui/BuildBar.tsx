@@ -23,7 +23,7 @@ interface Props {
 
 export function BuildBar({ act, inv, buildId, onBuildId, rot, onRot, baseKind, onBaseKind, onBook, ch, onCh }: Props) {
   const reg = registry();
-  if (act === 'demolish') return <div class="buildbar"><span class="dim">Tap a structure to pick it up · near an edge removes walls · else roof → light → walls → floor</span></div>;
+  if (act === 'demolish') return <div class="buildbar"><span class="dim">Tap a structure to pick it up · near an edge removes walls · else roof → light → walls → floor · bare contaminated ground: neutralise with quicklime</span></div>;
   if (act === 'base') {
     return (
       <div class="buildbar">

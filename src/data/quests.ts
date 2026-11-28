@@ -15,7 +15,8 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered',
   'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid',
   'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery',
-  'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig'] as const;
+  'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig',
+  'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -575,5 +576,37 @@ export const QUESTS: QuestDef[] = [
       'The **Mining Rig** (LV machine template + 2 motors + steel drill head + steel pipe) is the electric excavator: ore in the **13×13** square below it, from layer 1 down to **layer 24**, hardness ≤ **2**, 1 s per block × (1 + hardness), on 32 W. Nothing under water.',
     ],
     tasks: [build('mining_rig'), flag('rig', 'Mine ore with a rig')] },
+  // ---- LV (P4e): the gate ----
+  { id: 'l_assembly', chapter: 'LV', title: 'Mass Production', req: ['l_assembler', 'l_circuit'], reward: L2,
+    text: [
+      'Hand-soldering every circuit will not scale. The **Assembler** makes **2 basic circuits** per set of parts with no soldering iron, presses copper foil onto resin boards, and doubles vacuum tubes and resistors.',
+      'The EBF alone needs 3 circuits, and every LV machine 2 more. Pipe the parts in and let it run.',
+    ],
+    tasks: [flag('acirc', 'Assemble basic circuits'), have('circuit:basic', 8)] },
+  { id: 'l_hazards', chapter: 'LV', title: 'Contamination', req: ['l_acid'], reward: L1,
+    text: [
+      'Chemistry leaves a mark. A corroded pipe, or **dumping** 100 L or more of a toxic or corrosive fluid, **contaminates** the ground under it (sickly green): nothing can be built there until it is neutralised.',
+      'In **💥 Demolition** mode, tap a bare contaminated tile with **quicklime dust** in your bag (lime kiln: calcite) — 1 dust per tile.',
+      '**Fire:** an explosion or a burned-out cable ignites flammable fluid next to it — hydrogen, creosote, wood tar — and every pipe and tank of it in reach burns too. Keep fuel lines away from boilers and cables.',
+    ],
+    tasks: [flag('clean', 'Neutralise a contaminated tile')] },
+  { id: 'l_ebf', chapter: 'LV', title: 'Electric Blast Furnace', req: ['l_assembly', 'l_transformer'], reward: L2,
+    text: [
+      'The **gate to MV.** The **Electric Blast Furnace** controller (LV hull + 2 electric furnaces + 3 circuits) stands at the front of a 3×3, 4-block stack: a floor and roof of **Heat-Proof Casing** (6 steel plates + steel frame) around two rings of **Cupronickel Coils** (8 cupronickel wire + foil) — 2000 K.',
+      'It takes power only through **LV Energy Hatches** (LV hull + 2 tin cables) and needs a **Maintenance Hatch**; buses and fluid hatches carry items and fluids. Hatches replace casings on the floor or roof, never coils.',
+    ],
+    tasks: [build('ebf'), have('struct:heat_casing', 17), have('struct:cupronickel_coil', 16), have('struct:energy_hatch'), have('struct:maintenance_hatch')] },
+  { id: 'l_maint', chapter: 'LV', title: 'Maintenance', req: ['l_ebf'], reward: L1,
+    text: [
+      'A new multiblock comes with **every issue**: loose bolts (wrench), loose screws (screwdriver), a dented casing (hammer), burnt wiring (soldering iron), frayed cables (wire cutter), burred gears (file). Each costs **10 % speed**.',
+      'Fix them in its panel with the tool in your tool slots. New issues turn up now and then while it works — keep the toolbox handy.',
+    ],
+    tasks: [flag('maint', 'Fix a maintenance issue')] },
+  { id: 'l_ebf_mv', chapter: 'LV', title: 'Two Hatches', req: ['l_maint'], reward: L2,
+    text: [
+      'One LV energy hatch takes **2 A (64 W)** — enough to blow **oxygen** through iron dust into steel. **Two hatches** give **128 W**: MV-level power from LV parts, the gate rule.',
+      'That smelts metals that melt between 1750 K and the coils\' 2000 K: **iron**, **cobalt**, **kanthal** (next tier\'s coils), **titanium**. Each hatch draws 2 A on its own line — one tin cable each, or a copper cable for both.',
+    ],
+    tasks: [flag('ebf', 'Smelt in the EBF'), flag('ebf_mv', 'Run a 128 W recipe on two energy hatches')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

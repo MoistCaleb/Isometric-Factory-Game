@@ -11,6 +11,7 @@ import { registry } from '../content/registry';
 import type { WorldGen } from '../world/gen';
 import { BAG as BAG_N, addFl, controllerAt, explode, flCap, hatchOf, newMach, simEvents, singleTank, type Mach } from './machines';
 import { addPoll } from './pollution';
+import { contaminate } from './hazards';
 import { next } from './rng';
 import { TPS, type GameState } from './state';
 
@@ -61,8 +62,9 @@ export function networks(ents: GameState['ents'], w: number): Net[] {
         if (!ctl) return;
         // Multiblocks with hatches connect only through matching hatches (fluid hatches on fluid pipes, buses on item pipes).
         const h = hatchOf(ne.s), lk = `${ctl}|${face}|${h ?? ''}`;
-        if (h ? h === 'item_in' ? !pd.item : !!pd.item : !!SH.get(ents[ctl].s)) return;
-        if (!links.has(lk)) links.set(lk, { ctl, face, via: cur, hatch: h ? (h === 'fluid_out' ? 'out' : 'in') : undefined });
+        if (h === 'energy' || h === 'maint') return;
+        if (h ? (h === 'item_in' || h === 'item_out') !== !!pd.item : !!SH.get(ents[ctl].s)) return;
+        if (!links.has(lk)) links.set(lk, { ctl, face, via: cur, hatch: h ? (h === 'fluid_out' || h === 'item_out' ? 'out' : 'in') : undefined });
       });
     }
     nets.push({ keys, item: !!pd.item, rate: pd.rate, cap: pd.cap * keys.length, dist: new Map(),
@@ -144,13 +146,14 @@ function want(m: Mach, def: MachineDef, id: string): [number, number, (n: number
 
 /** Corrosion v1 (DESIGN §4, P4b): a corrosive fluid bursts non-acid-proof pipe blocks (checked once a second). */
 function corrode(s: GameState, net: Net, id: string) {
+  // (P4e) the leak contaminates the ground under the burst pipe.
   if (s.tick % TPS || !registry().fluid(id)?.hazards.includes('corrosive')) return;
   for (const k of net.keys) {
     const pd = PIPES.get(s.ents[k]?.s ?? '');
     if (!pd || pd.acid || next(s) >= CORRODE_P) continue;
     const name = STRUCTURES.find((x) => x.id === s.ents[k].s)?.name ?? 'pipe';
     delete s.ents[k]; delete s.pipes[k];
-    addPoll(s, k, LEAK_POLL);
+    addPoll(s, k, LEAK_POLL); contaminate(s, k);
     topoChanged();
     s.flags.corrode = (s.flags.corrode ?? 0) + 1;
     simEvents.push({ ok: false, sim: true, msg: `🧪 A ${name} corroded through — ${registry().fluid(id)?.name} leaked out. Acids need lead pipes.`, ents: { [k]: null } });
@@ -158,7 +161,7 @@ function corrode(s: GameState, net: Net, id: string) {
   }
 }
 
-function stepFluid(s: GameState, net: Net) {
+function stepFluid(s: GameState, net: Net, w: number) {
   let id: string | undefined, n = 0;
   const byId: Record<string, number> = {};
   for (const k of net.keys) { const p = s.pipes[k]; if (p) byId[p.id] = (byId[p.id] ?? 0) + p.n; }
@@ -184,7 +187,7 @@ function stepFluid(s: GameState, net: Net) {
       if (amt < Math.min(net.rate, cap - cur)) short = true;
       if (amt <= 0) continue;
       if (def.run === 'boiler' && m.dry) {
-        if (m.heat > BOOM_K) { explode(s, ctl); continue; }
+        if (m.heat > BOOM_K) { explode(s, w, ctl); continue; }
         m.dry = false;
       }
       set(cur + amt); n -= amt;
@@ -258,7 +261,7 @@ function stepItems(s: GameState, net: Net, w: number) {
 export function stepPipes(s: GameState, gen: WorldGen) {
   const items = s.tick % ITEM_EVERY === 0;
   for (const net of networks(s.ents, gen.w)) {
-    if (!net.item) stepFluid(s, net);
+    if (!net.item) stepFluid(s, net, gen.w);
     else if (items) stepItems(s, net, gen.w);
   }
 }

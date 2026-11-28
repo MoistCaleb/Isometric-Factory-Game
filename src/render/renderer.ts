@@ -13,7 +13,7 @@ import { buildStructs, ghostGeometry } from './structures';
 import { multiCells } from '../data/structures';
 import { buildVeinOverlay, disposeOverlay, knownVeins, mineralName, veinsAtTile, type KnownVein } from './veins';
 import type { Ent } from '../sim/state';
-import { pipeGeometry, pollGeometry, powerGeometry } from './overlays';
+import { hazGeometry, pipeGeometry, pollGeometry, powerGeometry } from './overlays';
 import { findNets, type PNet } from '../sim/power';
 import { HAZE, POLL_CH, SMOG } from '../sim/pollution';
 
@@ -104,6 +104,10 @@ export class Renderer {
   private ovMat = new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.35, depthWrite: false, depthTest: false, side: THREE.DoubleSide });
   private pollIso = new THREE.Mesh(new THREE.BufferGeometry(), this.ovMat);
   private pollMap = new THREE.Mesh(new THREE.BufferGeometry(), this.ovMat);
+  /** Contaminated ground (P4e), always shown in iso. */
+  private hz: Record<string, number> = {};
+  private hzSig = '';
+  private hazMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ color: 0x9adf30, transparent: true, opacity: 0.55, depthWrite: false, polygonOffset: true, polygonOffsetFactor: -2 }));
   private pipeMesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshBasicMaterial({ vertexColors: true, transparent: true, opacity: 0.75, depthWrite: false, depthTest: false }));
   private pipeSig = '';
   /** Power overlay (P4c): cable networks (recomputed when structures change) + load per network from sim stats. */
@@ -168,7 +172,8 @@ export class Renderer {
 
     this.mapScene.background = new THREE.Color(0x0b0f16);
     this.mapScene.add(this.marker, this.veinMap);
-    this.iso.add(this.veinIso, this.pollIso, this.pipeMesh, this.powerMesh);
+    this.iso.add(this.veinIso, this.pollIso, this.pipeMesh, this.powerMesh, this.hazMesh);
+    this.hazMesh.frustumCulled = false;
     this.mapScene.add(this.pollMap);
     for (const o of [this.pollIso, this.pollMap, this.pipeMesh, this.powerMesh]) { o.frustumCulled = false; o.renderOrder = 6; }
     this.globeScene.background = new THREE.Color(0x05070c);
@@ -218,6 +223,15 @@ export class Renderer {
   /** Pollution per chunk from sim stats. */
   setPollution(pl: Record<string, number> = {}) { this.pl = pl; }
   setPowerLoad(pn: Record<string, number> = {}) { this.pn = pn; }
+  setHaz(hz: Record<string, number> = {}) { this.hz = hz; }
+
+  private updateHaz() {
+    const v = this.view, R = Math.max(48, v.zoom * 2.5), cx = Math.round(v.x / 16) * 16, cy = Math.round(v.y / 16) * 16;
+    const sig = `${Object.keys(this.hz).join(';')}|${cx},${cy},${Math.round(R)}`;
+    if (sig === this.hzSig) return;
+    this.hzSig = sig;
+    this.hazMesh.geometry.dispose(); this.hazMesh.geometry = hazGeometry(this.hz, this.p.w, cx, cy, R, 0.03);
+  }
   /** Pollution at the camera's chunk. */
   get pollHere() { return this.pl[`${Math.floor(mod(this.view.x, this.p.w) / POLL_CH)},${Math.floor(this.view.y / POLL_CH)}`] ?? 0; }
 
@@ -543,7 +557,7 @@ export class Renderer {
       this.updateSelected(now);
       this.updateVeins(this.veinIso, Math.max(0, -v.level), Math.min(v.level, 0) + 0.04, 1);
       this.updatePoll(this.pollIso, this.levelY + 0.06, Math.max(64, v.zoom * 3), !!v.poll);
-      this.updatePipes(); this.updatePower();
+      this.updatePipes(); this.updatePower(); this.updateHaz();
       this.grid.visible = v.level > 0;
       if (this.grid.visible) this.grid.position.set(Math.round(v.x), this.levelY, Math.round(v.y));
       this.r.render(this.iso, this.isoCam);

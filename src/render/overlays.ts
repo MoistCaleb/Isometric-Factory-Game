@@ -31,6 +31,20 @@ export function pollGeometry(pl: Record<string, number>, w: number, cx: number, 
   return geo;
 }
 
+/** Contaminated tiles (P4e hazards): one sickly green quad per tile within `R` of the camera, at height `y`. */
+export function hazGeometry(hz: Record<string, number>, w: number, cx: number, cy: number, R: number, y: number): THREE.BufferGeometry {
+  const pos: number[] = [];
+  for (const k of Object.keys(hz)) {
+    const [kx, ky] = k.split(',').map(Number), x0 = cx + mod(kx - cx + w / 2, w) - w / 2, z0 = ky;
+    if (Math.abs(x0 - cx) > R || Math.abs(z0 - cy) > R) continue;
+    const x1 = x0 + 1, z1 = z0 + 1, g = 0.06;
+    pos.push(x0 + g, y, z0 + g, x0 + g, y, z1 - g, x1 - g, y, z1 - g, x0 + g, y, z0 + g, x1 - g, y, z1 - g, x1 - g, y, z0 + g);
+  }
+  const geo = new THREE.BufferGeometry();
+  geo.setAttribute('position', new THREE.Float32BufferAttribute(pos, 3));
+  return geo;
+}
+
 const BOX = new THREE.BoxGeometry(0.42, 0.42, 0.42);
 const FLUID = new THREE.Color(0x40a8ff), ITEM = new THREE.Color(0xffa040), POWER = new THREE.Color(0xf0e040);
 

@@ -39,6 +39,8 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
     }
     return { ...s, version: 12 };
   },
+  // P4e: contaminated tiles.
+  12: (s) => ({ ...s, version: 13, haz: {} }),
 };
 
 export function migrate(raw: Raw): GameState {

@@ -5,13 +5,13 @@ import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMP_IN, BOIL_K, CELL_FLUIDS, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
-  THUMP_TICKS, BATT, BATT_FULL, BATT_J, BATT_W, XFMR_W, xfFront, WIND_FULL_B, LAKE_FLOW } from '../data/machines';
+  THUMP_TICKS, BATT, BATT_FULL, BATT_J, BATT_W, XFMR_W, xfFront, WIND_FULL_B, LAKE_FLOW, HATCH_W, MAINT, MAINT_LOSS } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import { bufJ, inputW } from '../sim/power';
 import { fmtJ, fmtW } from './format';
 import type { MachView } from '../sim/client';
-import { MS, MS_TEXT, flCap, type MachCmd } from '../sim/machines';
+import { MS, MS_TEXT, flCap, issues, type MachCmd } from '../sim/machines';
 import { slotsUsed } from '../sim/pipes';
 import { count, type Cmd, type Inv } from '../sim/player';
 import type { Ent } from '../sim/state';
@@ -51,7 +51,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow, MS.coils, MS.hatchW].includes(m.st as 2);
   const meter = (label: string, n: number, cap: number, col: string) => (
     <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
       <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
@@ -115,11 +115,26 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
       {(def.run === 'elec' || def.run === 'gen' || def.run === 'batt' || def.run === 'xfmr' || def.elec) && (
         <>
           <h3>Power</h3>
-          {(def.run === 'elec' || def.elec) && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / bufJ(def)) * 100)}%`, background: '#f0d040' }} /></div>
-            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def))} = {TIER_VOLTAGE[def.tier]} V × {AMP_IN} A){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div></>}
+          {(def.run === 'elec' || def.elec) && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / Math.max(1, bufJ(def, m))) * 100)}%`, background: '#f0d040' }} /></div>
+            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def, m))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def, m))} = {def.coilK ? `${m.eh ?? 0} energy hatch${m.eh === 1 ? '' : 'es'} × ${fmtW(HATCH_W)}` : `${TIER_VOLTAGE[def.tier]} V × ${AMP_IN} A`}){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div></>}
           {def.run === 'gen' && <div class="dim">Out {fmtW(m.pw ?? 0)} of {fmtW(def.gen ?? 0)} at {TIER_VOLTAGE[def.tier]} V{def.steam ? ` · uses up to ${def.steam} L/tick of steam, only as much as the cables draw` : ''}</div>}
           {view!.pw ? <div class="dim">Network: {view!.pw.v} V · {fmtW(view!.pw.w)} delivered of {fmtW(view!.pw.cap)} available · {view!.pw.a.toFixed(2)} A / {view!.pw.maxA} A max · cable loss {fmtW(view!.pw.loss)} · {view!.pw.cables} cable blocks</div>
-            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} Place tin cable touching it.</div>}
+            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} {def.coilK ? 'Cable its LV energy hatches to generators.' : 'Place tin cable touching it.'}</div>}
+        </>
+      )}
+      {def.coilK && (
+        <>
+          <h3>Blast furnace</h3>
+          <div class="dim">Cupronickel coils: {def.coilK} K{r?.minHeatK ? ` · recipe needs ${r.minHeatK} K` : ''}. Each LV energy hatch takes 2 A ({fmtW(HATCH_W)}) on its own line; two give {fmtW(2 * HATCH_W)}, enough for MV-level recipes.{def.smoke ? ` Smoke ${def.smoke}/s while working.` : ''}</div>
+        </>
+      )}
+      {def.maint && (
+        <>
+          <h3>Maintenance</h3>
+          {issues(m) ? <>
+            <div class="dim">{issues(m)} issue{issues(m) === 1 ? '' : 's'}: −{Math.round(issues(m) * MAINT_LOSS * 100)} % speed. Fix each with its tool from your tool slots.</div>
+            <div class="row">{MAINT.map(([tool, what], i) => ((m.mt ?? 0) >> i) & 1 ? <button key={i} disabled={!inv.tools.some((t) => t?.id.startsWith(`tool:${tool}:`))} onClick={() => cmd({ k: 'mfix', i })}>{what} ({tool.replace('_', ' ')})</button> : null)}</div>
+          </> : <div class="dim">All good. New issues turn up now and then while it works.</div>}
         </>
       )}
       {def.burns && (

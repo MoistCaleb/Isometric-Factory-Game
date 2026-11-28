@@ -40,7 +40,7 @@ let lastView: View | null = null, lastPaused: boolean | null = null;
 
 /** Alerts (DESIGN §8): machines stuck in a bad status for ALERT_MS, plus explosions. Tap one to fly there. */
 export interface Alert { key: string; st: number; msg: string; t: number; boom?: boolean }
-const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower, MS.noFlow];
+const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower, MS.noFlow, MS.coils, MS.hatchW];
 const ALERT_MS = 3000;
 /** First time each machine was seen in its current bad status (`key` → [status, ms]). */
 const badSince = new Map<string, [number, number]>();
@@ -91,7 +91,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   };
   useEffect(() => {
     game.sim.onStats = (st) => {
-      setStats(st); renderer.setStatuses(st.ms); renderer.setPollution(st.pl); renderer.setPowerLoad(st.pn);
+      setStats(st); renderer.setStatuses(st.ms); renderer.setPollution(st.pl); renderer.setPowerLoad(st.pn); renderer.setHaz(st.hz);
       const now = performance.now(), list: Alert[] = [];
       for (const [k, s] of Object.entries(st.ms ?? {})) {
         const ma = machineAt(renderer.entities, k);

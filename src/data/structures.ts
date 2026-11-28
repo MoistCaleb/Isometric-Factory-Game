@@ -13,9 +13,9 @@ export interface StructDef {
   /** Multiblock controller (DESIGN §5): casing on the pattern tiles (`parts[i-1]` where a cell names part i), rotated with
    * the controller. `hatches` may replace any outer casing (P3d); `need` = hatches it can't run without. With hatches,
    * pipes connect only through them. */
-  multi?: { casing: string; pattern: PatternId; parts?: string[]; hatches?: string[]; need?: string[] };
-  /** Hatch (P3d): fluid in / fluid out / item in, for a multiblock that lists it. */
-  hatch?: 'fluid_in' | 'fluid_out' | 'item_in';
+  multi?: { casing: string; pattern: PatternId; parts?: string[]; hatches?: string[]; need?: string[]; /** Part numbers no hatch may replace (coils). */ solid?: number[] };
+  /** Hatch (P3d): fluid in / fluid out / item in, for a multiblock that lists it · item out, energy, maintenance (P4e). */
+  hatch?: 'fluid_in' | 'fluid_out' | 'item_in' | 'item_out' | 'energy' | 'maint';
   /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
    * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
   pipe?: { rate: number; cap: number; item?: boolean; /** Acid-proof (P4b corrosion). */ acid?: boolean };
@@ -49,6 +49,13 @@ export const PATTERNS = {
     ],
     hollow: [],
   },
+  /** Electric blast furnace (P4e): controller at the front of a 3×3×4 stack behind it — casing floor and roof, two rings of
+   * coils (part 1) around a hollow core. */
+  ebf: {
+    cells: [0, 3].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => [dx, dy, b]))).filter(([dx, dy, b]) => dx || dy || b)
+      .concat([1, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, b, 1])))),
+    hollow: [[0, -1, 1], [0, -1, 2]],
+  },
 } satisfies Record<string, Pattern>;
 export type PatternId = keyof typeof PATTERNS;
 /** Structures that belong to multiblocks (controllers + casings) — rendered full height whatever the view level. */
@@ -63,6 +70,7 @@ export function rotCell([dx, dy, db]: Cell, r: number): [number, number, number]
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
 const LEAD = 0x5c5a78, TIN = 0xc8ccd0, HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
 const LVC = 0x8a8e94, VOLT = 0xf0d040, CABLE = 0x3a3a40, CABLE_CU = 0x4a3a34, COPPER = 0xd87a3c, GLASS = 0xb8d8e0;
+const HEAT = 0x8a6a50, CUNI = 0xc49a6c;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
 export const STRUCTURES: StructDef[] = [
@@ -258,6 +266,22 @@ function lvMachines(): StructDef[] {
       [[1, 4, 1, 15, 12, 15, LVC], [0, 0, 5, 16, 6, 11, STEEL], [0, 1, 6, 16, 4, 10, WATER], [6, 7, 0, 10, 10, 1, VOLT]]),
     row('scanner', 'Scanner', [['wire:copper', 8], ['lens:glass', 1]],
       [[4, 12, 4, 12, 13, 12, COPPER], [7, 13, 7, 9, 16, 9, STEEL], [5, 15, 5, 11, 16, 11, 0x40a0c0]]),
+    // P4e gate: Electric Blast Furnace + its casings and hatches.
+    { id: 'ebf', name: 'Electric Blast Furnace', color: HEAT, machine: 'ebf', tools: ['wrench'],
+      cost: [['hull:lv', 1], ['struct:electric_furnace', 2], ['circuit:basic', 3], ['cable:tin', 2]],
+      multi: { casing: 'heat_casing', pattern: 'ebf', parts: ['cupronickel_coil'], solid: [1],
+        hatches: ['energy_hatch', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
+      model: [[0, 0, 0, 16, 16, 16, HEAT], [3, 3, 15, 13, 11, 16, SOOT], [4, 4, 15, 12, 9, 16, GLOW], [6, 12, 15, 10, 14, 16, VOLT]] },
+    { id: 'heat_casing', name: 'Heat-Proof Casing', color: HEAT, cost: [['plate:steel', 6], ['frame:steel', 1]], tools: ['hammer', 'wrench'],
+      model: [[0, 0, 0, 16, 16, 16, HEAT], [0, 0, 0, 16, 2, 16, STEEL], [0, 14, 0, 16, 16, 16, STEEL], [2, 6, 0, 14, 10, 16, 0x9a8a70]] },
+    { id: 'cupronickel_coil', name: 'Cupronickel Coil', color: CUNI, cost: [['wire:cupronickel', 8], ['foil:cupronickel', 1]], tools: ['wire_cutter'],
+      model: [[0, 0, 0, 16, 16, 16, 0x5a4a3a], ...[1, 4, 7, 10, 13].map((y): Box => [0, y, 0, 16, y + 2, 16, CUNI])] },
+    { id: 'energy_hatch', name: 'LV Energy Hatch', color: VOLT, hatch: 'energy', cost: [['hull:lv', 1], ['cable:tin', 2]], tools: ['wrench'],
+      model: [[0, 0, 0, 16, 16, 16, LVC], [3, 3, 0, 13, 13, 16, CABLE], [5, 5, 0, 11, 11, 16, VOLT]] },
+    { id: 'maintenance_hatch', name: 'Maintenance Hatch', color: 0x4080c0, hatch: 'maint', cost: [['hull:lv', 1], ['plate:steel', 2], ['screw:steel', 4]], tools: ['screwdriver'],
+      model: [[0, 0, 0, 16, 16, 16, LVC], [3, 3, 0, 13, 13, 16, 0x4080c0], [6, 6, 0, 10, 10, 16, 0xd0d0d0]] },
+    { id: 'output_bus', name: 'Steel Output Bus', color: STEEL, hatch: 'item_out', cost: [['plate:steel', 4], ['struct:chest', 1]], tools: ['wrench'],
+      model: [[0, 0, 0, 16, 16, 16, STEEL], [3, 3, 0, 13, 13, 16, 0xe0a040], [5, 5, 0, 11, 11, 16, DARK]] },
     row('mining_rig', 'Mining Rig', [['motor:lv', 2], ['head_drill:steel', 1], ['pipe:steel', 1]],
       [[3, 12, 3, 13, 14, 13, STEEL], [7, 14, 7, 9, 16, 9, 0xd0a030], [0, 0, 0, 3, 3, 16, STEEL], [13, 0, 0, 16, 3, 16, STEEL]]),
   ];
@@ -289,6 +313,6 @@ export function multiCells(st: StructDef, r: number): MultiCell[] {
   has.add('0,0,0');
   return p.cells.map((c) => {
     const outer = [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !has.has(`${c[0] + dx},${c[1] + dy},${c[2]}`));
-    return { c: rotCell(c, r), id: c[3] ? m.parts![c[3] - 1] : m.casing, hatch: !!m.hatches && outer };
+    return { c: rotCell(c, r), id: c[3] ? m.parts![c[3] - 1] : m.casing, hatch: !!m.hatches && outer && !m.solid?.includes(c[3] ?? 0) };
   });
 }

@@ -4,7 +4,7 @@
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMBIENT_K, BOIL_K, BOILER_RATE, BOILER_WATER, CELL_FLUIDS, CELL_L, DUMP_POLL, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
-  BATT, BATT_FULL, BATT_J, LAKE_FLOW, WIND_FULL_B, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
+  BATT, BATT_FULL, BATT_J, LAKE_FLOW, WIND_FULL_B, DUMP_HAZ, HATCH_W, MAINT, MAINT_LOSS, MAINT_P, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
 import { PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
@@ -18,6 +18,7 @@ import { KNOW, STOREY, TPS, type GameState } from './state';
 import { know, survey } from './veins';
 import { sunlight } from './weather';
 import { addPoll, smoggy } from './pollution';
+import { contaminate, ignite } from './hazards';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -45,22 +46,26 @@ export interface Mach {
   e?: number; pw?: number;
   /** Transformer (P4c): step-up (low faces in → front out at MV); default step-down. */
   up?: boolean;
+  /** Multiblocks with maintenance (P4e): open issues, bit i = MAINT[i] · energy hatches counted last tick. */
+  mt?: number; eh?: number;
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19, coils: 20, hatchW: 21 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
-  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some', 'No wind', 'Needs a river or lake next to it'];
+  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some', 'No wind', 'Needs a river or lake next to it',
+  'Coils not hot enough for this recipe', 'Needs more energy hatches for this recipe'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
 
 /** Boiler explosion (DESIGN §6): the machine and everything in it is lost. */
-export function explode(s: GameState, key: string) {
+export function explode(s: GameState, w: number, key: string) {
   delete s.ents[key]; delete s.mach[key];
   topoChanged();
   simEvents.push({ ok: false, sim: true, msg: '💥 A boiler exploded — water hit it while dry and hot!', ents: { [key]: null } });
+  ignite(s, w, key);
 }
 /** Input bag cap per item. */
 export const BAG = 256; // 4 stacks (literal: player.ts ↔ machines.ts import cycle)
@@ -111,25 +116,28 @@ export interface MultiCheck {
   blocked: string[];
   /** Required hatches not present (structure ids). */
   need: string[];
+  /** Hatches in place by structure id (P4e: energy hatches). */
+  has: Record<string, number>;
 }
-const NO_MULTI: MultiCheck = { miss: [], blocked: [], need: [] };
+const NO_MULTI: MultiCheck = { miss: [], blocked: [], need: [], has: {} };
 /** Multiblock check (rotated with the controller); hatches count as casings on outer tiles. */
 export function multiCheck(ents: GameState['ents'], w: number, key: string): MultiCheck {
   const ctl = ents[key], st = STRUCT.get(ctl?.s ?? ''), m = st?.multi;
   if (!m) return NO_MULTI;
-  const [x, y, f] = parse(key), miss: [string, string][] = [], hatches = new Set<string>();
+  const [x, y, f] = parse(key), miss: [string, string][] = [], has: Record<string, number> = {};
   // Bottom-up, outer before centre, so auto-fill always has support.
   const cells = multiCells(st, ctl.r).sort((a, b) => a.c[2] - b.c[2] || Math.abs(b.c[0]) + Math.abs(b.c[1]) - Math.abs(a.c[0]) - Math.abs(a.c[1]));
   for (const { c, id, hatch } of cells) {
     const k = cellKey(w, x, y, f, c), s = ents[k]?.s;
     if (s === id) continue;
-    if (hatch && s && m.hatches!.includes(s)) { hatches.add(s); continue; }
+    if (hatch && s && m.hatches!.includes(s)) { has[s] = (has[s] ?? 0) + 1; continue; }
     miss.push([k, id]);
   }
   return {
     miss,
     blocked: PATTERNS_HOLLOW(st).map((c) => cellKey(w, x, y, f, rotCell(c, ctl.r))).filter((k) => ents[k]),
-    need: (m.need ?? []).filter((h) => !hatches.has(h)),
+    need: (m.need ?? []).filter((h) => !has[h]),
+    has,
   };
 }
 const PATTERNS_HOLLOW = (st: StructDef) => PATTERNS[st.multi!.pattern].hollow as Cell[];
@@ -200,7 +208,11 @@ function hasRoom(m: Mach, r: Recipe, def: MachineDef): boolean {
 /** Why the machine can't progress right now (null = ready). Doesn't touch fuel/heat. */
 function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef, r?: Recipe): number | null {
   if (!r) return MS.idle;
-  if (incomplete(multiCheck(s.ents, gen.w, key))) return MS.incomplete;
+  const mc = multiCheck(s.ents, gen.w, key);
+  if (def.coilK) m.eh = mc.has.energy_hatch ?? 0;
+  if (incomplete(mc)) return MS.incomplete;
+  if (def.coilK && (r.minHeatK ?? 0) > def.coilK) return MS.coils;
+  if (def.coilK && r.power > (m.eh ?? 0) * HATCH_W) return MS.hatchW;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
   if (!hasInputs(m, r)) return MS.noInput;
   if (!hasRoom(m, r, def)) return MS.full;
@@ -225,6 +237,8 @@ function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
     addFl(m, f.id, f.n);
     if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
+  const fl = def.id === 'ebf' ? (r.power > HATCH_W ? ['ebf', 'ebf_mv'] : ['ebf']) : def.id === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc'] : [];
+  for (const f of fl) s.flags[f] = (s.flags[f] ?? 0) + 1;
   m.prog = 0;
 }
 
@@ -257,6 +271,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     }
     if (def.run === 'thump') { stepThumper(s, gen, key, m, def); continue; }
     if (def.run === 'dig') { stepDig(s, gen, key, m, def); continue; }
+    if (def.maint && m.mt === undefined) m.mt = (1 << MAINT.length) - 1; // a new multiblock has every issue
     const b = blocker(s, gen, key, m, def, r);
     if (def.run === 'fuel') {
       if (b === null && m.burn <= 0) {
@@ -285,10 +300,18 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       s.flags.powered = (s.flags.powered ?? 0) + 1;
     }
     m.st = MS.working;
+    if (def.smoke && def.run === 'elec' && s.tick % TPS === 0) addPoll(s, key, def.smoke);
     if (s.tick % 4 === 0 && smoggy(s, key)) continue; // smog: −25 % speed
+    if (def.maint) {
+      if (s.tick % TPS === 0 && next(s) < MAINT_P) m.mt = (m.mt ?? 0) | (1 << Math.floor(next(s) * MAINT.length));
+      if ((s.tick % 10) / 10 < issues(m) * MAINT_LOSS) continue; // −10 % speed per open issue
+    }
     if (++m.prog >= r!.ticks) finish(s, m, r!, def);
   }
 }
+
+/** Open maintenance issues (P4e). */
+export const issues = (m: Mach) => { let n = 0; for (let b = m.mt ?? 0; b; b >>= 1) n += b & 1; return n; };
 
 /** Draw a recipe-less machine's steam for this tick (true if it had enough, or needs none). */
 function useSteam(m: Mach, def: MachineDef): boolean {
@@ -398,6 +421,8 @@ export type MachCmd =
   | { k: 'mbat'; key: string; put?: string }
   /** Transformer: toggle step-up / step-down. */
   | { k: 'mxf'; key: string }
+  /** Maintenance (P4e): fix issue i with its tool. */
+  | { k: 'mfix'; key: string; i: number }
   | { k: 'crank'; key: string }
   | { k: 'mfill'; key: string }
   | { k: 'mface'; key: string; face: number; mode: number }
@@ -501,6 +526,10 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       }
       if (m.tank) m.tank = undefined;
       if (poll) addPoll(s, c.key, poll);
+      if (dumped.some(([id, n]) => n >= DUMP_HAZ && registry().fluid(id)?.hazards.some((h) => h === 'toxic' || h === 'corrosive'))) {
+        contaminate(s, c.key);
+        return { ok: true, msg: `Dumped — pollution +${Math.round(poll)}, the ground here is contaminated` };
+      }
       return { ok: true, msg: poll ? `Dumped — pollution +${Math.round(poll)}` : 'Tank emptied' };
     }
     case 'mcell': return cellCmd(s, m, def, c.id, !!c.fill);
@@ -528,6 +557,15 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
       if (def.run !== 'xfmr') return { ok: false, msg: 'Not a transformer' };
       m.up = !m.up || undefined; m.e = 0;
       return { ok: true, msg: m.up ? 'Step-up: low sides in → front out at 128 V' : 'Step-down: front in at 128 V → low sides out' };
+    }
+    case 'mfix': {
+      if (!def.maint || !((m.mt ?? 0) >> c.i & 1)) return { ok: false, msg: 'Nothing to fix' };
+      if (!multiCheck(s.ents, gen.w, c.key).has.maintenance_hatch) return { ok: false, msg: 'Needs a maintenance hatch' };
+      const [tool, what] = MAINT[c.i], t = bestTool(s, tool);
+      if (!t) return { ok: false, msg: `${what}: needs a ${tool.replace('_', ' ')} in your tool slots` };
+      m.mt! &= ~(1 << c.i);
+      s.flags.maint = (s.flags.maint ?? 0) + 1;
+      return { ok: true, msg: wear(s, t.i) ?? `Fixed: ${what}` };
     }
     case 'crank': {
       if (def.run !== 'crank') return { ok: false };

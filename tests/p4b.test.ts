@@ -6,7 +6,7 @@ import { migrate } from '../src/save/migrations';
 import { MS, simEvents } from '../src/sim/machines';
 import { networks } from '../src/sim/pipes';
 import { apply, count, give } from '../src/sim/player';
-import { newGame, type GameState } from '../src/sim/state';
+import { STATE_VERSION, newGame, type GameState } from '../src/sim/state';
 import { step } from '../src/sim/step';
 import { Water, worldGen } from '../src/world/gen';
 
@@ -130,7 +130,7 @@ describe('P4b chemistry', () => {
     raw.ents = { '0,0,0': { s: 'coke_oven', r: 0 }, '2,0,0': { s: 'barrel', r: 0 } };
     raw.mach = { '0,0,0': { ...m(), tank: { id: 'creosote', n: 5 } }, '2,0,0': { ...m(), tank: { id: 'water', n: 7 } } };
     const s = migrate(raw);
-    expect(s.version).toBe(12);
+    expect(s.version).toBe(STATE_VERSION);
     expect(s.mach['0,0,0'].fl).toEqual({ creosote: 5 });
     expect(s.mach['0,0,0'].tank).toBeUndefined();
     expect(s.mach['2,0,0'].tank).toEqual({ id: 'water', n: 7 });

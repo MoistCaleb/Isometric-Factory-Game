@@ -412,6 +412,9 @@ function lv(hand: Ctx['hand'], mach: Ctx['mach']) {
   const circ = [s('circuit_board:basic'), s('vacuum_tube', 2), s('resistor:carbon', 2), s('wire:solder')];
   hand(circ, [s('circuit:basic')], ['soldering_iron']);
   mach('assembler', circ, [s('circuit:basic', 2)], { ticks: 200 });
+  mach('assembler', [s('board:resin'), s('foil:copper', 2)], [s('circuit_board:basic')], { ticks: 100, power: 16 });
+  // P4e: the EBF blows oxygen through iron dust → steel, on one energy hatch.
+  mach('ebf', [s('dust:iron')], [s('ingot:steel')], { fluidsIn: [s('oxygen', 1000)], minHeatK: 1000, ticks: 300, power: 60 });
   // Parts.
   const part = (inputs: Stack[], out: string) => { hand(inputs, [s(out)], W); mach('assembler', inputs, [s(out)], { ticks: 200 }); };
   part([s('cable:tin', 2), s('fine_wire:copper', 4), s('rod:iron', 2), s('magnetic_rod:iron')], 'motor:lv');

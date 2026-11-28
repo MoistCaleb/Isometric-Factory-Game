@@ -10,7 +10,7 @@ const STRUCT = new Map(STRUCTURES.map((s) => [s.id, s]));
 const TOP = new Map(STRUCTURES.map((s) => [s.id, Math.max(...s.model.map((b) => b[4])) / 16]));
 /** Status icon colour by machine status (sim/machines MS): idle none · working · no input · full · cold · incomplete · no water ·
  * crank · no fuel · no steam · dry · no water in · surveyed · mined out · no sun. */
-const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040, 0xe8c040, 0xff2020, 0xe8c040, 0x40a0ff, 0xe04030, 0xe8c040, 0xe8c040, 0x40a0ff];
+const MS_COL = [0, 0x40d040, 0xe8c040, 0xe04030, 0xe8c040, 0xe04030, 0xe04030, 0x40a0ff, 0xe8c040, 0xe8c040, 0xff2020, 0xe8c040, 0x40a0ff, 0xe04030, 0xe8c040, 0xe8c040, 0x40a0ff, 0xe8c040, 0xe8c040, 0xe04030, 0xe8c040, 0xe8c040];
 const COLOR = new Map(STRUCTURES.map((s) => [s.id, s.color]));
 /** Pipe arms toward the 6 neighbours: [dx, dy(row), db, box in 16ths]. */
 const ARMS: [number, number, number, Box][] = [

@@ -1,5 +1,6 @@
 // Machine ids referenced by recipes. Full machine defs (parts, faces, power) arrive P2–P4.
 import type { TierId } from './tiers';
+import type { ToolType } from './forms';
 
 /**
  * Run modes: `fuel` burns fuel items for heat · `self` burns its own charge (no fuel) · `crank` advances only when the
@@ -40,6 +41,8 @@ export interface MachineDef {
   /** Surveyors (P4d, `thump`): [reach tiles, deepest layer, ticks] (default thumper) · diggers (`dig`): [square radius, deepest
    * layer, max hardness, ticks per block × (1 + H)] (default excavator). */
   survey?: [number, number, number]; dig?: [number, number, number, number];
+  /** EBF (P4e): coil temperature (K) · multiblock takes maintenance (MAINT issues). Power comes in through energy hatches. */
+  coilK?: number; maint?: boolean;
 }
 
 /** Liquid generator fuels (P4d): J per litre. Creosote: a coke oven's 250 L ≈ a coal lump through a boiler + turbine. */
@@ -79,7 +82,7 @@ const ROWS: Row[] = [
   // P4a: electric (run 'elec' unless noted).
   ['steam_turbine', 'Steam Turbine', 'LV', undefined, { run: 'gen', gen: 32, steam: 16 }],
   ['electric_furnace', 'Electric Furnace', 'LV', 1750, { run: 'elec' }],
-  ['ebf', 'Electric Blast Furnace', 'LV', 4200],
+  ['ebf', 'Electric Blast Furnace', 'LV', 4200, { run: 'elec', coilK: 2000, maint: true, tank: 16000, smoke: 2 }],
   ['macerator', 'Macerator', 'LV', undefined, { run: 'elec' }],
   ['ore_washer', 'Ore Washer', 'LV', undefined, { run: 'elec', tank: 8000 }],
   ['thermal_centrifuge', 'Thermal Centrifuge', 'LV', undefined, { run: 'elec', tank: 4000 }],
@@ -143,6 +146,12 @@ export const BATT_J = 36000, BATT_W = 32, XFMR_W = 128;
 /** P4d: wind turbine reaches full output at this block level (lower = less) · water turbine output next to a lake (river = 1,
  * more in rain) · electric tools: J per use (drill/chainsaw block, scanner survey), handheld scanner reach + depth. */
 export const WIND_FULL_B = 12, LAKE_FLOW = 0.35, ETOOL_J = 200, SCAN_J = 4000, SCAN_R = 32, SCAN_DEPTH = 16;
+/** Gate (P4e): an LV energy hatch takes 2 A (64 W) — two give a multiblock 128 W, MV-level power · maintenance: speed lost per
+ * issue, chance of a new issue per working second, issues (tool that fixes it, text); a new multiblock has all of them ·
+ * hazards: litres of a toxic/corrosive fluid dumped that contaminate the tile, pollution per fire. */
+export const HATCH_W = 64, MAINT_LOSS = 0.1, MAINT_P = 1 / 1800, DUMP_HAZ = 100, FIRE_POLL = 200;
+export const MAINT: [tool: ToolType, text: string][] = [['wrench', 'Loose bolts'], ['screwdriver', 'Loose screws'], ['hammer', 'Dented casing'],
+  ['soldering_iron', 'Burnt wiring'], ['wire_cutter', 'Frayed cables'], ['file', 'Burred gears']];
 export const BATT = 'battery:lead_acid', BATT_FULL = 'charged_battery:lead_acid';
 /** Transformer high (MV) side: the controller's front face (rot 0 south → west → north → east), as a SIDES index. */
 export const xfFront = (r: number) => [2, 1, 3, 0][r & 3];
