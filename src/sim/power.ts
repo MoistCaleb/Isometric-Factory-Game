@@ -2,7 +2,7 @@
 // touching it link on every side not set Off. Each tick: consumers ask to top up their buffer, every request grows by the
 // cable loss to the nearest generator, generators share the total pro rata. Too much current burns the weakest block (a fuse
 // first); a cable or machine rated below the network voltage burns / explodes.
-import { AMP_IN, BATT_J, BATT_W, BUF_S, FACE, HATCH_W, MACHINE, XFMR_W, xfFront, type MachineDef } from '../data/machines';
+import { AMP_IN, BUF_S, FACE, MACHINE, XFMR_W, battOf, hatchW, xfFront, type MachineDef } from '../data/machines';
 import { CABLES, STRUCTURES, conduitsJoin, sideOpen } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import type { WorldGen } from '../world/gen';
@@ -21,6 +21,7 @@ export const powerInfo = new Map<string, PowerInfo>();
 export const netLoad: Record<string, number> = {};
 
 const SM = new Map(STRUCTURES.map((st) => [st.id, st.machine ?? '']));
+const HATCH_T = new Map(STRUCTURES.filter((st) => st.hatch === 'energy').map((st) => [st.id, st.tier ?? 'LV']));
 const HATCHED = new Set(STRUCTURES.filter((st) => st.multi?.hatches).map((st) => st.id));
 const DIRS = [[1, 0, 0], [-1, 0, 0], [0, 1, 0], [0, -1, 0], [0, 0, 1], [0, 0, -1]];
 const mod = (a: number, n: number) => ((a % n) + n) % n;
@@ -28,8 +29,8 @@ const cache = new WeakMap<object, { v: number; w: number; nets: PNet[] }>();
 const defOf = (s: GameState, ctl: string): MachineDef | undefined => MACHINE.get(SM.get(s.ents[ctl]?.s ?? '') ?? '');
 const electric = (d?: MachineDef) => d?.run === 'elec' || d?.run === 'gen' || d?.run === 'batt' || d?.run === 'xfmr' || !!d?.elec;
 
-/** Machine input (W) and buffer (J); a multiblock with energy hatches (P4e) takes HATCH_W per hatch. */
-export const inputW = (d: MachineDef, m?: Mach) => (d.ehatch ? (m?.eh ?? 0) * HATCH_W : TIER_VOLTAGE[d.tier] * AMP_IN);
+/** Machine input (W) and buffer (J); a multiblock with energy hatches (P4e) takes 2 A at each hatch's tier (P5b). */
+export const inputW = (d: MachineDef, m?: Mach) => (d.ehatch ? m?.ehw ?? 0 : TIER_VOLTAGE[d.tier] * AMP_IN);
 export const bufJ = (d: MachineDef, m?: Mach) => inputW(d, m) * BUF_S;
 
 /** A live cable block (a tripped / switched-off breaker conducts nothing). */
@@ -92,7 +93,7 @@ function burn(s: GameState, w: number, key: string, msg: string) {
 }
 
 /** Generators whose first output sets a quest flag (P4d). */
-const GEN_FLAGS = new Set(['combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine']);
+const GEN_FLAGS = new Set(['combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'steam_turbine_mv', 'combustion_generator_mv']);
 
 const HV = TIER_VOLTAGE.MV, LV = TIER_VOLTAGE.LV;
 
@@ -115,14 +116,14 @@ export function stepPower(s: GameState, gen: WorldGen) {
         if (!side.has(l.ctl)) side.set(l.ctl, { ctl: l.ctl, m, d: d!, via: l.via, v: high ? HV : LV });
         continue;
       }
-      if (l.hatch) { if (!done.has(l.hatch)) { done.add(l.hatch); users.push({ ctl: l.ctl, m, d: d!, via: l.via, v: LV, hatch: l.hatch }); } continue; }
+      if (l.hatch) { if (!done.has(l.hatch)) { done.add(l.hatch); users.push({ ctl: l.ctl, m, d: d!, via: l.via, v: TIER_VOLTAGE[HATCH_T.get(s.ents[l.hatch].s) ?? 'LV'], hatch: l.hatch }); } continue; }
       if (done.has(l.ctl)) continue;
       done.add(l.ctl);
       const n: Node = { ctl: l.ctl, m, d: d!, via: l.via, v: TIER_VOLTAGE[d!.tier] };
       (d!.run === 'gen' ? gens : d!.run === 'batt' ? bats : users).push(n);
     }
     for (const k of xin.keys()) xout.delete(k); // both sides on one network: no loop
-    const ins = [...xin.values()], outs = [...xout.values()], charged = bats.filter((b) => battN(b.m) > 0);
+    const ins = [...xin.values()], outs = [...xout.values()], charged = bats.filter((b) => battN(b.m, b.d) > 0);
     for (const x of [...gens, ...users, ...bats, ...outs]) zero(x.m);
     const srcs = [...gens, ...outs, ...charged];
     if (!srcs.length) { netLoad[net.id] = -1; continue; }
@@ -143,19 +144,20 @@ export function stepPower(s: GameState, gen: WorldGen) {
     const drop = net.keys.reduce((a, k) => a + CABLES.get(s.ents[k].s)!.drop, 0) / net.keys.length;
     const lossF = (via: string) => 1 + (drop * (dist.get(via) ?? 1)) / v;
     const xAvail = (x: Node) => Math.min(x.m.e ?? 0, XFMR_W / TPS);
-    const bAvail = (b: Node) => Math.min(b.m.e ?? 0, (battN(b.m) * BATT_W) / TPS);
+    const bW = (b: Node) => battN(b.m, b.d) * TIER_VOLTAGE[b.d.tier]; // 1 A per battery
+    const bAvail = (b: Node) => Math.min(b.m.e ?? 0, bW(b) / TPS);
     for (const g of gens) g.g = genW(s, gen, g.ctl, g.m, g.d) / TPS;
     const G = gens.reduce((a, g) => a + g.g!, 0) + outs.reduce((a, x) => a + xAvail(x), 0);
     const B = charged.reduce((a, b) => a + bAvail(b), 0);
-    // An energy hatch draws at most HATCH_W from its line, losses included (2 A on a tin cable), sharing its multiblock's buffer.
-    const want = (u: Node) => u.hatch ? Math.max(0, Math.min(HATCH_W / TPS / lossF(u.via), (bufJ(u.d, u.m) - (u.m.e ?? 0)) / Math.max(1, u.m.eh ?? 1)))
+    // An energy hatch draws at most 2 A at its tier from its line, losses included (LV: 64 W, a tin cable), sharing its multiblock's buffer.
+    const want = (u: Node) => u.hatch ? Math.max(0, Math.min(hatchW(HATCH_T.get(s.ents[u.hatch].s) ?? 'LV') / TPS / lossF(u.via), (bufJ(u.d, u.m) - (u.m.e ?? 0)) / Math.max(1, u.m.eh ?? 1)))
       : Math.max(0, Math.min(inputW(u.d) / TPS, bufJ(u.d) - (u.m.e ?? 0)));
     const reqs = [...users.map((u) => ({ u, want: want(u) })),
       ...ins.map((u) => ({ u, want: Math.max(0, Math.min(XFMR_W / TPS, XFMR_W * BUF_S - (u.m.e ?? 0))) }))]
       .map((r) => ({ ...r, cost: r.want * lossF(r.u.via) }));
     const D = reqs.reduce((a, r) => a + r.cost, 0);
     // Batteries: charge from surplus generation, discharge to cover a shortfall (never battery → battery).
-    const charge = charged.map((b) => { const want = Math.max(0, Math.min((battN(b.m) * BATT_W) / TPS, battN(b.m) * BATT_J - (b.m.e ?? 0))); return { b, want, cost: want * lossF(b.via) }; });
+    const charge = charged.map((b) => { const want = Math.max(0, Math.min(bW(b) / TPS, battN(b.m, b.d) * battOf(b.d).j - (b.m.e ?? 0))); return { b, want, cost: want * lossF(b.via) }; });
     const C = charge.reduce((a, r) => a + r.cost, 0);
     let ratio: number, cr = 0, fromB = 0;
     if (G >= D) { ratio = 1; cr = C > 0 ? Math.min(1, (G - D) / C) : 0; } else { fromB = Math.min(B, D - G); ratio = D > 0 ? (G + fromB) / D : 0; }

@@ -32,6 +32,13 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'dust:alumina', name: 'Alumina Dust', color: 0xf0f0f0 },
   { id: 'dust:cryolite', name: 'Cryolite Dust', color: 0xd8e8f0 },
   { id: 'hull:mv', name: 'MV Hull', color: 0xb0c4d8 },
+  // P5b MV parts.
+  { id: 'magnetic_rod:steel', name: 'Magnetic Steel Rod', color: 0x8a8ea0 },
+  { id: 'motor:mv', name: 'MV Motor', color: 0x9a8060 },
+  { id: 'pump:mv', name: 'MV Pump', color: 0x6080b0 },
+  { id: 'piston:mv', name: 'MV Piston', color: 0xb0c4d8 },
+  { id: 'conveyor:mv', name: 'MV Conveyor Module', color: 0x404448 },
+  { id: 'robot_arm:mv', name: 'MV Robot Arm', color: 0xb09a60 },
 ];
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */

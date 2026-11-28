@@ -16,7 +16,8 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid',
   'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery',
   'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig',
-  'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium'] as const;
+  'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium',
+  'overclock', 'steam_turbine_mv', 'combustion_generator_mv'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -648,6 +649,48 @@ export const QUESTS: QuestDef[] = [
       '8 **aluminium plates** + 2 **copper cables** (128 V) → the **MV Hull**, the frame of every MV machine.',
     ],
     tasks: [have('hull:mv')] },
+  // ---- MV (P5b): parts, generators, overclocking, MV hatches, lithium battery ----
+  { id: 'm_motor', chapter: 'MV', title: 'MV Motor', req: ['m_hull'], reward: M1,
+    text: [
+      'MV parts come from the **assembler** only. The MV motor wants a **magnetic steel rod** — the **Polarizer** magnetises a steel rod — plus aluminium rods, copper wire and copper cable.',
+      'Pumps, pistons, conveyor modules and robot arms follow the LV recipes in aluminium.',
+    ],
+    tasks: [have('magnetic_rod:steel'), have('motor:mv')] },
+  { id: 'm_turbine', chapter: 'power', tier: 'MV', title: 'MV Steam Turbine', req: ['m_motor'], reward: M1,
+    text: [
+      'The **MV Steam Turbine** (MV hull + 2 MV motors + 2 aluminium rotors + 2 steel pipes + 2 copper cables) gives **128 W at 128 V** from up to 64 L/tick of steam — a large boiler feeds two.',
+      '128 V **melts tin cable** and **explodes** LV machines: run copper cable, and step down through a transformer for the LV side of the base.',
+    ],
+    tasks: [build('steam_turbine_mv'), flag('steam_turbine_mv', 'Feed power at 128 V')] },
+  { id: 'm_combustion', chapter: 'power', tier: 'MV', title: 'MV Combustion Generator', req: ['m_motor'], reward: M1,
+    text: [
+      'The **MV Combustion Generator** burns the same liquid fuels as the LV one, four times as fast, for **128 W at 128 V**. Copper cable only.',
+    ],
+    tasks: [build('combustion_generator_mv'), flag('combustion_generator_mv', 'Feed power at 128 V')] },
+  { id: 'm_overclock', chapter: 'MV', title: 'Overclocking', req: ['m_motor', ['m_turbine', 'm_combustion']], reward: M2,
+    text: [
+      'Every LV machine has an **MV version** (MV hull + 4 basic circuits + 2 copper cables + the MV parts). It runs all the LV recipes, and **overclocks** them: one tier above the recipe means **2× speed for 4× power** — a 16 W recipe runs twice as fast at 64 W.',
+      'It only overclocks while 4× still fits its 128 W input: recipes above 32 W run at normal speed. Faster, but each item costs twice the energy.',
+    ],
+    tasks: [flag('overclock', 'Run an overclocked recipe')] },
+  { id: 'm_ehatch', chapter: 'MV', title: 'MV Energy Hatch', req: ['m_overclock'], reward: M2,
+    text: [
+      'An **MV Energy Hatch** (MV hull + 2 copper cables) takes 2 A at 128 V: **256 W**. Swap them into the EBF or the Hall–Héroult Cell and LV recipes overclock there too — two MV hatches run a 120 W recipe at 480 W, twice as fast.',
+      'A multiblock overclocks to the tier of its **lowest** hatch, so swap them all.',
+    ],
+    tasks: [build('energy_hatch_mv', 2)] },
+  { id: 'm_lithium', chapter: 'chem', tier: 'MV', title: 'Lithium', req: ['m_hull', 'l_acid'], reward: M1,
+    text: [
+      '**Spodumene** (pegmatite veins under desert and tundra) holds lithium. **Chemical reactor:** spodumene dust + 1000 L sulfuric acid → **lithium sulfate** solution, leaving quartz behind.',
+      '**Electrolyzer:** the solution → **lithium dust**, with the sulfuric acid back and some oxygen.',
+    ],
+    tasks: [have('dust:lithium', 2)] },
+  { id: 'm_battery', chapter: 'power', tier: 'MV', title: 'Lithium Battery', req: ['m_lithium', 'l_battery_buffer'], reward: M2,
+    text: [
+      'An aluminium **battery case** (assembler) canned with 2 lithium dust is a **Lithium Battery**: 144 kJ, four lead-acid batteries\' worth.',
+      'The **MV Battery Buffer** holds 4 of them and moves 128 W per battery at 128 V. It takes lithium batteries only.',
+    ],
+    tasks: [have('battery:lithium'), build('battery_buffer_mv')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));
 /** Every quest id a quest's requirements mention (any-of groups flattened). */

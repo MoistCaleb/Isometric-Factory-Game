@@ -4,8 +4,9 @@
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMBIENT_K, BOIL_K, BOILER_RATE, BOILER_WATER, CELL_FLUIDS, CELL_L, DUMP_POLL, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
-  BATT, BATT_FULL, BATT_J, LAKE_FLOW, WIND_FULL_B, DUMP_HAZ, HATCH_W, MAINT, MAINT_LOSS, MAINT_P, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
+  AMP_IN, OC_POWER, OC_SPEED, battOf, hatchW, LAKE_FLOW, WIND_FULL_B, DUMP_HAZ, MAINT, MAINT_LOSS, MAINT_P, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
 import { MINERALS } from '../data/minerals';
+import { TIER_VOLTAGE, tierIndex, type TierId } from '../data/tiers';
 import { B, BLOCKS } from '../world/blocks';
 import { PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
 import { Water, type WorldGen } from '../world/gen';
@@ -46,8 +47,9 @@ export interface Mach {
   e?: number; pw?: number;
   /** Transformer (P4c): step-up (low faces in → front out at MV); default step-down. */
   up?: boolean;
-  /** Multiblocks with maintenance (P4e): open issues, bit i = MAINT[i] · energy hatches counted last tick. */
-  mt?: number; eh?: number;
+  /** Multiblocks with maintenance (P4e): open issues, bit i = MAINT[i] · energy hatches counted last tick, their total W and
+   * lowest tier (P5b). */
+  mt?: number; eh?: number; ehw?: number; eht?: TierId;
 }
 
 /** Machine status (DESIGN §5 status icons). */
@@ -136,7 +138,7 @@ export function multiCheck(ents: GameState['ents'], w: number, key: string): Mul
   return {
     miss,
     blocked: PATTERNS_HOLLOW(st).map((c) => cellKey(w, x, y, f, rotCell(c, ctl.r))).filter((k) => ents[k]),
-    need: (m.need ?? []).filter((h) => !has[h]),
+    need: (m.need ?? []).filter((h) => !has[h] && !Object.keys(has).some((k) => HATCH.get(k) === HATCH.get(h))), // any tier of that hatch
     has,
   };
 }
@@ -185,7 +187,7 @@ const recipeOf = (id?: string): Recipe | undefined => (id ? registry().recipe(id
 const isGas = (id: string) => registry().fluid(id)?.phase === 'gas';
 /** Machines with a single tank (not a fluid bag). */
 /** Batteries in a battery buffer (P4c). */
-export const battN = (m: Mach) => m.inp[BATT] ?? 0;
+export const battN = (m: Mach, def: MachineDef) => m.inp[battOf(def).empty] ?? 0;
 export const singleTank = (def: MachineDef) => def.run === 'boiler' || def.run === 'pump' || def.run === 'tank' || !!def.burns;
 /** Gas outputs vent from primitive/steam machines; electric ones keep them (P4b). */
 const vents = (def: MachineDef, id: string) => def.run !== 'elec' && isGas(id);
@@ -209,10 +211,18 @@ function hasRoom(m: Mach, r: Recipe, def: MachineDef): boolean {
 function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef, r?: Recipe): number | null {
   if (!r) return MS.idle;
   const mc = multiCheck(s.ents, gen.w, key);
-  if (def.ehatch) m.eh = mc.has.energy_hatch ?? 0;
+  if (def.ehatch) {
+    m.eh = 0; m.ehw = 0; m.eht = undefined;
+    for (const [id, n] of Object.entries(mc.has)) {
+      if (HATCH.get(id) !== 'energy') continue;
+      const t = STRUCT.get(id)!.tier ?? 'LV';
+      m.eh += n; m.ehw += n * hatchW(t);
+      if (!m.eht || tierIndex(t) < tierIndex(m.eht)) m.eht = t;
+    }
+  }
   if (incomplete(mc)) return MS.incomplete;
   if (def.coilK && (r.minHeatK ?? 0) > def.coilK) return MS.coils;
-  if (def.ehatch && r.power > (m.eh ?? 0) * HATCH_W) return MS.hatchW;
+  if (def.ehatch && r.power > (m.ehw ?? 0)) return MS.hatchW;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
   if (!hasInputs(m, r)) return MS.noInput;
   if (!hasRoom(m, r, def)) return MS.full;
@@ -237,7 +247,7 @@ function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
     addFl(m, f.id, f.n);
     if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
-  const fl = def.id === 'ebf' ? (r.power > HATCH_W ? ['ebf', 'ebf_mv'] : ['ebf']) : def.id === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']
+  const fl = def.id === 'ebf' ? (r.power > hatchW('LV') ? ['ebf', 'ebf_mv'] : ['ebf']) : (def.base ?? def.id) === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']
     : def.id === 'hall_heroult' ? ['aluminium'] : [];
   for (const f of fl) s.flags[f] = (s.flags[f] ?? 0) + 1;
   m.prog = 0;
@@ -262,7 +272,7 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       if (m.st === MS.working) m.tank = { id: 'water', n: (m.tank?.n ?? 0) + Math.min(room, def.rate ?? 0) };
       continue;
     }
-    if (def.run === 'batt') { m.st = !battN(m) ? MS.noBatt : m.pw ? MS.working : MS.noLoad; continue; }
+    if (def.run === 'batt') { m.st = !battN(m, def) ? MS.noBatt : m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'xfmr') { m.st = m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'gen') {
       m.st = m.pw ? MS.working : genW(s, gen, key, m, def) > 1e-6 ? MS.noLoad : def.steam ? MS.noSteam : def.burns ? MS.noFuel
@@ -294,8 +304,9 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       if ((m.steam ?? 0) < need) { m.st = MS.noSteam; continue; }
       m.steam! -= need;
     }
+    const oc = overclock(def, m, r!);
     if (def.run === 'elec') {
-      const need = r!.power / TPS;
+      const need = (r!.power * OC_POWER ** oc) / TPS;
       if ((m.e ?? 0) < need - 1e-9) { m.st = MS.noPower; continue; }
       m.e! -= need;
       s.flags.powered = (s.flags.powered ?? 0) + 1;
@@ -307,8 +318,20 @@ export function stepMachines(s: GameState, gen: WorldGen) {
       if (s.tick % TPS === 0 && next(s) < MAINT_P) m.mt = (m.mt ?? 0) | (1 << Math.floor(next(s) * MAINT.length));
       if ((s.tick % 10) / 10 < issues(m) * MAINT_LOSS) continue; // −10 % speed per open issue
     }
-    if (++m.prog >= r!.ticks) finish(s, m, r!, def);
+    if (oc) s.flags.overclock = (s.flags.overclock ?? 0) + 1;
+    if ((m.prog += OC_SPEED ** oc) >= r!.ticks) finish(s, m, r!, def);
   }
+}
+
+/** Overclocks for a recipe (DESIGN §5, P5b): one per tier the machine (multiblock: its lowest energy hatch) is above the
+ * recipe's, while ×OC_POWER power still fits its input. */
+export function overclock(def: MachineDef, m: Mach, r: Recipe): number {
+  if (def.run !== 'elec' || !r.power) return 0;
+  const t = def.ehatch ? m.eht : def.tier, cap = def.ehatch ? m.ehw ?? 0 : TIER_VOLTAGE[def.tier] * AMP_IN;
+  if (!t) return 0;
+  let n = 0;
+  while (n < tierIndex(t) - tierIndex(r.tier) && r.power * OC_POWER ** (n + 1) <= cap) n++;
+  return n;
 }
 
 /** Open maintenance issues (P4e). */
@@ -466,7 +489,7 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
   switch (c.k) {
     case 'mrec': {
       const nr = recipeOf(c.recipe);
-      if (!nr || nr.machine !== def.id) return { ok: false, msg: 'Wrong machine for that recipe' };
+      if (!nr || nr.machine !== (def.base ?? def.id)) return { ok: false, msg: 'Wrong machine for that recipe' };
       if (m.rec !== c.recipe) { m.rec = c.recipe; m.prog = 0; }
       return { ok: true };
     }
@@ -536,21 +559,21 @@ export function machCmd(s: GameState, gen: WorldGen, c: MachCmd): ActResult {
     case 'mcell': return cellCmd(s, m, def, c.id, !!c.fill);
     case 'mbat': {
       if (def.run !== 'batt') return { ok: false, msg: 'Not a battery buffer' };
-      const n = battN(m);
+      const n = battN(m, def), { empty, full: charged, j: J } = battOf(def);
       if (c.put) {
-        if (c.put !== BATT && c.put !== BATT_FULL) return { ok: false, msg: 'Not a battery' };
+        if (c.put !== empty && c.put !== charged) return { ok: false, msg: `Takes ${name(empty).replace(/ \(empty\)$/, '')} only` };
         if (n >= (def.slots ?? 0)) return { ok: false, msg: 'All slots full' };
         if (!count(s, c.put)) return { ok: false, msg: `No ${name(c.put)}` };
-        take(s, c.put, 1); m.inp[BATT] = n + 1;
-        if (c.put === BATT_FULL) m.e = (m.e ?? 0) + BATT_J;
+        take(s, c.put, 1); m.inp[empty] = n + 1;
+        if (c.put === charged) m.e = (m.e ?? 0) + J;
         return { ok: true };
       }
       if (!n) return { ok: false, msg: 'No batteries' };
-      const full = (m.e ?? 0) >= BATT_J - 1e-6, id = full ? BATT_FULL : BATT;
+      const full = (m.e ?? 0) >= J - 1e-6, id = full ? charged : empty;
       if (give(s, id, 1)) return { ok: false, msg: 'Inventory full' };
-      if (full) m.e! -= BATT_J;
-      if (n > 1) m.inp[BATT] = n - 1; else delete m.inp[BATT];
-      m.e = Math.min(m.e ?? 0, (n - 1) * BATT_J);
+      if (full) m.e! -= J;
+      if (n > 1) m.inp[empty] = n - 1; else delete m.inp[empty];
+      m.e = Math.min(m.e ?? 0, (n - 1) * J);
       if (full) s.flags.battery = (s.flags.battery ?? 0) + 1;
       return { ok: true, gained: [{ id, n: 1 }] };
     }

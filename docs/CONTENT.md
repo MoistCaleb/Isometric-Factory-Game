@@ -397,6 +397,15 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - **Hall–Héroult Cell** (multiblock `pot`): controller LV hull + electrolyzer + 3 basic circuits + 4 copper cables; 15 **Carbon-Lined Casings** (4 steel plates + 4 graphite dust + steel frame) + 1 **Cathode Block** (8 graphite dust + 2 steel plates + 2 steel rods; never a hatch); hatches as the EBF (energy ×2 + maintenance required). 4 alumina + anode + cryolite dust → 4 aluminium ingots + 1000 L CO₂, 120 W, 20 s
 - **MV Hull:** 8 aluminium plates + 2 copper cables (wrench / assembler)
 
+**MV electric (P5b)**
+- **Magnetic steel rod:** polarizer, steel rod (16 W).
+- **MV parts** (assembler only, 32 W): motor = 2 copper cable + 4 copper wire + 2 aluminium rod + magnetic steel rod · pump = motor + aluminium rotor + 2 rubber rings + small steel pipe + aluminium screw · piston = motor + 2 aluminium rod + aluminium gear + 2 aluminium plate · conveyor = 2 motors + 6 rubber plate + copper cable · robot arm = 2 motors + piston + 2 basic circuits + 2 copper cable + 2 aluminium rod. Sensor / emitter arrive with the first machine that needs them.
+- **MV machines** (`<id>_mv`, 19: every LV recipe machine): MV hull + 4 basic circuits (→ 2 discrete circuits in P5c) + 2 copper cables + the LV machine's parts one tier up (LV part → MV part, steel rotor → aluminium rotor). Same recipes, overclocked.
+- **MV Steam Turbine:** MV hull + 2 MV motors + 2 aluminium rotors + 2 steel pipes + 2 copper cables — 128 W, ≤ 64 L/t steam. **MV Combustion Generator:** MV hull + MV motor + 2 MV pistons + 2 steel pipes + 2 copper cables — 128 W, same fuels.
+- **MV Energy Hatch:** MV hull + 2 copper cables — 2 A × 128 V = 256 W.
+- **Lithium:** chemical reactor: spodumene dust + 1000 L H₂SO₄ → 1000 L lithium sulfate + quartz dust (30 W) · electrolyzer: 1000 L lithium sulfate → lithium dust + 1000 L H₂SO₄ + 500 L O₂ (30 W).
+- **Lithium battery** (144 kJ): case = 2 aluminium plates + 2 rubber sheets + copper cable (assembler) · canner: case + 2 lithium dust. **MV Battery Buffer:** MV hull + 4 basic circuits + chest + 4 copper cables; 4 lithium batteries, 128 W each.
+
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
 ---
@@ -536,10 +545,11 @@ Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power*
    - scanner
    - pollution & hazards
    - EBF + cupronickel coils
-4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud)
+4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium)
    - Bayer
    - cryolite
    - Hall–Héroult
+   - MV motor → MV generator (any one) → overclocking → MV energy hatches
    - aluminium hull
    - pyrolyse oven
    - coal tar distillation

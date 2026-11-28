@@ -17,6 +17,7 @@ const ROWS: Row[] = [
   ['sodium_hydroxide', 'Sodium Hydroxide', 'NaOH', 'l', 'corrosive', 0xe0e0f0], ['ammonia', 'Ammonia', 'NH₃', 'g', 'toxic', 0xc0d0e0],
   // P5a: Al(OH)₃, alumina and cryolite are dust items (generate.ts `aluminium`).
   ['sodium_aluminate', 'Sodium Aluminate', 'NaAlO₂(aq)', 'l', 'corrosive', 0xd0d0c0], ['red_mud', 'Red Mud', '', 'l', 'corrosive', 0xa04030],
+  ['lithium_sulfate', 'Lithium Sulfate Solution', 'Li₂SO₄(aq)', 'l', '', 0xd8d0e0],
   ['creosote', 'Creosote', '', 'l', 'flammable toxic', 0x6a4a20], ['coal_tar', 'Coal Tar', '', 'l', 'flammable toxic', 0x202018],
   ['wood_tar', 'Wood Tar', '', 'l', 'flammable', 0x4a3018], ['methanol', 'Methanol', 'CH₃OH', 'l', 'flammable toxic', 0xd0d8e0],
   ['acetic_acid', 'Acetic Acid', 'CH₃COOH', 'l', 'corrosive', 0xe0e0d0], ['formaldehyde', 'Formaldehyde', 'CH₂O', 'g', 'toxic', 0xe0e0f0],

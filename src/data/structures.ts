@@ -1,6 +1,8 @@
 // Placeable structures (DESIGN §3 Building, CONTENT §11c). Each becomes item `struct:<id>` + a hand recipe.
 // `model`: voxel boxes on a 16³ tile, [x0,y0,z0,x1,y1,z1,color] with y = up, z = toward the tile's south (rot 0 front).
 import type { ToolType } from './forms';
+import { MV_BASE } from './machines';
+import type { TierId } from './tiers';
 
 export type Box = [number, number, number, number, number, number, number];
 export interface StructDef {
@@ -16,6 +18,8 @@ export interface StructDef {
   multi?: { casing: string; pattern: PatternId; parts?: string[]; hatches?: string[]; need?: string[]; /** Part numbers no hatch may replace (coils). */ solid?: number[] };
   /** Hatch (P3d): fluid in / fluid out / item in, for a multiblock that lists it · item out, energy, maintenance (P4e). */
   hatch?: 'fluid_in' | 'fluid_out' | 'item_in' | 'item_out' | 'energy' | 'maint';
+  /** Energy hatch voltage tier (default LV; P5b MV). */
+  tier?: TierId;
   /** Pipe (DESIGN §7): joins same-kind pipes on all 6 sides. Fluid (P3a): L moved per link per tick, L held per block.
    * Item (P3b): items moved per source every ITEM_EVERY ticks, cap 0. */
   pipe?: { rate: number; cap: number; item?: boolean; /** Acid-proof (P4b corrosion). */ acid?: boolean };
@@ -76,7 +80,7 @@ export function rotCell([dx, dy, db]: Cell, r: number): [number, number, number]
 
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
 const LEAD = 0x5c5a78, TIN = 0xc8ccd0, HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
-const LVC = 0x8a8e94, VOLT = 0xf0d040, CABLE = 0x3a3a40, CABLE_CU = 0x4a3a34, COPPER = 0xd87a3c, GLASS = 0xb8d8e0;
+const MVC = 0xb0c4d8, LVC = 0x8a8e94, VOLT = 0xf0d040, CABLE = 0x3a3a40, CABLE_CU = 0x4a3a34, COPPER = 0xd87a3c, GLASS = 0xb8d8e0;
 const HEAT = 0x8a6a50, CUNI = 0xc49a6c, CARBON = 0x3a3a40, ALU = 0xb0c4d8, BATH = 0xffa040;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
@@ -204,8 +208,44 @@ export const STRUCTURES: StructDef[] = [
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
 ];
 
+/** MV variants (P5b): MV hull + 4 basic circuits (discrete circuits from P5c) + 2 copper cables + the LV parts one tier up. */
+function mvMachines(lv: StructDef[]): StructDef[] {
+  const MV_PART: Record<string, string> = { 'motor:lv': 'motor:mv', 'pump:lv': 'pump:mv', 'piston:lv': 'piston:mv', 'conveyor:lv': 'conveyor:mv',
+    'robot_arm:lv': 'robot_arm:mv', 'rotor:steel': 'rotor:aluminium', 'cable:tin': 'cable:copper' };
+  return MV_BASE.map((b) => {
+    const d = lv.find((x) => x.id === b)!;
+    const parts = d.cost.filter(([id]) => !['hull:lv', 'circuit:basic'].includes(id)).map(([id, n]): [string, number] => [MV_PART[id] ?? id, n]);
+    const cost: [string, number][] = [['hull:mv', 1], ['circuit:basic', 4], ...parts];
+    return { ...d, id: `${b}_mv`, name: `MV ${d.name}`, machine: `${b}_mv`, color: MVC, cost,
+      model: d.model.map((x): Box => (x[6] === LVC ? [...x.slice(0, 6), MVC] as Box : x)) };
+  });
+}
+
 /** LV machines (P4a): hull box + a machine-specific top, a yellow power socket on the back. */
 function lvMachines(): StructDef[] {
+  const lv = lvRows();
+  return [...lv, ...mvMachines(lv), ...mvGrid()];
+}
+
+/** P5b: MV generators, battery buffer, energy hatch. */
+function mvGrid(): StructDef[] {
+  return [
+    { id: 'steam_turbine_mv', name: 'MV Steam Turbine', color: MVC, machine: 'steam_turbine_mv', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['motor:mv', 2], ['rotor:aluminium', 2], ['pipe:steel', 2], ['cable:copper', 2]],
+      model: [[1, 0, 1, 15, 10, 15, MVC], [0, 3, 4, 16, 9, 12, STEEL], [3, 10, 3, 13, 13, 13, STEEL], [5, 13, 5, 11, 16, 11, 0xd0d0d0], [6, 2, 15, 10, 6, 16, VOLT]] },
+    { id: 'combustion_generator_mv', name: 'MV Combustion Generator', color: MVC, machine: 'combustion_generator_mv', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['motor:mv', 1], ['piston:mv', 2], ['pipe:steel', 2], ['cable:copper', 2]],
+      model: [[1, 0, 1, 15, 10, 15, MVC], [3, 10, 3, 13, 12, 13, SOOT], [11, 12, 4, 13, 16, 6, SOOT], [3, 12, 10, 5, 16, 12, SOOT], [4, 3, 15, 12, 8, 16, GLOW], [6, 3, 0, 10, 7, 1, VOLT]] },
+    { id: 'battery_buffer_mv', name: 'MV Battery Buffer', color: MVC, machine: 'battery_buffer_mv', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['circuit:basic', 4], ['struct:chest', 1], ['cable:copper', 4]],
+      model: [[1, 0, 1, 15, 11, 15, MVC], [1, 11, 1, 15, 12, 15, 0x5a5e64], [6, 3, 0, 10, 7, 1, VOLT],
+        [3, 12, 3, 7, 15, 7, 0xd0d8e0], [9, 12, 3, 13, 15, 7, 0xd0d8e0], [3, 12, 9, 7, 15, 13, 0xd0d8e0], [9, 12, 9, 13, 15, 13, 0xd0d8e0]] },
+    { id: 'energy_hatch_mv', name: 'MV Energy Hatch', color: VOLT, hatch: 'energy', tier: 'MV', cost: [['hull:mv', 1], ['cable:copper', 2]], tools: ['wrench'],
+      model: [[0, 0, 0, 16, 16, 16, MVC], [3, 3, 0, 13, 13, 16, CABLE_CU], [5, 5, 0, 11, 11, 16, VOLT]] },
+  ];
+}
+
+function lvRows(): StructDef[] {
   const C = (n = 2): [string, number][] => [['hull:lv', 1], ['circuit:basic', 2], ['cable:tin', n]];
   const base: Box[] = [[1, 0, 1, 15, 11, 15, LVC], [1, 11, 1, 15, 12, 15, 0x5a5e64], [6, 3, 0, 10, 7, 1, VOLT]];
   const row = (id: string, name: string, parts: [string, number][], top: Box[]): StructDef =>
@@ -277,7 +317,7 @@ function lvMachines(): StructDef[] {
     { id: 'ebf', name: 'Electric Blast Furnace', color: HEAT, machine: 'ebf', tools: ['wrench'],
       cost: [['hull:lv', 1], ['struct:electric_furnace', 2], ['circuit:basic', 3], ['cable:tin', 2]],
       multi: { casing: 'heat_casing', pattern: 'ebf', parts: ['cupronickel_coil'], solid: [1],
-        hatches: ['energy_hatch', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
+        hatches: ['energy_hatch', 'energy_hatch_mv', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
       model: [[0, 0, 0, 16, 16, 16, HEAT], [3, 3, 15, 13, 11, 16, SOOT], [4, 4, 15, 12, 9, 16, GLOW], [6, 12, 15, 10, 14, 16, VOLT]] },
     { id: 'heat_casing', name: 'Heat-Proof Casing', color: HEAT, cost: [['plate:steel', 6], ['frame:steel', 1]], tools: ['hammer', 'wrench'],
       model: [[0, 0, 0, 16, 16, 16, HEAT], [0, 0, 0, 16, 2, 16, STEEL], [0, 14, 0, 16, 16, 16, STEEL], [2, 6, 0, 14, 10, 16, 0x9a8a70]] },
@@ -293,7 +333,7 @@ function lvMachines(): StructDef[] {
     { id: 'hall_heroult', name: 'Hall–Héroult Cell', color: CARBON, machine: 'hall_heroult', tools: ['wrench'],
       cost: [['hull:lv', 1], ['struct:electrolyzer', 1], ['circuit:basic', 3], ['cable:copper', 4]],
       multi: { casing: 'carbon_casing', pattern: 'pot', parts: ['cathode_block'], solid: [1],
-        hatches: ['energy_hatch', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
+        hatches: ['energy_hatch', 'energy_hatch_mv', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
       model: [[0, 0, 0, 16, 16, 16, CARBON], [2, 10, 15, 14, 14, 16, ALU], [4, 3, 15, 12, 8, 16, BATH], [6, 12, 15, 10, 14, 16, VOLT]] },
     { id: 'carbon_casing', name: 'Carbon-Lined Casing', color: CARBON, cost: [['plate:steel', 4], ['dust:graphite', 4], ['frame:steel', 1]], tools: ['hammer', 'wrench'],
       model: [[0, 0, 0, 16, 16, 16, STEEL], [1, 1, 1, 15, 15, 15, CARBON], [0, 14, 0, 16, 16, 16, 0x5a5e64]] },

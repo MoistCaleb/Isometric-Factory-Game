@@ -1,7 +1,7 @@
 // Generates items, fluids and templated recipes from data (DESIGN §1).
 import { CHEMICALS } from '../data/chemicals';
 import { FLAG_FORMS, FORMS, type ToolType } from '../data/forms';
-import { BATT, BATT_FULL, ETOOL_J, SCAN_J, CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
+import { BATT, BATT_FULL, BATTERIES, ETOOL_J, SCAN_J, CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
 import { MATERIALS, type MaterialDef } from '../data/materials';
 import { MINERALS, type MineralDef } from '../data/minerals';
 import { MISC_ITEMS } from '../data/misc';
@@ -232,6 +232,7 @@ export function generate(): Generated {
   chem({ addItem, hand, mach, itemIds });
   grid({ addItem, hand, mach, itemIds });
   aluminium(hand, mach);
+  mvParts({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -466,6 +467,27 @@ function aluminium(hand: Ctx['hand'], mach: Ctx['mach']) {
   mach('hall_heroult', [s('dust:alumina', 4), s('electrode:graphite'), s('dust:cryolite')], [s('ingot:aluminium', 4)], { fluidsOut: [s('carbon_dioxide', 1000)], ticks: 400, power: 120 });
   hand([s('plate:aluminium', 8), s('cable:copper', 2)], [s('hull:mv')], ['wrench']);
   mach('assembler', [s('plate:aluminium', 8), s('cable:copper', 2)], [s('hull:mv')], { ticks: 200, power: 32 });
+}
+
+/** MV electric (P5b, CONTENT §11c MV): magnetic steel, MV parts, lithium from spodumene, the lithium battery. */
+function mvParts(c: Ctx) {
+  const { mach } = c;
+  mach('polarizer', [s('rod:steel')], [s('magnetic_rod:steel')], { ticks: 100, power: 16 });
+  const part = (inputs: Stack[], out: string) => mach('assembler', inputs, [s(out)], { ticks: 200, power: 32 });
+  part([s('cable:copper', 2), s('wire:copper', 4), s('rod:aluminium', 2), s('magnetic_rod:steel')], 'motor:mv');
+  part([s('motor:mv'), s('rotor:aluminium'), s('ring:rubber', 2), s('pipe_small:steel'), s('screw:aluminium')], 'pump:mv');
+  part([s('motor:mv'), s('rod:aluminium', 2), s('gear:aluminium'), s('plate:aluminium', 2)], 'piston:mv');
+  part([s('motor:mv', 2), s('plate:rubber', 6), s('cable:copper')], 'conveyor:mv');
+  part([s('motor:mv', 2), s('piston:mv'), s('circuit:basic', 2), s('cable:copper', 2), s('rod:aluminium', 2)], 'robot_arm:mv');
+  // Lithium: spodumene acid leach → Li₂SO₄ solution; membrane electrolysis gives the acid back.
+  mach('chemical_reactor', [s('mdust:spodumene')], [s('mdust:quartz')], { fluidsIn: [s('sulfuric_acid', 1000)], fluidsOut: [s('lithium_sulfate', 1000)], ticks: 300, power: 30 });
+  mach('electrolyzer', [], [s('dust:lithium')], { fluidsIn: [s('lithium_sulfate', 1000)], fluidsOut: [s('sulfuric_acid', 1000), s('oxygen', 500)], ticks: 400, power: 30 });
+  const B = BATTERIES.MV!;
+  c.addItem({ id: 'battery_case:lithium', name: 'Lithium Battery Case', kind: 'misc', color: 0xb0c4d8 });
+  c.addItem({ id: B.empty, name: 'Lithium Battery (empty)', kind: 'misc', color: 0x8aa0b8, hazards: ['flammable'] });
+  c.addItem({ id: B.full, name: 'Lithium Battery (charged)', kind: 'misc', color: 0xb8d0f0, hazards: ['flammable'] });
+  mach('assembler', [s('plate:aluminium', 2), s('sheet:rubber', 2), s('cable:copper')], [s('battery_case:lithium')], { ticks: 100, power: 32 });
+  mach('canner', [s('battery_case:lithium'), s('dust:lithium', 2)], [s(B.empty)], { ticks: 100, power: 16 });
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

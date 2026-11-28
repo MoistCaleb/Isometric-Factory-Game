@@ -5,13 +5,13 @@ import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMP_IN, BOIL_K, CELL_FLUIDS, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
-  THUMP_TICKS, BATT, BATT_FULL, BATT_J, BATT_W, XFMR_W, xfFront, WIND_FULL_B, LAKE_FLOW, HATCH_W, MAINT, MAINT_LOSS } from '../data/machines';
+  THUMP_TICKS, OC_POWER, OC_SPEED, battOf, hatchW, XFMR_W, xfFront, WIND_FULL_B, LAKE_FLOW, MAINT, MAINT_LOSS } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import { bufJ, inputW } from '../sim/power';
 import { fmtJ, fmtW } from './format';
 import type { MachView } from '../sim/client';
-import { MS, MS_TEXT, flCap, issues, type MachCmd } from '../sim/machines';
+import { MS, MS_TEXT, flCap, issues, overclock, type MachCmd } from '../sim/machines';
 import { slotsUsed } from '../sim/pipes';
 import { count, type Cmd, type Inv } from '../sim/player';
 import type { Ent } from '../sim/state';
@@ -37,7 +37,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   const [sides, setSides] = useState(false);
   const m = view?.m, key = view?.key ?? '';
   const r = m?.rec ? reg.recipe(m.rec) : undefined;
-  const all = useMemo(() => reg.machineRecipes(def.id), [def.id]);
+  const all = useMemo(() => reg.machineRecipes(def.base ?? def.id), [def.id]);
   const list = useMemo(() => {
     const n = q.trim().toLowerCase();
     return all.filter((x) => !n || [...x.inputs, ...x.outputs, ...(x.fluidsOut ?? []), ...(x.fluidsIn ?? [])]
@@ -116,16 +116,17 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
         <>
           <h3>Power</h3>
           {(def.run === 'elec' || def.elec) && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / Math.max(1, bufJ(def, m))) * 100)}%`, background: '#f0d040' }} /></div>
-            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def, m))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def, m))} = {def.ehatch ? `${m.eh ?? 0} energy hatch${m.eh === 1 ? '' : 'es'} × ${fmtW(HATCH_W)}` : `${TIER_VOLTAGE[def.tier]} V × ${AMP_IN} A`}){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div></>}
+            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def, m))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def, m))} = {def.ehatch ? `${m.eh ?? 0} energy hatch${m.eh === 1 ? '' : 'es'}, 2 A each` : `${TIER_VOLTAGE[def.tier]} V × ${AMP_IN} A`}){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div>
+            {r && overclock(def, m, r) > 0 && <div class="dim">⏩ Overclocked ×{overclock(def, m, r)}: {OC_SPEED ** overclock(def, m, r)}× speed at {fmtW(r.power * OC_POWER ** overclock(def, m, r))} ({def.ehatch ? 'its hatches are' : 'it is'} {overclock(def, m, r)} tier{overclock(def, m, r) > 1 ? 's' : ''} above the recipe).</div>}</>}
           {def.run === 'gen' && <div class="dim">Out {fmtW(m.pw ?? 0)} of {fmtW(def.gen ?? 0)} at {TIER_VOLTAGE[def.tier]} V{def.steam ? ` · uses up to ${def.steam} L/tick of steam, only as much as the cables draw` : ''}</div>}
           {view!.pw ? <div class="dim">Network: {view!.pw.v} V · {fmtW(view!.pw.w)} delivered of {fmtW(view!.pw.cap)} available · {view!.pw.a.toFixed(2)} A / {view!.pw.maxA} A max · cable loss {fmtW(view!.pw.loss)} · {view!.pw.cables} cable blocks</div>
-            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} {def.ehatch ? 'Cable its LV energy hatches to generators.' : 'Place tin cable touching it.'}</div>}
+            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} {def.ehatch ? 'Cable its energy hatches to generators.' : 'Place tin cable touching it.'}</div>}
         </>
       )}
       {def.coilK && (
         <>
           <h3>Blast furnace</h3>
-          <div class="dim">Cupronickel coils: {def.coilK} K{r?.minHeatK ? ` · recipe needs ${r.minHeatK} K` : ''}. Each LV energy hatch takes 2 A ({fmtW(HATCH_W)}) on its own line; two give {fmtW(2 * HATCH_W)}, enough for MV-level recipes.{def.smoke ? ` Smoke ${def.smoke}/s while working.` : ''}</div>
+          <div class="dim">Cupronickel coils: {def.coilK} K{r?.minHeatK ? ` · recipe needs ${r.minHeatK} K` : ''}. Each energy hatch takes 2 A on its own line: LV {fmtW(hatchW('LV'))}, MV {fmtW(hatchW('MV'))}. Two LV hatches run MV-level recipes; MV hatches overclock LV recipes.{def.smoke ? ` Smoke ${def.smoke}/s while working.` : ''}</div>
         </>
       )}
       {def.maint && (
@@ -149,18 +150,19 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
       {def.ambient && <div class="dim">{def.ambient === 'sun' ? 'Follows the sun: full output at noon, less in rain, nothing at night.'
         : def.ambient === 'wind' ? `Follows the wind (top bar). Height ×${Math.min(1, 0.3 + (0.7 * Number(key.split(',')[2])) / WIND_FULL_B).toFixed(2)}: full at block level ${WIND_FULL_B} (storey ${WIND_FULL_B / 3}).`
         : `Beside a river: full output, more in rain. Beside a lake: ${Math.round(LAKE_FLOW * 100)} %.`}</div>}
-      {def.run === 'batt' && (
-        <>
+      {def.run === 'batt' && (() => {
+        const B = battOf(def), n = m.inp[B.empty] ?? 0, bw = TIER_VOLTAGE[def.tier];
+        return <>
           <h3>Batteries</h3>
-          <div class="bar"><div style={{ width: `${(m.inp[BATT] ?? 0) ? Math.min(100, ((m.e ?? 0) / ((m.inp[BATT] ?? 0) * BATT_J)) * 100) : 0}%`, background: '#f0d040' }} /></div>
-          <div class="dim">{m.inp[BATT] ?? 0} / {def.slots} batteries · stored {fmtJ(m.e ?? 0)} of {fmtJ((m.inp[BATT] ?? 0) * BATT_J)} · {(m.pw ?? 0) >= 0 ? `charging ${fmtW(m.pw ?? 0)}` : `supplying ${fmtW(-(m.pw ?? 0))}`} (max {fmtW((m.inp[BATT] ?? 0) * BATT_W)})</div>
+          <div class="bar"><div style={{ width: `${n ? Math.min(100, ((m.e ?? 0) / (n * B.j)) * 100) : 0}%`, background: '#f0d040' }} /></div>
+          <div class="dim">{n} / {def.slots} batteries ({reg.item(B.empty)?.name.replace(/ \(empty\)$/, '')}) · stored {fmtJ(m.e ?? 0)} of {fmtJ(n * B.j)} · {(m.pw ?? 0) >= 0 ? `charging ${fmtW(m.pw ?? 0)}` : `supplying ${fmtW(-(m.pw ?? 0))}`} (max {fmtW(n * bw)})</div>
           <div class="row">
-            {[BATT_FULL, BATT].map((id) => <button key={id} disabled={!count(inv, id)} onClick={() => cmd({ k: 'mbat', put: id })}>Insert {id === BATT ? 'empty' : 'charged'} ({count(inv, id)})</button>)}
-            <button disabled={!(m.inp[BATT] ?? 0)} onClick={() => cmd({ k: 'mbat' })}>Take one</button>
+            {[B.full, B.empty].map((id) => <button key={id} disabled={!count(inv, id)} onClick={() => cmd({ k: 'mbat', put: id })}>Insert {id === B.empty ? 'empty' : 'charged'} ({count(inv, id)})</button>)}
+            <button disabled={!n} onClick={() => cmd({ k: 'mbat' })}>Take one</button>
           </div>
-          <div class="dim">Charges from spare generator output, supplies its network when generators fall short (1 A = {fmtW(BATT_W)} per battery). A battery taken out comes out charged if a full battery's worth ({fmtJ(BATT_J)}) is stored.</div>
-        </>
-      )}
+          <div class="dim">Charges from spare generator output, supplies its network when generators fall short (1 A at {bw} V = {fmtW(bw)} per battery). A battery taken out comes out charged if a full battery's worth ({fmtJ(B.j)}) is stored.</div>
+        </>;
+      })()}
       {def.run === 'xfmr' && (
         <>
           <h3>Transformer</h3>
