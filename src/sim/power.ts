@@ -6,7 +6,7 @@ import { AMP_IN, BATT_J, BATT_W, BUF_S, FACE, MACHINE, XFMR_W, xfFront, type Mac
 import { CABLES, STRUCTURES, conduitsJoin, sideOpen } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import type { WorldGen } from '../world/gen';
-import { battN, controllerAt, newMach, simEvents, type Mach } from './machines';
+import { battN, controllerAt, genW, newMach, simEvents, type Mach } from './machines';
 import { around, sideIndex, topoChanged, topoVersion } from './pipes';
 import { TPS, type GameState } from './state';
 
@@ -83,15 +83,12 @@ function burn(s: GameState, key: string, msg: string) {
   simEvents.push({ ok: false, sim: true, msg, ents: { [key]: null } });
 }
 
-/** Generator output available this tick (J): turbines throttle down when short of steam. */
-function genAvail(m: Mach, d: MachineDef): number {
-  const frac = d.steam ? Math.min(1, (m.steam ?? 0) / d.steam) : 1;
-  return ((d.gen ?? 0) * frac) / TPS;
-}
+/** Generators whose first output sets a quest flag (P4d). */
+const GEN_FLAGS = new Set(['combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine']);
 
 const HV = TIER_VOLTAGE.MV, LV = TIER_VOLTAGE.LV;
 
-interface Node { ctl: string; m: Mach; d: MachineDef; via: string; v: number }
+interface Node { ctl: string; m: Mach; d: MachineDef; via: string; v: number; g?: number }
 
 export function stepPower(s: GameState, gen: WorldGen) {
   powerInfo.clear();
@@ -136,7 +133,8 @@ export function stepPower(s: GameState, gen: WorldGen) {
     const lossF = (via: string) => 1 + (drop * (dist.get(via) ?? 1)) / v;
     const xAvail = (x: Node) => Math.min(x.m.e ?? 0, XFMR_W / TPS);
     const bAvail = (b: Node) => Math.min(b.m.e ?? 0, (battN(b.m) * BATT_W) / TPS);
-    const G = gens.reduce((a, g) => a + genAvail(g.m, g.d), 0) + outs.reduce((a, x) => a + xAvail(x), 0);
+    for (const g of gens) g.g = genW(s, gen, g.ctl, g.m, g.d) / TPS;
+    const G = gens.reduce((a, g) => a + g.g!, 0) + outs.reduce((a, x) => a + xAvail(x), 0);
     const B = charged.reduce((a, b) => a + bAvail(b), 0);
     const reqs = [...users.map((u) => ({ u, want: Math.max(0, Math.min(inputW(u.d) / TPS, bufJ(u.d) - (u.m.e ?? 0))) })),
       ...ins.map((u) => ({ u, want: Math.max(0, Math.min(XFMR_W / TPS, XFMR_W * BUF_S - (u.m.e ?? 0))) }))]
@@ -160,9 +158,12 @@ export function stepPower(s: GameState, gen: WorldGen) {
     }
     const fromG = D * ratio + C * cr - fromB, share = G > 0 ? Math.min(1, fromG / G) : 0;
     for (const g of gens) {
-      const j = genAvail(g.m, g.d) * share;
+      const j = g.g! * share;
       g.m.pw = j * TPS;
       if (g.d.steam && g.d.gen) g.m.steam = Math.max(0, (g.m.steam ?? 0) - (j * TPS / g.d.gen) * g.d.steam);
+      const tk = g.m.tank;
+      if (g.d.burns && tk && j > 0) { tk.n -= j / g.d.burns[tk.id]; if (tk.n <= 1e-9) g.m.tank = undefined; }
+      if (j > 0 && GEN_FLAGS.has(g.d.id)) s.flags[g.d.id] = (s.flags[g.d.id] ?? 0) + 1;
     }
     for (const x of outs) {
       const j = xAvail(x) * share;

@@ -4,7 +4,7 @@
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMBIENT_K, BOIL_K, BOILER_RATE, BOILER_WATER, CELL_FLUIDS, CELL_L, DUMP_POLL, CRANK_TICKS, DIG_DEPTH, DIG_H, DIG_R, DIG_SCAN, DIG_TICKS, FUELS, MACHINE, STEAM_PER_POWER, STEAM_PER_WATER,
-  BATT, BATT_FULL, BATT_J, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
+  BATT, BATT_FULL, BATT_J, LAKE_FLOW, WIND_FULL_B, THUMP_DEPTH, THUMP_R, THUMP_TICKS, type MachineDef } from '../data/machines';
 import { MINERALS } from '../data/minerals';
 import { B, BLOCKS } from '../world/blocks';
 import { PATTERNS, STRUCTURES, multiCells, rotCell, type Cell, type StructDef } from '../data/structures';
@@ -48,10 +48,10 @@ export interface Mach {
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
-  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some'];
+  'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some', 'No wind', 'Needs a river or lake next to it'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -149,12 +149,36 @@ function nearWater(gen: WorldGen, key: string): boolean {
   return v;
 }
 
+const flowCache = new Map<string, number>();
+/** Water turbine flow next to a machine (P4d): river 1, lake LAKE_FLOW, else 0. */
+function flowAt(gen: WorldGen, key: string): number {
+  let v = flowCache.get(key);
+  if (v === undefined) {
+    const [x, y] = parse(key), near = [[1, 0], [-1, 0], [0, 1], [0, -1]].map(([dx, dy]) => gen.inBounds(y + dy) ? gen.surface(gen.wrapX(x + dx), y + dy).water : Water.None);
+    v = near.includes(Water.River) ? 1 : near.includes(Water.Lake) ? LAKE_FLOW : 0;
+    flowCache.set(key, v);
+  }
+  return v;
+}
+
+/** Generator output available now (W): steam turbines throttle on steam, combustion on fuel, the rest on sun / wind × height /
+ * flowing water (P4d). */
+export function genW(s: GameState, gen: WorldGen, key: string, m: Mach, d: MachineDef): number {
+  const g = d.gen ?? 0;
+  if (d.steam) return g * Math.min(1, (m.steam ?? 0) / d.steam);
+  if (d.burns) return m.tank && d.burns[m.tank.id] ? Math.min(g, m.tank.n * d.burns[m.tank.id] * TPS) : 0;
+  if (d.ambient === 'sun') return g * sunlight(s);
+  if (d.ambient === 'wind') return g * s.weather.wind * Math.min(1, 0.3 + (0.7 * parse(key)[2]) / WIND_FULL_B);
+  if (d.ambient === 'water') { const f = flowAt(gen, key); return f >= 1 ? g * Math.min(1, 0.8 + s.weather.rain * 0.5) : g * f; }
+  return g;
+}
+
 const recipeOf = (id?: string): Recipe | undefined => (id ? registry().recipe(id) : undefined);
 const isGas = (id: string) => registry().fluid(id)?.phase === 'gas';
 /** Machines with a single tank (not a fluid bag). */
 /** Batteries in a battery buffer (P4c). */
 export const battN = (m: Mach) => m.inp[BATT] ?? 0;
-export const singleTank = (def: MachineDef) => def.run === 'boiler' || def.run === 'pump' || def.run === 'tank';
+export const singleTank = (def: MachineDef) => def.run === 'boiler' || def.run === 'pump' || def.run === 'tank' || !!def.burns;
 /** Gas outputs vent from primitive/steam machines; electric ones keep them (P4b). */
 const vents = (def: MachineDef, id: string) => def.run !== 'elec' && isGas(id);
 /** Fluid bag cap per fluid (L). */
@@ -225,7 +249,12 @@ export function stepMachines(s: GameState, gen: WorldGen) {
     }
     if (def.run === 'batt') { m.st = !battN(m) ? MS.noBatt : m.pw ? MS.working : MS.noLoad; continue; }
     if (def.run === 'xfmr') { m.st = m.pw ? MS.working : MS.noLoad; continue; }
-    if (def.run === 'gen') { m.st = def.steam && (m.steam ?? 0) < 1 ? MS.noSteam : m.pw ? MS.working : MS.noLoad; continue; }
+    if (def.run === 'gen') {
+      m.st = m.pw ? MS.working : genW(s, gen, key, m, def) > 1e-6 ? MS.noLoad : def.steam ? MS.noSteam : def.burns ? MS.noFuel
+        : def.ambient === 'sun' ? MS.noSun : def.ambient === 'wind' ? MS.noWind : def.ambient === 'water' ? MS.noFlow : MS.noLoad;
+      if (def.smoke && m.pw && s.tick % TPS === 0) addPoll(s, key, def.smoke);
+      continue;
+    }
     if (def.run === 'thump') { stepThumper(s, gen, key, m, def); continue; }
     if (def.run === 'dig') { stepDig(s, gen, key, m, def); continue; }
     const b = blocker(s, gen, key, m, def, r);
@@ -281,45 +310,52 @@ function usePower(m: Mach, def: MachineDef): boolean {
 /** Steam thumper (DESIGN §3 scan): thumps the ground for THUMP_TICKS, then surveys veins deeper and wider than the hammer. */
 function stepThumper(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef) {
   if (m.cur) { m.st = MS.surveyed; return; }
+  const [r, depth, ticks] = def.survey ?? [THUMP_R, THUMP_DEPTH, THUMP_TICKS];
   if (!useSteam(m, def)) { m.st = MS.noSteam; return; }
+  if (!usePower(m, def)) { m.st = MS.noPower; return; }
   m.st = MS.working;
-  if (++m.prog < THUMP_TICKS) return;
-  const [x, y] = parse(key), { veins, msg } = survey(s, gen, x, y, THUMP_R, THUMP_DEPTH, 'Thumper found');
+  if (++m.prog < ticks) return;
+  const [x, y] = parse(key), { veins, msg } = survey(s, gen, x, y, r, depth, `${def.name} found`);
   m.prog = 0; m.cur = 1;
-  s.flags.thump = (s.flags.thump ?? 0) + 1;
+  const fl = def.steam ? 'thump' : 'scan';
+  s.flags[fl] = (s.flags[fl] ?? 0) + 1;
   simEvents.push({ ok: true, sim: true, veins, msg });
 }
 
 const MINERAL = new Map(MINERALS.map((mn) => [mn.id, mn]));
-const DIG_SIDE = 2 * DIG_R + 1, DIG_AREA = DIG_SIDE * DIG_SIDE, DIG_END = DIG_AREA * DIG_DEPTH;
-/** Excavator scan position → block (layer 1 down, row by row over the square below it). */
-function digAt(gen: WorldGen, key: string, t: number): [number, number, number] {
-  const [x, y] = parse(key), r = t % DIG_AREA;
-  return [gen.wrapX(x - DIG_R + (r % DIG_SIDE)), y - DIG_R + Math.floor(r / DIG_SIDE), 1 + Math.floor(t / DIG_AREA)];
+type DigP = [r: number, depth: number, h: number, ticks: number];
+const digP = (def: MachineDef): DigP => def.dig ?? [DIG_R, DIG_DEPTH, DIG_H, DIG_TICKS];
+/** Digger scan position → block (layer 1 down, row by row over the square below it). */
+function digAt(gen: WorldGen, key: string, t: number, [R]: DigP): [number, number, number] {
+  const [x, y] = parse(key), side = 2 * R + 1, area = side * side, r = t % area;
+  return [gen.wrapX(x - R + (r % side)), y - R + Math.floor(r / side), 1 + Math.floor(t / area)];
 }
-/** Mineable ore at a scan position (hardness ≤ DIG_H, not under water). */
-function digOre(s: GameState, gen: WorldGen, key: string, t: number) {
-  const [x, y, z] = digAt(gen, key, t);
+/** Mineable ore at a scan position (hardness ≤ the digger's, not under water). */
+function digOre(s: GameState, gen: WorldGen, key: string, t: number, p: DigP) {
+  const [x, y, z] = digAt(gen, key, t, p);
   if (!gen.inBounds(y)) return null;
   const mn = MINERAL.get(BLOCKS[blockAt(s, gen, x, y, z)].mineral ?? '');
-  if (!mn || mn.hardness > DIG_H || BLOCKS[blockAt(s, gen, x, y, z - 1)].liquid) return null;
+  if (!mn || mn.hardness > p[2] || BLOCKS[blockAt(s, gen, x, y, z - 1)].liquid) return null;
   return mn;
 }
 
-/** Steam excavator (DESIGN §3 excavate): mines the ore blocks (not the rock) under a 9×9 square, layer by layer. */
+/** Steam excavator / mining rig (DESIGN §3 excavate): mines the ore blocks (not the rock) under a square, layer by layer. */
 function stepDig(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef) {
+  const p = digP(def), end = (2 * p[0] + 1) ** 2 * p[1];
   let t = m.cur ?? 0;
-  for (let n = 0; t < DIG_END && n < DIG_SCAN && !digOre(s, gen, key, t); n++) t++;
+  for (let n = 0; t < end && n < DIG_SCAN && !digOre(s, gen, key, t, p); n++) t++;
   if (t !== m.cur) m.prog = 0;
   m.cur = t;
-  if (t >= DIG_END) { m.st = MS.minedOut; return; }
-  const mn = digOre(s, gen, key, t);
+  if (t >= end) { m.st = MS.minedOut; return; }
+  const mn = digOre(s, gen, key, t, p);
   if (!mn) { m.st = MS.working; return; } // still scanning
-  const [x, y, z] = digAt(gen, key, t), hit = gen.ore(x, y, z), n = hit?.richness ?? 1, id = `ore:${mn.id}`;
+  const [x, y, z] = digAt(gen, key, t, p), hit = gen.ore(x, y, z), n = hit?.richness ?? 1, id = `ore:${mn.id}`;
   if ((m.out[id] ?? 0) + n > BAG || (!m.out[id] && Object.keys(m.out).length >= OUT_KINDS)) { m.st = MS.full; return; }
   if (!useSteam(m, def)) { m.st = MS.noSteam; return; }
+  if (!usePower(m, def)) { m.st = MS.noPower; return; }
   m.st = MS.working;
-  if (++m.prog < DIG_TICKS * (1 + mn.hardness)) return;
+  if (++m.prog < p[3] * (1 + mn.hardness)) return;
+  if (def.elec) s.flags.rig = (s.flags.rig ?? 0) + 1;
   const k = `${x},${y},${z}`, veins = hit && s.diffs[k] === undefined ? know(s, hit.vein.id, KNOW.exposed) : undefined;
   s.diffs[k] = B.air;
   m.out[id] = (m.out[id] ?? 0) + n;
@@ -555,6 +591,7 @@ function cellCmd(s: GameState, m: Mach, def: MachineDef, id: string, fill: boole
 /** Room for fluid `id` poured in by hand: recipe inputs, barrels, boiler water. */
 function fluidRoom(m: Mach, def: MachineDef, id: string): number {
   if (def.run === 'boiler') return id === 'water' ? (def.waterTank ?? BOILER_WATER) - (m.water ?? 0) : 0;
+  if (def.burns) return def.burns[id] && (!m.tank || m.tank.id === id) ? (def.tank ?? 0) - (m.tank?.n ?? 0) : 0;
   if (def.run === 'tank') return (m.tank && m.tank.id !== id) || (def.cold && id === 'steam') ? 0 : (def.tank ?? 0) - (m.tank?.n ?? 0);
   if (singleTank(def)) return 0;
   const r = recipeOf(m.rec);

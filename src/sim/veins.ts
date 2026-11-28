@@ -1,5 +1,6 @@
 // Vein discovery (DESIGN §3): surface samples give hints, mining ore exposes a vein, the prospector's hammer surveys.
 import { MINERALS } from '../data/minerals';
+import { SCAN_DEPTH, SCAN_R } from '../data/machines';
 import { PROSPECT_DEPTH, PROSPECT_R, type WorldGen } from '../world/gen';
 import type { ActResult } from './player';
 import { bestTool, give, wear } from './player';
@@ -31,12 +32,13 @@ export function pickSample(s: GameState, gen: WorldGen, x: number, y: number): A
   };
 }
 
-/** Prospector's hammer: survey every vein reaching within PROSPECT_R tiles, down to PROSPECT_DEPTH. */
+/** Handheld scanner (P4d, charged: SCAN_R / SCAN_DEPTH, preferred) or prospector's hammer: survey every vein reaching within PROSPECT_R tiles, down to PROSPECT_DEPTH. */
 export function prospect(s: GameState, gen: WorldGen, xIn: number, y: number): ActResult {
-  const x = gen.wrapX(xIn), tool = bestTool(s, 'prospector');
-  if (!tool) return { ok: false, msg: "Need a prospector's hammer" };
+  const x = gen.wrapX(xIn), sc = bestTool(s, 'scanner'), tool = sc ?? bestTool(s, 'prospector');
+  if (!tool) return { ok: false, msg: "Need a prospector's hammer or a charged scanner" };
   const broke = wear(s, tool.i);
-  const { veins, msg } = survey(s, gen, x, y, PROSPECT_R, PROSPECT_DEPTH, 'Prospected');
+  if (sc) s.flags.escan = (s.flags.escan ?? 0) + 1;
+  const { veins, msg } = sc ? survey(s, gen, x, y, SCAN_R, SCAN_DEPTH, 'Scanned') : survey(s, gen, x, y, PROSPECT_R, PROSPECT_DEPTH, 'Prospected');
   return { ok: true, veins, msg: [msg, broke].filter(Boolean).join(' · ') };
 }
 

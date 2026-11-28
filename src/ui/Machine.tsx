@@ -5,7 +5,7 @@ import { useMemo, useState } from 'preact/hooks';
 import { registry } from '../content/registry';
 import type { Recipe } from '../content/types';
 import { AMP_IN, BOIL_K, CELL_FLUIDS, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
-  THUMP_TICKS, BATT, BATT_FULL, BATT_J, BATT_W, XFMR_W, xfFront } from '../data/machines';
+  THUMP_TICKS, BATT, BATT_FULL, BATT_J, BATT_W, XFMR_W, xfFront, WIND_FULL_B, LAKE_FLOW } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
 import { TIER_VOLTAGE } from '../data/tiers';
 import { bufJ, inputW } from '../sim/power';
@@ -47,10 +47,11 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   if (!m) return <div class="panel mach"><div class="row"><b class="grow">{st.name}</b><button onClick={onClose}>✕</button></div><div class="dim">Gone.</div></div>;
 
   const boiler = def.run === 'boiler';
+  const sv = def.survey ?? [THUMP_R, THUMP_DEPTH, THUMP_TICKS], dg = def.dig ?? [DIG_R, DIG_DEPTH, DIG_H, DIG_TICKS];
   const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow].includes(m.st as 2);
   const meter = (label: string, n: number, cap: number, col: string) => (
     <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
       <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
@@ -121,6 +122,18 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
             : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} Place tin cable touching it.</div>}
         </>
       )}
+      {def.burns && (
+        <>
+          <h3>Fuel</h3>
+          {meter(m.tank ? reg.fluid(m.tank.id)?.name ?? m.tank.id : 'Empty', m.tank?.n ?? 0, def.tank ?? 0, '#a07030')}
+          <div class="row"><span class="dim grow">Burns {Object.entries(def.burns).map(([id, j]) => `${reg.fluid(id)?.name ?? id} (${j} J/L)`).join(', ')} — pipe it in or pour cells. Only as much as the cables draw.</span>
+            {m.tank && <button onClick={() => cmd({ k: 'mdump' })}>Dump</button>}</div>
+          {m.tank ? cells(m.tank.id, true) : Object.keys(def.burns).filter((id) => count(inv, `cell:${id}`) > 0).map((id) => cells(id, true))}
+        </>
+      )}
+      {def.ambient && <div class="dim">{def.ambient === 'sun' ? 'Follows the sun: full output at noon, less in rain, nothing at night.'
+        : def.ambient === 'wind' ? `Follows the wind (top bar). Height ×${Math.min(1, 0.3 + (0.7 * Number(key.split(',')[2])) / WIND_FULL_B).toFixed(2)}: full at block level ${WIND_FULL_B} (storey ${WIND_FULL_B / 3}).`
+        : `Beside a river: full output, more in rain. Beside a lake: ${Math.round(LAKE_FLOW * 100)} %.`}</div>}
       {def.run === 'batt' && (
         <>
           <h3>Batteries</h3>
@@ -145,15 +158,15 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
       {def.run === 'thump' && (
         <>
           <h3>Survey</h3>
-          <div class="bar"><div style={{ width: `${m.cur ? 100 : (m.prog / THUMP_TICKS) * 100}%` }} /></div>
-          <div class="dim">Thumps for {THUMP_TICKS / 20} s, then surveys every vein within {THUMP_R} tiles down to layer {THUMP_DEPTH} (see the vein overlay, O). Once per spot.</div>
+          <div class="bar"><div style={{ width: `${m.cur ? 100 : (m.prog / sv[2]) * 100}%` }} /></div>
+          <div class="dim">{def.steam ? 'Thumps' : 'Listens'} for {sv[2] / 20} s, then surveys every vein within {sv[0]} tiles down to layer {sv[1]} (see the vein overlay, O). Once per spot.</div>
         </>
       )}
       {def.run === 'dig' && (
         <>
           <h3>Excavation</h3>
-          <div class="bar"><div style={{ width: `${Math.min(100, (m.prog / (DIG_TICKS * (1 + DIG_H))) * 100)}%` }} /></div>
-          <div class="dim">{m.st === MS.minedOut ? 'Done' : `Layer ${Math.min(DIG_DEPTH, 1 + Math.floor((m.cur ?? 0) / (2 * DIG_R + 1) ** 2))} of ${DIG_DEPTH}`} · mines ore of hardness ≤ {DIG_H} in the {2 * DIG_R + 1}×{2 * DIG_R + 1} square below it; leaves the rock. Pipe the ore away.</div>
+          <div class="bar"><div style={{ width: `${Math.min(100, (m.prog / (dg[3] * (1 + dg[2]))) * 100)}%` }} /></div>
+          <div class="dim">{m.st === MS.minedOut ? 'Done' : `Layer ${Math.min(dg[1], 1 + Math.floor((m.cur ?? 0) / (2 * dg[0] + 1) ** 2))} of ${dg[1]}`} · mines ore of hardness ≤ {dg[2]} in the {2 * dg[0] + 1}×{2 * dg[0] + 1} square below it; leaves the rock. Pipe the ore away.</div>
         </>
       )}
       {chest && (
@@ -272,16 +285,16 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
         </>
       )}
       {r?.fluidsIn?.filter((f) => !m.fl?.[f.id] && count(inv, `cell:${f.id}`) > 0).map((f) => <div key={f.id}>{cells(f.id, true)}</div>)}
-      {!store && (Object.keys(m.out).length > 0 || (m.tank && !boiler)) && <h3>Output</h3>}
+      {!store && (Object.keys(m.out).length > 0 || (m.tank && !boiler && !def.burns)) && <h3>Output</h3>}
       {!store && Object.keys(m.out).length > 0 && (
         <div class="row"><span class="io grow">{bag(m.out).map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}</span>
           <button class="primary" onClick={() => cmd({ k: 'mtake' })}>Collect</button></div>
       )}
-      {m.tank && !boiler && !store && (
+      {m.tank && !boiler && !store && !def.burns && (
         <div class="row"><span class="io grow"><Chip st={m.tank} fluid /> <span class="dim">/ {def.tank} L</span></span>
           <button onClick={() => cmd({ k: 'mdump' })} title="Pour it away (or connect a pipe)">Dump</button></div>
       )}
-      {m.tank && !boiler && !store && cells(m.tank.id, false)}
+      {m.tank && !boiler && !store && !def.burns && cells(m.tank.id, false)}
 
       <div class="row"><button onClick={() => setSides(!sides)}>{sides ? '▾' : '▸'} Sides (pipes, cables)</button>
         {!sides && faces.some(Boolean) && <span class="dim">{faces.filter(Boolean).length} set</span>}</div>

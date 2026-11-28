@@ -9,6 +9,9 @@ import type { Look } from './Recipes';
 export let hoverItem: string | null = null;
 let pressT = 0, longFired = false, lastTap = { id: '', t: 0 };
 
+import { BATT_J } from '../data/machines';
+import { fmtJ } from './format';
+
 const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 
 /** Short in-slot label: material-less items keep their name; forms show the form word. */
@@ -38,13 +41,14 @@ export function SlotView({ sl, sel, onClick, onLook }: { sl: Slot | null; sel?: 
   };
   return (
     <button class={`slot ${sel ? 'sel' : ''}`} onPointerDown={down} onPointerUp={() => clearTimeout(pressT)} onPointerLeave={() => { clearTimeout(pressT); hoverItem = null; }}
-      onPointerEnter={() => { hoverItem = sl?.id ?? null; }} onClick={click} onContextMenu={(e) => e.preventDefault()} title={def ? `${def.name}${sl!.dur !== undefined ? ` · ${sl!.dur}/${max} uses` : ''}` : ''}>
+      onPointerEnter={() => { hoverItem = sl?.id ?? null; }} onClick={click} onContextMenu={(e) => e.preventDefault()} title={def ? `${def.name}${sl!.dur !== undefined ? ` · ${sl!.dur}/${max} uses` : ''}${def.tool?.elec ? ` · ⚡ ${fmtJ(sl!.e ?? 0)} / ${fmtJ(BATT_J)}` : ''}` : ''}>
       {sl && def && (
         <>
           <span class="sw" style={{ background: hex(def.color) }} />
           <span class="lb">{label(sl.id, def.name)}</span>
           {sl.n > 1 && <span class="n">{sl.n}</span>}
           {sl.dur !== undefined && max > 0 && <span class="dur" style={{ width: `${(sl.dur / max) * 100}%` }} />}
+          {def.tool?.elec && <span class="dur chg" style={{ width: `${Math.min(100, ((sl.e ?? 0) / BATT_J) * 100)}%` }} />}
         </>
       )}
     </button>

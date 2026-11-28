@@ -195,6 +195,9 @@ function lvMachines(): StructDef[] {
   const base: Box[] = [[1, 0, 1, 15, 11, 15, LVC], [1, 11, 1, 15, 12, 15, 0x5a5e64], [6, 3, 0, 10, 7, 1, VOLT]];
   const row = (id: string, name: string, parts: [string, number][], top: Box[]): StructDef =>
     ({ id, name, color: LVC, machine: id, tools: ['wrench'], cost: [...C(), ...parts], model: [...base, ...top] });
+  /** Generators: LV hull + 2 tin cables + parts, no circuits. */
+  const gen = (id: string, name: string, parts: [string, number][], model: Box[]): StructDef =>
+    ({ id, name, color: LVC, machine: id, tools: ['wrench'], cost: [['hull:lv', 1], ['cable:tin', 2], ...parts], model });
   return [
     row('macerator', 'Macerator', [['piston:lv', 1], ['motor:lv', 1], ['grinder_head:steel', 1]],
       [[3, 12, 3, 13, 15, 13, STEEL], [5, 15, 5, 11, 16, 11, SOOT], [4, 4, 15, 12, 8, 16, SOOT]]),
@@ -243,6 +246,20 @@ function lvMachines(): StructDef[] {
     { id: 'transformer', name: 'Transformer', color: LVC, machine: 'transformer', tools: ['wrench'],
       cost: [['hull:lv', 1], ['cable:copper', 2], ['cable:tin', 1], ['wire:copper', 8]],
       model: [...base, [4, 12, 4, 12, 15, 12, COPPER], [5, 3, 15, 11, 9, 16, 0xd03030]] },
+    // P4d: generators (no circuits), scanner, mining rig.
+    gen('combustion_generator', 'Combustion Generator', [['motor:lv', 1], ['piston:lv', 2], ['pipe:steel', 1]],
+      [[1, 0, 1, 15, 10, 15, LVC], [3, 10, 3, 13, 12, 13, SOOT], [11, 12, 4, 13, 16, 6, SOOT], [4, 3, 15, 12, 8, 16, GLOW], [6, 3, 0, 10, 7, 1, VOLT]]),
+    { id: 'solar_panel', name: 'Selenium Solar Panel', color: 0x5a2a2a, machine: 'solar_panel', tools: ['wrench'],
+      cost: [['ingot:selenium', 2], ['pane:glass', 2], ['plate:steel', 2], ['cable:tin', 1]],
+      model: [[2, 0, 2, 14, 3, 14, STEEL], [0, 3, 0, 16, 4, 16, 0x7a2e2a], [0, 4, 0, 16, 5, 16, 0x9ab8c8], [6, 1, 14, 10, 3, 16, VOLT]] },
+    gen('wind_turbine', 'Wind Turbine', [['motor:lv', 1], ['rotor:steel', 2], ['rod:steel', 4]],
+      [[3, 0, 3, 13, 6, 13, LVC], [7, 6, 7, 9, 13, 9, STEEL], [5, 12, 9, 11, 15, 11, LVC], [0, 13, 10, 16, 14, 11, 0xe0e0e0], [7, 7, 10, 9, 16, 11, 0xe0e0e0], [6, 2, 0, 10, 5, 3, VOLT]]),
+    gen('water_turbine', 'Water Turbine', [['motor:lv', 1], ['rotor:steel', 2]],
+      [[1, 4, 1, 15, 12, 15, LVC], [0, 0, 5, 16, 6, 11, STEEL], [0, 1, 6, 16, 4, 10, WATER], [6, 7, 0, 10, 10, 1, VOLT]]),
+    row('scanner', 'Scanner', [['wire:copper', 8], ['lens:glass', 1]],
+      [[4, 12, 4, 12, 13, 12, COPPER], [7, 13, 7, 9, 16, 9, STEEL], [5, 15, 5, 11, 16, 11, 0x40a0c0]]),
+    row('mining_rig', 'Mining Rig', [['motor:lv', 2], ['head_drill:steel', 1], ['pipe:steel', 1]],
+      [[3, 12, 3, 13, 14, 13, STEEL], [7, 14, 7, 9, 16, 9, 0xd0a030], [0, 0, 0, 3, 3, 16, STEEL], [13, 0, 0, 16, 3, 16, STEEL]]),
   ];
 }
 

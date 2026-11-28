@@ -35,7 +35,15 @@ export interface MachineDef {
   gen?: number;
   /** Recipe-less electric machine (P4b electric pump): W drawn while working. */
   elec?: number;
+  /** Generators (P4d): liquid fuels burned (J per L) from a `tank` · output scaled by sunlight / wind × height / flowing water. */
+  burns?: Record<string, number>; ambient?: 'sun' | 'wind' | 'water';
+  /** Surveyors (P4d, `thump`): [reach tiles, deepest layer, ticks] (default thumper) · diggers (`dig`): [square radius, deepest
+   * layer, max hardness, ticks per block × (1 + H)] (default excavator). */
+  survey?: [number, number, number]; dig?: [number, number, number, number];
 }
+
+/** Liquid generator fuels (P4d): J per litre. Creosote: a coke oven's 250 L ≈ a coal lump through a boiler + turbine. */
+export const LIQUID_FUELS: Record<string, number> = { creosote: 8, wood_tar: 6, ethanol: 60 };
 
 type Row = [id: string, name: string, tier: TierId, maxHeatK?: number, x?: Partial<MachineDef>];
 const ROWS: Row[] = [
@@ -94,6 +102,13 @@ const ROWS: Row[] = [
   ['electric_pump', 'Electric Pump', 'LV', undefined, { run: 'pump', rate: 60, tank: 16000, water: true, elec: 16 }],
   ['battery_buffer', 'Battery Buffer', 'LV', undefined, { run: 'batt', slots: 4 }],
   ['transformer', 'Transformer', 'LV', undefined, { run: 'xfmr' }],
+  // P4d: LV generators, scanner, mining rig.
+  ['combustion_generator', 'Combustion Generator', 'LV', undefined, { run: 'gen', gen: 32, tank: 16000, burns: LIQUID_FUELS, smoke: 1 }],
+  ['solar_panel', 'Selenium Solar Panel', 'LV', undefined, { run: 'gen', gen: 8, ambient: 'sun' }],
+  ['wind_turbine', 'Wind Turbine', 'LV', undefined, { run: 'gen', gen: 32, ambient: 'wind' }],
+  ['water_turbine', 'Water Turbine', 'LV', undefined, { run: 'gen', gen: 24, ambient: 'water', water: true }],
+  ['scanner', 'Scanner', 'LV', undefined, { run: 'thump', elec: 32, survey: [64, 25, 600] }],
+  ['mining_rig', 'Mining Rig', 'LV', undefined, { run: 'dig', elec: 32, dig: [6, 24, 2, 20] }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
 ];
 export const MACHINES: MachineDef[] = ROWS.map(([id, name, tier, maxHeatK, x]) => ({ id, name, tier, maxHeatK, ...x }));
@@ -125,6 +140,9 @@ export const DIG_R = 4, DIG_DEPTH = 16, DIG_H = 1, DIG_TICKS = 40, DIG_SCAN = 12
 export const AMP_IN = 1, BUF_S = 1;
 /** Grid (P4c): lead-acid battery (J), battery buffer W per battery (1 A at LV) · transformer W (1 A high side = 4 A low side). */
 export const BATT_J = 36000, BATT_W = 32, XFMR_W = 128;
+/** P4d: wind turbine reaches full output at this block level (lower = less) · water turbine output next to a lake (river = 1,
+ * more in rain) · electric tools: J per use (drill/chainsaw block, scanner survey), handheld scanner reach + depth. */
+export const WIND_FULL_B = 12, LAKE_FLOW = 0.35, ETOOL_J = 200, SCAN_J = 4000, SCAN_R = 32, SCAN_DEPTH = 16;
 export const BATT = 'battery:lead_acid', BATT_FULL = 'charged_battery:lead_acid';
 /** Transformer high (MV) side: the controller's front face (rot 0 south → west → north → east), as a SIDES index. */
 export const xfFront = (r: number) => [2, 1, 3, 0][r & 3];

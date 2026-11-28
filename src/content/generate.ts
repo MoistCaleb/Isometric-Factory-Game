@@ -1,7 +1,7 @@
 // Generates items, fluids and templated recipes from data (DESIGN §1).
 import { CHEMICALS } from '../data/chemicals';
 import { FLAG_FORMS, FORMS, type ToolType } from '../data/forms';
-import { BATT, BATT_FULL, CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
+import { BATT, BATT_FULL, ETOOL_J, SCAN_J, CELL_FLUIDS, CELL_L, MACHINES } from '../data/machines';
 import { MATERIALS, type MaterialDef } from '../data/materials';
 import { MINERALS, type MineralDef } from '../data/minerals';
 import { MISC_ITEMS } from '../data/misc';
@@ -435,6 +435,18 @@ function grid(c: Ctx) {
   hand([s('plate:lead_antimony', 2), s('sheet:rubber', 2), s('cable:tin')], [s('battery_case:lead_acid')], ['hammer', 'wire_cutter']);
   mach('assembler', [s('plate:lead_antimony', 2), s('sheet:rubber', 2), s('cable:tin')], [s('battery_case:lead_acid')], { ticks: 100, power: 16 });
   mach('canner', [s('battery_case:lead_acid')], [s(BATT)], { fluidsIn: [s('sulfuric_acid', 1000)], ticks: 100, power: 8 });
+  // P4d: selenium ingots (solar panel), ground glass lenses (scanners).
+  mach('electric_furnace', [s('dust:selenium')], [s('ingot:selenium')], { ticks: 80 });
+  mach('steam_furnace', [s('dust:selenium')], [s('ingot:selenium')], { power: 4 });
+  mach('lathe', [s('pane:glass')], [s('lens:glass')], { ticks: 200, power: 16 });
+  // P4d electric tools: run on a lead-acid battery (swapped for a charged one from the inventory when flat).
+  const etool = (type: ToolType, name: string, color: number, also: ToolType[], elec: number, parts: [string, number][]) => {
+    c.addItem({ id: `tool:${type}:steel`, name, kind: 'tool', color, material: 'steel', tool: { type, level: 2, durability: 1000, elec, also } });
+    hand([s(BATT), s('circuit:basic'), s('plate:steel', 2), ...parts.map(([id, n]) => s(id, n))], [s(`tool:${type}:steel`)], ['screwdriver', 'wrench']);
+  };
+  etool('drill', 'Electric Drill', 0xd0a030, ['pickaxe', 'shovel'], ETOOL_J, [['head_drill:steel', 1], ['motor:lv', 1]]);
+  etool('chainsaw', 'Electric Chainsaw', 0xd06030, ['axe'], ETOOL_J, [['head_saw:steel', 1], ['motor:lv', 1]]);
+  etool('scanner', 'Handheld Scanner', 0x40a0c0, [], SCAN_J, [['wire:copper', 4], ['lens:glass', 1], ['circuit:basic', 1]]);
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

@@ -14,7 +14,8 @@ export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
   'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered',
   'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid',
-  'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery'] as const;
+  'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery',
+  'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -530,5 +531,49 @@ export const QUESTS: QuestDef[] = [
       'Long lines lose less at a higher voltage (same power, a quarter of the current): step up at the generators, step down near the machines.',
     ],
     tasks: [build('transformer'), flag('xfmr', 'Pass power through a transformer')] },
+  // ---- P4d: generators, electric tools, scanning, the mining rig ----
+  { id: 'l_combustion', chapter: 'LV', title: 'Combustion Generator', req: ['l_cables'], reward: L2,
+    text: [
+      'The **Combustion Generator** (LV hull + motor + 2 pistons + steel pipe + 2 tin cables) burns liquid fuel for up to **32 W**: **creosote** from the coke oven (8 J/L — 4 L/s at full output) or **wood tar** from the charcoal pile (6 J/L). Pipe it in, or pour cells.',
+      'Like the turbine it only burns what the cables draw. It smokes a little while running.',
+    ],
+    tasks: [build('combustion_generator'), flag('combustion_generator', 'Make power from creosote')] },
+  { id: 'l_solar', chapter: 'LV', title: 'Selenium Sun', req: ['l_cables'], reward: L1,
+    text: [
+      'Selenium was the first photovoltaic material: weak, but free. A **Selenium Solar Panel** (2 selenium ingots + 2 glass panes + 2 steel plates + tin cable) gives up to **8 W** in full sun, less in rain, nothing at night.',
+      'Selenium comes as a byproduct of **chalcopyrite** ore processing.',
+    ],
+    tasks: [build('solar_panel'), flag('solar_panel', 'Power a cable from the sun')] },
+  { id: 'l_wind', chapter: 'LV', title: 'Wind Turbine', req: ['l_cables'], reward: L1,
+    text: [
+      'The **Wind Turbine** (LV hull + motor + 2 steel rotors + 4 steel rods) follows the weather: up to **32 W** in a gale. Height matters — on the ground it gets 30 %, and it reaches full strength **12 blocks up** (storey 4). Build a tower.',
+    ],
+    tasks: [build('wind_turbine'), flag('wind_turbine', 'Catch the wind')] },
+  { id: 'l_water_turbine', chapter: 'LV', title: 'Water Turbine', req: ['l_cables'], reward: L1,
+    text: [
+      'The **Water Turbine** (LV hull + motor + 2 steel rotors) sits beside moving water: next to a **river** it makes 24 W (more in rain), next to a **lake** about a third of that. The sea doesn\'t turn it.',
+    ],
+    tasks: [build('water_turbine'), flag('water_turbine', 'Turn a river into power')] },
+  { id: 'l_etools', chapter: 'LV', title: 'Electric Tools', req: ['l_battery_buffer'], reward: L2,
+    text: [
+      'The **Electric Drill** (steel drill head) digs rock and soil, the **Electric Chainsaw** (steel saw blade) fells trees — twice as fast as steel hand tools, 200 J per block. Each is a motor, a basic circuit, 2 steel plates and an empty battery (screwdriver, wrench).',
+      'When its battery runs flat it swaps in a **charged battery** from your bag and hands back the empty one. Charge batteries in a battery buffer, take them out charged. A flat tool with no charged battery to swap is skipped for your hand tools.',
+    ],
+    tasks: [any(['tool:drill:steel', 'tool:chainsaw:steel'], 1, 'An electric drill or chainsaw'), flag('etool', 'Use an electric tool')] },
+  { id: 'l_scanner', chapter: 'LV', title: 'Handheld Scanner', req: ['l_etools'], reward: L2,
+    text: [
+      'The **Handheld Scanner** (copper coil, glass lens, 2 basic circuits) replaces the prospector\'s hammer in **🔍 prospect** mode: it surveys every vein within **32 tiles** down to **layer 16**, for 4 kJ of battery each time.',
+    ],
+    tasks: [have('tool:scanner:steel'), flag('escan', 'Scan for veins')] },
+  { id: 'l_scanner_block', chapter: 'LV', title: 'Scanner', req: ['l_scanner'], reward: L2,
+    text: [
+      'The **Scanner** block (LV machine template + 8 copper wire + glass lens) listens for 30 s on 32 W, then surveys every vein within **64 tiles**, at **every depth** — the abyssal slot and the seabed included. Once per spot, like the thumper.',
+    ],
+    tasks: [build('scanner'), flag('scan', 'Finish a scanner survey')] },
+  { id: 'l_mining_rig', chapter: 'LV', title: 'Mining Rig', req: ['l_scanner_block', 's_excavator'], reward: L2,
+    text: [
+      'The **Mining Rig** (LV machine template + 2 motors + steel drill head + steel pipe) is the electric excavator: ore in the **13×13** square below it, from layer 1 down to **layer 24**, hardness ≤ **2**, 1 s per block × (1 + hardness), on 32 W. Nothing under water.',
+    ],
+    tasks: [build('mining_rig'), flag('rig', 'Mine ore with a rig')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));

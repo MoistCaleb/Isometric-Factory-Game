@@ -40,7 +40,7 @@ let lastView: View | null = null, lastPaused: boolean | null = null;
 
 /** Alerts (DESIGN §8): machines stuck in a bad status for ALERT_MS, plus explosions. Tap one to fly there. */
 export interface Alert { key: string; st: number; msg: string; t: number; boom?: boolean }
-const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower];
+const BAD: number[] = [MS.noFuel, MS.full, MS.noWater, MS.noWaterIn, MS.dry, MS.noSteam, MS.minedOut, MS.noSun, MS.noPower, MS.noFlow];
 const ALERT_MS = 3000;
 /** First time each machine was seen in its current bad status (`key` → [status, ms]). */
 const badSince = new Map<string, [number, number]>();
@@ -96,7 +96,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       for (const [k, s] of Object.entries(st.ms ?? {})) {
         const ma = machineAt(renderer.entities, k);
         // A full boiler is just idling; a solar boiler waiting for sunshine at night is normal.
-        const bad = BAD.includes(s) && !(ma?.def.run === 'boiler' && (s === MS.full || s === MS.noSun));
+        const bad = BAD.includes(s) && !(ma?.def.run === 'boiler' && (s === MS.full || s === MS.noSun)) && !(ma?.def.ambient === 'sun' && s === MS.noSun);
         if (!bad) { badSince.delete(k); continue; }
         const b = badSince.get(k);
         if (!b || b[0] !== s) { badSince.set(k, [s, now]); continue; }
@@ -329,9 +329,9 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       {iso && !menu && !book && !bag && !qbook && act === 'mine' && (
         <div class="buildbar">
           <button class={mineTool === 'dig' ? 'on' : ''} onClick={() => setMineTool('dig')} title="Dig (tap to mine; picks up ore samples)">⛏ <span class="lbl">dig</span></button>
-          <button class={mineTool === 'prospect' ? 'on' : ''} disabled={!inv.tools.some((t) => t?.id.startsWith('tool:prospector'))}
-            onClick={() => setMineTool('prospect')} title="Prospect (P) — needs a prospector's hammer">🔍 <span class="lbl">prospect</span></button>
-          <span class="dim">{mineTool === 'prospect' ? 'Tap to survey veins within 24 tiles, to layer 8' : 'Coloured rocks on the ground are ore samples — tap to pick up'}</span>
+          <button class={mineTool === 'prospect' ? 'on' : ''} disabled={!inv.tools.some((t) => t?.id.startsWith('tool:prospector') || t?.id.startsWith('tool:scanner'))}
+            onClick={() => setMineTool('prospect')} title="Prospect (P) — needs a prospector's hammer or a handheld scanner">🔍 <span class="lbl">prospect</span></button>
+          <span class="dim">{mineTool === 'prospect' ? (inv.tools.some((t) => t?.id.startsWith('tool:scanner')) ? 'Tap to scan veins within 32 tiles, to layer 16 (4 kJ; else the hammer)' : 'Tap to survey veins within 24 tiles, to layer 8') : 'Coloured rocks on the ground are ore samples — tap to pick up'}</span>
         </div>
       )}
       {journal && renderer.world && (

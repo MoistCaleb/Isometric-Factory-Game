@@ -38,6 +38,7 @@ export const FLAG_FORMS: Record<Flag, string[]> = {
 
 /** Hand tool types (tool slots). Tools of a material are generated from T-flag heads. */
 export const TOOL_TYPES = [
-  'pickaxe', 'shovel', 'axe', 'hammer', 'file', 'saw', 'knife', 'wrench', 'wire_cutter', 'screwdriver', 'mortar', 'treetap', 'prospector', 'magnet', 'soldering_iron',
+  'pickaxe', 'shovel', 'axe', 'hammer', 'file', 'saw', 'knife', 'wrench', 'wire_cutter', 'screwdriver', 'mortar', 'treetap', 'prospector', 'magnet', 'soldering_iron', 'drill', 'chainsaw', 'scanner',
+  'drill', 'chainsaw', 'scanner',
 ] as const;
 export type ToolType = (typeof TOOL_TYPES)[number];

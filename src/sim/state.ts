@@ -20,7 +20,7 @@ export interface Weather {
 }
 
 /** Inventory stack. `dur` = remaining uses (tools only). */
-export interface Slot { id: string; n: number; dur?: number }
+export interface Slot { id: string; n: number; dur?: number; /** Electric tool charge (J, P4d). */ e?: number }
 
 /** Placed structure (DESIGN §3). `s` = structure id, `r` = rotation 0–3. */
 export interface Ent { s: string; r: number; /** Pipes/cables: channel + cut sides (data/structures `conduitsJoin`). */ ch?: number; cut?: number;

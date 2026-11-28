@@ -222,7 +222,7 @@ Distance: rare veins are weighted away from spawn.
 | Vanadium Steel tools | LV | Pick: **H3** |
 | Chrome-Vanadium Steel tools | MV | Pick: **H4** |
 | Tungsten Carbide tools | HV | Pick: **H5** |
-| Electric Drill / Chainsaw / Scanner | LV+ (battery) | Same tier as the material of the drill head |
+| Electric Drill / Chainsaw / Scanner | LV+ (battery) | P4d: steel drill head / saw blade + LV motor + basic circuit + 2 steel plates + empty battery (screwdriver, wrench); scanner: 4 copper wire + glass lens + 2 circuits + 2 steel plates + battery. Drill = pick + shovel, chainsaw = axe, level 2, 2× speed, 200 J/use; scanner r32 / layer 16, 4 kJ. Flat → swaps a charged battery from the bag |
 
 **Hand-pick reach rule:** a pick made of a tier-T material mines hardness ≤ T+1. Bronze (P) → H1 · Steel (S) → H2 · Vanadium Steel (LV) → H3 · Cr-V Steel (MV) → H4 · WC (HV) → H5.
 
@@ -358,8 +358,8 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Roaster | clay furnace, pump, 4 fire bricks |
 | Canner | pump, conveyor module |
 | Electric Pump | pump, steel rotor (60 L/t water, 16 W) |
-| Mining Rig | 2 motors, steel drill head, pipe |
-| Scanner (block) | circuit, emitter-lite, copper coil |
+| Mining Rig | 2 motors, steel drill head, steel pipe (13×13, layers 1–24, H ≤ 2, 32 W) |
+| Scanner (block) | 8 copper wire (coil), glass lens (lathe: glass pane) — 32 W, 30 s, surveys r64 at every depth, once |
 | Battery Buffer | chest, 2 tin cables (4 battery slots) |
 | Transformer | LV hull, 2 copper cable + 1 tin cable + 8 copper wire (coil); front = 128 V side |
 
@@ -368,10 +368,10 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Generator | Fuel / source |
 |---|---|
 | Steam Turbine | steam (from boilers) |
-| Combustion Generator | creosote, ethanol, (later) diesel |
-| Selenium Solar Panel | daylight (weak, the historical first PV cell) |
-| Wind Turbine | wind, stronger with height; bronze/steel rotor |
-| Water Turbine | river/lake tile |
+| Combustion Generator | hull + motor + 2 pistons + steel pipe + 2 tin cables: 32 W; creosote 8 J/L, wood tar 6, ethanol 60, (later) diesel |
+| Selenium Solar Panel | 2 selenium ingots (furnace: Se dust from chalcopyrite) + 2 glass panes + 2 steel plates + tin cable: 8 W × daylight |
+| Wind Turbine | hull + motor + 2 steel rotors + 4 steel rods: 32 W × wind × height (0.3 ground → 1 at block 12) |
+| Water Turbine | hull + motor + 2 steel rotors: 24 W beside a river (rain ↑), 35 % beside a lake |
 
 **Fuses & breakers:**
 - **Fuse:** tin wire in a glass tube. Burns out.
@@ -505,7 +505,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
    - steam excavator (s_excavator)
    - P3e: pollution, overlays, alerts (s_smoke, flags poll_overlay / pipe_overlay / alerts)
    - P3d: steel hull (s_steel_hull), high-pressure boiler (s_hp_boiler), solar boiler (s_solar), Large Boiler: rotation + hatches (s_large_boiler)
-3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid; P4c done: l_battery, l_battery_buffer, l_breaker, l_transformer)
+3. **LV:** (P4a done: l_magnet, l_motor, l_turbine, l_circuit, l_cables, l_fuse, one per LV machine; P4b done: l_cells, l_brine, l_chloralkali, l_hcl, l_roast, l_acid; P4c done: l_battery, l_battery_buffer, l_breaker, l_transformer; P4d done: l_combustion, l_solar, l_wind, l_water_turbine, l_etools, l_scanner, l_scanner_block, l_mining_rig)
    - lodestone magnet
    - first motor
    - hand-made basic circuit

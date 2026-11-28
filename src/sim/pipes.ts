@@ -101,6 +101,7 @@ function attached(s: GameState, net: Net, dir: 'in' | 'out') {
 // ---------- fluids ----------
 /** Fluid a machine offers to a network holding `net` (any if unset): its tank, or a bag output (not a recipe input). */
 function offer(m: Mach, def: MachineDef, net?: string): { id: string; n: number; take: (n: number) => void } | null {
+  if (def.burns) return null; // generator fuel tanks only take in
   if (singleTank(def)) {
     const tk = m.tank;
     if (!tk || tk.n <= 0 || (net && net !== tk.id)) return null;
@@ -126,6 +127,10 @@ export const tooHot = (def: MachineDef, id: string) => !!def.cold && (id === 'st
 function want(m: Mach, def: MachineDef, id: string): [number, number, (n: number) => void] | null {
   if (def.run === 'boiler') return id === 'water' ? [m.water ?? 0, def.waterTank ?? BOILER_WATER, (n) => { m.water = n; }] : null;
   if ((def.run === 'steam' || def.steam) && id === 'steam') return [m.steam ?? 0, STEAM_BUF, (n) => { m.steam = n; }];
+  if (def.burns) {
+    const setTank = (n: number) => { m.tank = n > 0 ? { id, n } : undefined; };
+    return def.burns[id] && (!m.tank || m.tank.id === id) ? [m.tank?.n ?? 0, def.tank ?? 0, setTank] : null;
+  }
   if (def.run === 'tank') {
     const setTank = (n: number) => { m.tank = n > 0 ? { id, n } : undefined; };
     return (m.tank && m.tank.id !== id) || tooHot(def, id) ? null : [m.tank?.n ?? 0, def.tank ?? 0, setTank];

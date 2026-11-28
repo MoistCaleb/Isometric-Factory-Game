@@ -52,6 +52,7 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .slot .lb { position: absolute; left: 2px; right: 2px; bottom: 3px; font-size: 9px; line-height: 10px; text-align: left; color: var(--dim); overflow: hidden; max-height: 20px; }
 .slot .n { position: absolute; right: 3px; top: 2px; font-size: 11px; font-weight: 600; }
 .slot .dur { position: absolute; left: 0; bottom: 0; height: 3px; background: #6c6; }
+.slot .dur.chg { bottom: 3px; background: #f0d040; }
 .bagbtn { font-size: 20px; }
 .bag { position: absolute; left: 50%; transform: translateX(-50%); bottom: calc(64px + env(safe-area-inset-bottom, 0)); background: var(--panel);
   border: 1px solid var(--line); border-radius: 8px; padding: 6px; max-height: calc(100% - 130px); overflow: auto; }

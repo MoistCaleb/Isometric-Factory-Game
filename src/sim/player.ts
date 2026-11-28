@@ -15,6 +15,7 @@ import { machCmd, type MachCmd } from './machines';
 import { checkQuests, questCmd, type QuestCmd } from './quests';
 import { know, pickSample, prospect } from './veins';
 import { KNOW, STOREY, type Ent, type GameState, type Slot } from './state';
+import { BATT, BATT_FULL, BATT_J } from '../data/machines';
 import { UI_FLAGS } from '../data/quests';
 
 export const STACK = 64;
@@ -143,21 +144,40 @@ export function move(s: GameState, a: SlotRef, b: SlotRef): ActResult {
   return { ok: true };
 }
 
-/** Best tool of a type in the tool slots (highest level). */
-export function bestTool(s: Inv, type: ToolType): { i: number; level: number } | null {
-  let best: { i: number; level: number } | null = null;
+/** An electric tool can run: charge for one use, or a charged battery in the bag to swap in (P4d). */
+const charged = (s: Inv, sl: Slot, need: number) => (sl.e ?? 0) >= need - 1e-9 || count(s, BATT_FULL) > 0;
+
+/** Best tool of a type in the tool slots (highest level; electric tools that can run win ties). */
+export function bestTool(s: Inv, type: ToolType): { i: number; level: number; elec?: boolean } | null {
+  let best: { i: number; level: number; elec?: boolean } | null = null, rank = -1;
   s.tools.forEach((sl, i) => {
     const t = sl && registry().item(sl.id)?.tool;
-    if (t?.type === type && (!best || t.level > best.level)) best = { i, level: t.level };
+    if (!t || (t.type !== type && !t.also?.includes(type)) || (t.elec && !charged(s, sl, t.elec))) return;
+    const r = t.level + (t.elec ? 0.5 : 0);
+    if (r > rank) { rank = r; best = { i, level: t.level, elec: !!t.elec }; }
   });
   return best;
 }
 
-/** Wear a tool by one use; returns a message if it broke. */
+/** Wear a tool by one use (electric tools also spend charge, swapping a flat battery for a charged one from the bag);
+ * returns a message if it broke or swapped. */
 export function wear(s: GameState, i: number): string | undefined {
   const sl = s.tools[i];
-  if (!sl || sl.dur === undefined) return;
+  if (!sl) return;
+  const t = registry().item(sl.id)?.tool;
+  let msg: string | undefined;
+  if (t?.elec) {
+    if ((sl.e ?? 0) < t.elec - 1e-9 && count(s, BATT_FULL)) {
+      take(s, BATT_FULL, 1);
+      msg = give(s, BATT, 1) ? 'Swapped in a charged battery (bag full: the flat one was lost)' : 'Swapped in a charged battery';
+      sl.e = (sl.e ?? 0) + BATT_J;
+    }
+    sl.e = Math.max(0, (sl.e ?? 0) - t.elec);
+    s.flags.etool = (s.flags.etool ?? 0) + 1;
+  }
+  if (sl.dur === undefined) return msg;
   if (--sl.dur <= 0) { s.tools[i] = null; return `${registry().item(sl.id)?.name ?? sl.id} broke`; }
+  return msg;
 }
 
 // ---------- mining ----------
@@ -194,6 +214,8 @@ function exposed(s: GameState, gen: WorldGen, x: number, y: number, z: number): 
 }
 
 const speed = (level: number) => 1 + 0.5 * level;
+/** Electric drills and chainsaws work twice as fast as a hand tool of their level (P4d). */
+const tspeed = (t: { level: number; elec?: boolean }) => speed(t.level) * (t.elec ? 2 : 1);
 
 function hit(s: GameState, key: string, need: number): ActResult | null {
   if (s.dig?.key !== key) s.dig = { key, hits: 0 };
@@ -228,7 +250,7 @@ function chop(s: GameState, x: number, y: number, tree: Tree): ActResult {
     const drops = [...chance(s, 0.4, 'stick:wood'), ...chance(s, 0.15, 'fiber')];
     return collect(s, drops, { ok: true, target, msg: drops.length ? undefined : 'Nothing — an axe fells trees' });
   }
-  const p = hit(s, key, Math.ceil(5 / speed(axe.level)));
+  const p = hit(s, key, Math.ceil(5 / tspeed(axe)));
   if (p) return { ...p, target };
   const broke = wear(s, axe.i);
   s.diffs[key] = 0;
@@ -262,8 +284,8 @@ export function mine(s: GameState, gen: WorldGen, xIn: number, y: number, zIn: n
     if (!tool) return { ok: false, msg: `Need a pickaxe for ${def.name}` };
     // Hand-pick reach: a tier-T pick mines hardness ≤ T+1 (CONTENT §11c).
     if (rule.hardness > tool.level + 1) return { ok: false, msg: `${def.name} needs a better pickaxe (hardness ${rule.hardness})` };
-    need = Math.ceil(rule.hits / speed(tool.level));
-  } else need = tool ? Math.ceil(rule.hits / speed(tool.level)) : rule.hits * HAND_SOIL;
+    need = Math.ceil(rule.hits / tspeed(tool));
+  } else need = tool ? Math.ceil(rule.hits / tspeed(tool)) : rule.hits * HAND_SOIL;
 
   const key = `${x},${y},${z}`;
   const p = hit(s, key, need);

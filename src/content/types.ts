@@ -12,7 +12,7 @@ export interface ItemDef {
   material?: string;
   mineral?: string;
   form?: string;
-  tool?: { type: ToolType; level: number; durability: number };
+  tool?: { type: ToolType; level: number; durability: number; /** Electric (P4d): J per use · also counts as these types. */ elec?: number; also?: ToolType[] };
   hazards?: Hazard[];
 }
 
