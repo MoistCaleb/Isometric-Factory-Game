@@ -16,7 +16,7 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'cell', 'corrode', 'brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid',
   'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery',
   'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig',
-  'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire'] as const;
+  'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -46,6 +46,7 @@ const flag = (id: string, label: string): QuestTask => ({ k: 'flag', id, label }
 const P1: QuestDef['reward'] = { crates: [['P', 1]] }, P2: QuestDef['reward'] = { crates: [['P', 2]] };
 const S1: QuestDef['reward'] = { crates: [['S', 1]] }, S2: QuestDef['reward'] = { crates: [['S', 2]] };
 const L1: QuestDef['reward'] = { crates: [['LV', 1]] }, L2: QuestDef['reward'] = { crates: [['LV', 2]] };
+const M1: QuestDef['reward'] = { crates: [['MV', 1]] }, M2: QuestDef['reward'] = { crates: [['MV', 2]] };
 const ores = (form: string) => MINERALS.map((m) => `${form}:${m.id}`);
 
 export const QUESTS: QuestDef[] = [
@@ -615,6 +616,38 @@ export const QUESTS: QuestDef[] = [
       'That smelts metals that melt between 1750 K and the coils\' 2000 K: **iron**, **cobalt**, **kanthal** (next tier\'s coils), **titanium**. Each hatch draws 2 A on its own line — one tin cable each, or a copper cable for both.',
     ],
     tasks: [flag('ebf', 'Smelt in the EBF'), flag('ebf_mv', 'Run a 128 W recipe on two energy hatches')] },
+  // ---- MV (P5a): aluminium, the gate material ----
+  { id: 'm_bayer', chapter: 'MV', title: 'The Bayer Process', req: ['l_ebf_mv', 'l_chloralkali'], reward: M1,
+    text: [
+      '**Aluminium** opens MV, and it never comes out of a furnace: bauxite has to be turned into pure **alumina** first.',
+      '**Chemical reactor:** bauxite dust + 1000 L **sodium hydroxide** (electrolyzer: brine) → **sodium aluminate** + red mud. **Mixer:** the aluminate precipitates **aluminium hydroxide** and gives most of the NaOH back — pipe it round again. **Roaster:** calcine 2 hydroxide → 1 **alumina**.',
+      'Bauxite lies in laterites under the jungle.',
+    ],
+    tasks: [flag('sodium_aluminate', 'Digest bauxite'), have('dust:alumina', 4)] },
+  { id: 'm_red_mud', chapter: 'chem', tier: 'MV', title: 'Red Mud', req: ['m_bayer'], reward: M1,
+    text: [
+      'Every batch of bauxite leaves **red mud** — corrosive slurry. Dumping it contaminates the ground.',
+      'Spin it in the **centrifuge** instead: iron, rutile (titanium, later) and a little **gallium** come out, and the water goes back.',
+    ],
+    tasks: [have('small_dust:gallium')] },
+  { id: 'm_cryolite', chapter: 'MV', title: 'Cryolite', req: ['m_bayer', 'l_acid'], reward: M1,
+    text: [
+      'Alumina melts at 2300 K — too hot to electrolyse. Dissolved in molten **cryolite** it melts near 1250 K.',
+      '**Chemical reactor:** fluorite dust + 1000 L **sulfuric acid** → **hydrofluoric acid** (corrosive, toxic: lead pipes). Then aluminium hydroxide + 1000 L HF + 1000 L NaOH → **cryolite**.',
+    ],
+    tasks: [flag('hydrofluoric_acid', 'Make hydrofluoric acid'), have('dust:cryolite', 2)] },
+  { id: 'm_hall', chapter: 'MV', title: 'Hall–Héroult Cell', req: ['m_cryolite'], reward: M2,
+    text: [
+      'The **gate to MV.** The **Hall–Héroult Cell** controller stands in front of a 3×3 pot: a floor of **Carbon-Lined Casing** around a **Cathode Block** in the middle, one ring of casing above around the open bath.',
+      'Like the EBF it runs on **two LV energy hatches** (128 W) and needs a **maintenance hatch**. Each run eats a **graphite anode** (steam compressor: 4 graphite dust) and a little cryolite, and gives off CO₂ — take it out through an output hatch or dump it.',
+      '4 alumina → 4 **aluminium ingots**.',
+    ],
+    tasks: [build('hall_heroult'), have('struct:carbon_casing', 15), have('struct:cathode_block'), flag('aluminium', 'Smelt aluminium')] },
+  { id: 'm_hull', chapter: 'MV', title: 'MV Hull', req: ['m_hall'], reward: M2,
+    text: [
+      '8 **aluminium plates** + 2 **copper cables** (128 V) → the **MV Hull**, the frame of every MV machine.',
+    ],
+    tasks: [have('hull:mv')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));
 /** Every quest id a quest's requirements mention (any-of groups flattened). */

@@ -116,10 +116,10 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
         <>
           <h3>Power</h3>
           {(def.run === 'elec' || def.elec) && <><div class="bar"><div style={{ width: `${Math.min(100, ((m.e ?? 0) / Math.max(1, bufJ(def, m))) * 100)}%`, background: '#f0d040' }} /></div>
-            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def, m))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def, m))} = {def.coilK ? `${m.eh ?? 0} energy hatch${m.eh === 1 ? '' : 'es'} × ${fmtW(HATCH_W)}` : `${TIER_VOLTAGE[def.tier]} V × ${AMP_IN} A`}){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div></>}
+            <div class="dim">Buffer {fmtJ(m.e ?? 0)} / {fmtJ(bufJ(def, m))} · in {fmtW(m.pw ?? 0)} (max {fmtW(inputW(def, m))} = {def.ehatch ? `${m.eh ?? 0} energy hatch${m.eh === 1 ? '' : 'es'} × ${fmtW(HATCH_W)}` : `${TIER_VOLTAGE[def.tier]} V × ${AMP_IN} A`}){r ? ` · recipe uses ${fmtW(r.power)}` : def.elec ? ` · uses ${fmtW(def.elec)}` : ''}</div></>}
           {def.run === 'gen' && <div class="dim">Out {fmtW(m.pw ?? 0)} of {fmtW(def.gen ?? 0)} at {TIER_VOLTAGE[def.tier]} V{def.steam ? ` · uses up to ${def.steam} L/tick of steam, only as much as the cables draw` : ''}</div>}
           {view!.pw ? <div class="dim">Network: {view!.pw.v} V · {fmtW(view!.pw.w)} delivered of {fmtW(view!.pw.cap)} available · {view!.pw.a.toFixed(2)} A / {view!.pw.maxA} A max · cable loss {fmtW(view!.pw.loss)} · {view!.pw.cables} cable blocks</div>
-            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} {def.coilK ? 'Cable its LV energy hatches to generators.' : 'Place tin cable touching it.'}</div>}
+            : <div class="dim">{def.run === 'gen' ? 'Not feeding any cable with a machine on it.' : 'No generator on its cables.'} {def.ehatch ? 'Cable its LV energy hatches to generators.' : 'Place tin cable touching it.'}</div>}
         </>
       )}
       {def.coilK && (

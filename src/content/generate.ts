@@ -231,6 +231,7 @@ export function generate(): Generated {
   lv(hand, mach);
   chem({ addItem, hand, mach, itemIds });
   grid({ addItem, hand, mach, itemIds });
+  aluminium(hand, mach);
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -450,6 +451,21 @@ function grid(c: Ctx) {
   etool('drill', 'Electric Drill', 0xd0a030, ['pickaxe', 'shovel'], ETOOL_J, [['head_drill:steel', 1], ['motor:lv', 1]]);
   etool('chainsaw', 'Electric Chainsaw', 0xd06030, ['axe'], ETOOL_J, [['head_saw:steel', 1], ['motor:lv', 1]]);
   etool('scanner', 'Handheld Scanner', 0x40a0c0, [], SCAN_J, [['wire:copper', 4], ['lens:glass', 1], ['circuit:basic', 1]]);
+}
+
+/** Aluminium (P5a, CONTENT §11e.5): Bayer → alumina, red mud recovery, cryolite, Hall–Héroult cell, MV hull. */
+function aluminium(hand: Ctx['hand'], mach: Ctx['mach']) {
+  mach('chemical_reactor', [s('mdust:bauxite')], [], { fluidsIn: [s('sodium_hydroxide', 1000)], fluidsOut: [s('sodium_aluminate', 1000), s('red_mud', 500)], ticks: 200, power: 24 });
+  mach('mixer', [], [s('dust:aluminium_hydroxide', 2)], { fluidsIn: [s('sodium_aluminate', 1000)], fluidsOut: [s('sodium_hydroxide', 900)], ticks: 200, power: 16 });
+  mach('roaster', [s('dust:aluminium_hydroxide', 2)], [s('dust:alumina')], { ticks: 160, power: 24 });
+  mach('centrifuge', [], [s('small_dust:iron', 2), s('small_mdust:rutile', 1, 0.5), s('small_dust:gallium', 1, 0.3)], { fluidsIn: [s('red_mud', 1000)], fluidsOut: [s('water', 500)], ticks: 200, power: 24 });
+  mach('chemical_reactor', [s('mdust:fluorite')], [], { fluidsIn: [s('sulfuric_acid', 1000)], fluidsOut: [s('hydrofluoric_acid', 1000)], ticks: 200, power: 24 });
+  mach('chemical_reactor', [s('dust:aluminium_hydroxide')], [s('dust:cryolite', 2)], { fluidsIn: [s('hydrofluoric_acid', 1000), s('sodium_hydroxide', 1000)], fluidsOut: [s('water', 1000)], ticks: 200, power: 24 });
+  mach('steam_compressor', [s('dust:graphite', 4)], [s('electrode:graphite')], { power: 4 });
+  // 2 Al₂O₃ + 3 C → 4 Al + 3 CO₂, in molten cryolite; 120 W = two LV energy hatches.
+  mach('hall_heroult', [s('dust:alumina', 4), s('electrode:graphite'), s('dust:cryolite')], [s('ingot:aluminium', 4)], { fluidsOut: [s('carbon_dioxide', 1000)], ticks: 400, power: 120 });
+  hand([s('plate:aluminium', 8), s('cable:copper', 2)], [s('hull:mv')], ['wrench']);
+  mach('assembler', [s('plate:aluminium', 8), s('cable:copper', 2)], [s('hull:mv')], { ticks: 200, power: 32 });
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

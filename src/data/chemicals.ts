@@ -15,9 +15,8 @@ const ROWS: Row[] = [
   ['sulfuric_acid', 'Sulfuric Acid', 'H₂SO₄', 'l', 'corrosive', 0xd0a030], ['hydrochloric_acid', 'Hydrochloric Acid', 'HCl', 'l', 'corrosive toxic', 0xb0d0a0],
   ['hydrofluoric_acid', 'Hydrofluoric Acid', 'HF', 'l', 'corrosive toxic', 0xa0e0d0], ['nitric_acid', 'Nitric Acid', 'HNO₃', 'l', 'corrosive toxic', 0xe0c080],
   ['sodium_hydroxide', 'Sodium Hydroxide', 'NaOH', 'l', 'corrosive', 0xe0e0f0], ['ammonia', 'Ammonia', 'NH₃', 'g', 'toxic', 0xc0d0e0],
-  ['sodium_aluminate', 'Sodium Aluminate', 'NaAlO₂(aq)', 'l', 'corrosive', 0xd0d0c0], ['aluminium_hydroxide', 'Aluminium Hydroxide', 'Al(OH)₃', 'l', '', 0xe8e8e0],
-  ['alumina', 'Alumina', 'Al₂O₃', 'l', '', 0xf0f0f0], ['cryolite', 'Cryolite', 'Na₃AlF₆', 'l', 'toxic', 0xd8e8f0],
-  ['red_mud', 'Red Mud', '', 'l', 'corrosive', 0xa04030],
+  // P5a: Al(OH)₃, alumina and cryolite are dust items (generate.ts `aluminium`).
+  ['sodium_aluminate', 'Sodium Aluminate', 'NaAlO₂(aq)', 'l', 'corrosive', 0xd0d0c0], ['red_mud', 'Red Mud', '', 'l', 'corrosive', 0xa04030],
   ['creosote', 'Creosote', '', 'l', 'flammable toxic', 0x6a4a20], ['coal_tar', 'Coal Tar', '', 'l', 'flammable toxic', 0x202018],
   ['wood_tar', 'Wood Tar', '', 'l', 'flammable', 0x4a3018], ['methanol', 'Methanol', 'CH₃OH', 'l', 'flammable toxic', 0xd0d8e0],
   ['acetic_acid', 'Acetic Acid', 'CH₃COOH', 'l', 'corrosive', 0xe0e0d0], ['formaldehyde', 'Formaldehyde', 'CH₂O', 'g', 'toxic', 0xe0e0f0],

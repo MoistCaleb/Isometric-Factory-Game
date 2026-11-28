@@ -43,6 +43,8 @@ export interface MachineDef {
   survey?: [number, number, number]; dig?: [number, number, number, number];
   /** EBF (P4e): coil temperature (K) · multiblock takes maintenance (MAINT issues). Power comes in through energy hatches. */
   coilK?: number; maint?: boolean;
+  /** Power only through energy hatches (P4e EBF, P5a Hall–Héroult): each ≤ HATCH_W incl. loss, buffer = hatches × HATCH_W J. */
+  ehatch?: boolean;
 }
 
 /** Liquid generator fuels (P4d): J per litre. Creosote: a coke oven's 250 L ≈ a coal lump through a boiler + turbine. */
@@ -82,11 +84,13 @@ const ROWS: Row[] = [
   // P4a: electric (run 'elec' unless noted).
   ['steam_turbine', 'Steam Turbine', 'LV', undefined, { run: 'gen', gen: 32, steam: 16 }],
   ['electric_furnace', 'Electric Furnace', 'LV', 1750, { run: 'elec' }],
-  ['ebf', 'Electric Blast Furnace', 'LV', 4200, { run: 'elec', coilK: 2000, maint: true, tank: 16000, smoke: 2 }],
+  ['ebf', 'Electric Blast Furnace', 'LV', 4200, { run: 'elec', coilK: 2000, maint: true, ehatch: true, tank: 16000, smoke: 2 }],
+  // P5a: aluminium smelter (gate to MV), on LV energy hatches like the EBF.
+  ['hall_heroult', 'Hall–Héroult Cell', 'LV', undefined, { run: 'elec', maint: true, ehatch: true, tank: 16000, smoke: 1 }],
   ['macerator', 'Macerator', 'LV', undefined, { run: 'elec' }],
   ['ore_washer', 'Ore Washer', 'LV', undefined, { run: 'elec', tank: 8000 }],
   ['thermal_centrifuge', 'Thermal Centrifuge', 'LV', undefined, { run: 'elec', tank: 4000 }],
-  ['centrifuge', 'Centrifuge', 'LV', undefined, { run: 'elec' }],
+  ['centrifuge', 'Centrifuge', 'LV', undefined, { run: 'elec', tank: 8000 }],
   ['bender', 'Bender', 'LV', undefined, { run: 'elec' }],
   ['wiremill', 'Wiremill', 'LV', undefined, { run: 'elec' }],
   ['lathe', 'Lathe', 'LV', undefined, { run: 'elec' }],
@@ -160,4 +164,4 @@ export const xfFront = (r: number) => [2, 1, 3, 0][r & 3];
 export const CELL_L = 1000, CORRODE_P = 0.01, LEAK_POLL = 100, DUMP_POLL = 0.05;
 /** Fluids that come in cells (P4b). */
 export const CELL_FLUIDS = ['water', 'brine', 'sodium_hydroxide', 'chlorine', 'hydrogen', 'oxygen', 'hydrochloric_acid', 'sulfur_dioxide',
-  'sulfuric_acid', 'mercury', 'creosote', 'wood_tar'];
+  'sulfuric_acid', 'mercury', 'creosote', 'wood_tar', 'hydrofluoric_acid'];

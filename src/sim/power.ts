@@ -29,7 +29,7 @@ const defOf = (s: GameState, ctl: string): MachineDef | undefined => MACHINE.get
 const electric = (d?: MachineDef) => d?.run === 'elec' || d?.run === 'gen' || d?.run === 'batt' || d?.run === 'xfmr' || !!d?.elec;
 
 /** Machine input (W) and buffer (J); a multiblock with energy hatches (P4e) takes HATCH_W per hatch. */
-export const inputW = (d: MachineDef, m?: Mach) => (d.coilK ? (m?.eh ?? 0) * HATCH_W : TIER_VOLTAGE[d.tier] * AMP_IN);
+export const inputW = (d: MachineDef, m?: Mach) => (d.ehatch ? (m?.eh ?? 0) * HATCH_W : TIER_VOLTAGE[d.tier] * AMP_IN);
 export const bufJ = (d: MachineDef, m?: Mach) => inputW(d, m) * BUF_S;
 
 /** A live cable block (a tripped / switched-off breaker conducts nothing). */

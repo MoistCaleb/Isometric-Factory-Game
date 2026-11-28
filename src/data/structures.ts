@@ -56,6 +56,13 @@ export const PATTERNS = {
       .concat([1, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, b, 1])))),
     hollow: [[0, -1, 1], [0, -1, 2]],
   },
+  /** Hall–Héroult pot (P5a): controller at the front of a 3×3 carbon-lined floor with the cathode block (part 1) in the
+   * middle, one ring of casing above around the open bath. */
+  pot: {
+    cells: [0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => (dx === 0 && dy === -1 ? [dx, dy, 0, 1] : [dx, dy, 0]))).filter(([dx, dy]) => dx || dy)
+      .concat([0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, 1]))),
+    hollow: [[0, -1, 1]],
+  },
 } satisfies Record<string, Pattern>;
 export type PatternId = keyof typeof PATTERNS;
 /** Structures that belong to multiblocks (controllers + casings) — rendered full height whatever the view level. */
@@ -70,7 +77,7 @@ export function rotCell([dx, dy, db]: Cell, r: number): [number, number, number]
 const FIRE = 0xc9b48a, DIRT = 0x6a4a2e, LIME = 0xd8d4c8, GLOW = 0xff8a30;
 const LEAD = 0x5c5a78, TIN = 0xc8ccd0, HULL_D = 0x8a5a20, STEEL = 0x707478, WATER = 0x3070d0;
 const LVC = 0x8a8e94, VOLT = 0xf0d040, CABLE = 0x3a3a40, CABLE_CU = 0x4a3a34, COPPER = 0xd87a3c, GLASS = 0xb8d8e0;
-const HEAT = 0x8a6a50, CUNI = 0xc49a6c;
+const HEAT = 0x8a6a50, CUNI = 0xc49a6c, CARBON = 0x3a3a40, ALU = 0xb0c4d8, BATH = 0xffa040;
 const WOOD = 0x9a7040, DARK = 0x5a4026, CLAY = 0xa86a48, BRICK = 0x9a4a32, STONE = 0x8a8a88, BRONZE = 0xc08a40, SOOT = 0x2a2420;
 
 export const STRUCTURES: StructDef[] = [
@@ -282,6 +289,16 @@ function lvMachines(): StructDef[] {
       model: [[0, 0, 0, 16, 16, 16, LVC], [3, 3, 0, 13, 13, 16, 0x4080c0], [6, 6, 0, 10, 10, 16, 0xd0d0d0]] },
     { id: 'output_bus', name: 'Steel Output Bus', color: STEEL, hatch: 'item_out', cost: [['plate:steel', 4], ['struct:chest', 1]], tools: ['wrench'],
       model: [[0, 0, 0, 16, 16, 16, STEEL], [3, 3, 0, 13, 13, 16, 0xe0a040], [5, 5, 0, 11, 11, 16, DARK]] },
+    // P5a gate: Hall–Héroult Cell (aluminium) + its casings; MV hull is an item.
+    { id: 'hall_heroult', name: 'Hall–Héroult Cell', color: CARBON, machine: 'hall_heroult', tools: ['wrench'],
+      cost: [['hull:lv', 1], ['struct:electrolyzer', 1], ['circuit:basic', 3], ['cable:copper', 4]],
+      multi: { casing: 'carbon_casing', pattern: 'pot', parts: ['cathode_block'], solid: [1],
+        hatches: ['energy_hatch', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
+      model: [[0, 0, 0, 16, 16, 16, CARBON], [2, 10, 15, 14, 14, 16, ALU], [4, 3, 15, 12, 8, 16, BATH], [6, 12, 15, 10, 14, 16, VOLT]] },
+    { id: 'carbon_casing', name: 'Carbon-Lined Casing', color: CARBON, cost: [['plate:steel', 4], ['dust:graphite', 4], ['frame:steel', 1]], tools: ['hammer', 'wrench'],
+      model: [[0, 0, 0, 16, 16, 16, STEEL], [1, 1, 1, 15, 15, 15, CARBON], [0, 14, 0, 16, 16, 16, 0x5a5e64]] },
+    { id: 'cathode_block', name: 'Cathode Block', color: CARBON, cost: [['dust:graphite', 8], ['plate:steel', 2], ['rod:steel', 2]], tools: ['hammer'],
+      model: [[0, 0, 0, 16, 16, 16, CARBON], [0, 14, 0, 16, 16, 16, 0x202024], [6, 0, 6, 10, 16, 10, STEEL]] },
     row('mining_rig', 'Mining Rig', [['motor:lv', 2], ['head_drill:steel', 1], ['pipe:steel', 1]],
       [[3, 12, 3, 13, 14, 13, STEEL], [7, 14, 7, 9, 16, 9, 0xd0a030], [0, 0, 0, 3, 3, 16, STEEL], [13, 0, 0, 16, 3, 16, STEEL]]),
   ];

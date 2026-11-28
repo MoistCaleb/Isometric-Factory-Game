@@ -26,6 +26,12 @@ export const LOOT: Partial<Record<TierId, LootEntry[]>> = {
     { id: 'vacuum_tube', n: [1, 2], w: 2 }, { id: 'circuit:basic', n: [1, 1], w: 1 }, { id: 'motor:lv', n: [1, 1], w: 1 },
     { id: 'cell:empty', n: [2, 4], w: 4 }, { id: 'dust:salt', n: [4, 8], w: 3 }, { id: 'struct:lead_pipe', n: [2, 6], w: 3 }, { id: 'pane:glass', n: [2, 4], w: 3 },
   ],
+  MV: [
+    { id: 'ingot:aluminium', n: [2, 4], w: 6 }, { id: 'plate:aluminium', n: [1, 3], w: 4 }, { id: 'dust:alumina', n: [2, 6], w: 6 },
+    { id: 'electrode:graphite', n: [1, 2], w: 5 }, { id: 'cable:copper', n: [2, 6], w: 6 }, { id: 'circuit:basic', n: [1, 3], w: 5 },
+    { id: 'ingot:steel', n: [4, 8], w: 6 }, { id: 'cell:sodium_hydroxide', n: [1, 2], w: 3 }, { id: 'struct:lead_pipe', n: [4, 8], w: 4 },
+    { id: 'charged_battery:lead_acid', n: [1, 1], w: 2 }, { id: 'motor:lv', n: [1, 2], w: 3 }, { id: 'dust:cryolite', n: [1, 2], w: 2 },
+  ],
 };
 /** Tiers that have crates (an item `crate:<tier>`). */
 export const CRATE_TIERS = Object.keys(LOOT) as TierId[];

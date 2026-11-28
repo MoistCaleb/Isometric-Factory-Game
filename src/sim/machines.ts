@@ -209,10 +209,10 @@ function hasRoom(m: Mach, r: Recipe, def: MachineDef): boolean {
 function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: MachineDef, r?: Recipe): number | null {
   if (!r) return MS.idle;
   const mc = multiCheck(s.ents, gen.w, key);
-  if (def.coilK) m.eh = mc.has.energy_hatch ?? 0;
+  if (def.ehatch) m.eh = mc.has.energy_hatch ?? 0;
   if (incomplete(mc)) return MS.incomplete;
   if (def.coilK && (r.minHeatK ?? 0) > def.coilK) return MS.coils;
-  if (def.coilK && r.power > (m.eh ?? 0) * HATCH_W) return MS.hatchW;
+  if (def.ehatch && r.power > (m.eh ?? 0) * HATCH_W) return MS.hatchW;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
   if (!hasInputs(m, r)) return MS.noInput;
   if (!hasRoom(m, r, def)) return MS.full;
@@ -226,7 +226,7 @@ export function addFl(m: Mach, id: string, n: number) {
   else if (m.fl) { delete m.fl[id]; if (!Object.keys(m.fl).length) delete m.fl; }
 }
 /** Chemistry outputs that set a quest flag when first made (P4b). */
-const CHEM_FLAGS = new Set(['brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid']);
+const CHEM_FLAGS = new Set(['brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid', 'sodium_aluminate', 'hydrofluoric_acid']);
 
 function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
   for (const i of r.inputs) { m.inp[i.id] -= i.n; if (!m.inp[i.id]) delete m.inp[i.id]; }
@@ -237,7 +237,8 @@ function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
     addFl(m, f.id, f.n);
     if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
-  const fl = def.id === 'ebf' ? (r.power > HATCH_W ? ['ebf', 'ebf_mv'] : ['ebf']) : def.id === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc'] : [];
+  const fl = def.id === 'ebf' ? (r.power > HATCH_W ? ['ebf', 'ebf_mv'] : ['ebf']) : def.id === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']
+    : def.id === 'hall_heroult' ? ['aluminium'] : [];
   for (const f of fl) s.flags[f] = (s.flags[f] ?? 0) + 1;
   m.prog = 0;
 }

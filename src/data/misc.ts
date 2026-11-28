@@ -27,6 +27,11 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'vacuum_tube', name: 'Vacuum Tube', color: 0xc8d8e0 },
   { id: 'resistor:carbon', name: 'Carbon Resistor', color: 0x5a4a3a },
   { id: 'circuit:basic', name: 'Basic Circuit', color: 0x40a040 },
+  // P5a aluminium line + MV hull.
+  { id: 'dust:aluminium_hydroxide', name: 'Aluminium Hydroxide Dust', color: 0xe8e8e0 },
+  { id: 'dust:alumina', name: 'Alumina Dust', color: 0xf0f0f0 },
+  { id: 'dust:cryolite', name: 'Cryolite Dust', color: 0xd8e8f0 },
+  { id: 'hull:mv', name: 'MV Hull', color: 0xb0c4d8 },
 ];
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */

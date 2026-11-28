@@ -389,6 +389,14 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 - I/O: bronze input bus / hatches, **Steel Output Bus** (4 steel plates + chest)
 - Recipes: dust → ingot for 1750–2000 K metals (iron, cobalt, kanthal, titanium; 120 W = 2 hatches); iron dust + 1000 L O₂ → steel (1000 K, 60 W = 1 hatch)
 
+**MV gate: aluminium (P5a)**
+- Bayer: chemical reactor: bauxite dust + 1000 L NaOH → 1000 L sodium aluminate + 500 L red mud (24 W) · mixer: 1000 L aluminate → 2 Al(OH)₃ dust + 900 L NaOH back · roaster: 2 Al(OH)₃ → alumina dust
+- Red mud: centrifuge (now has a tank): 1000 L → 2 small iron dust, small rutile dust (50 %), small gallium dust (30 %) + 500 L water
+- Cryolite: fluorite dust + 1000 L H₂SO₄ → 1000 L HF · Al(OH)₃ + 1000 L HF + 1000 L NaOH → 2 cryolite dust + 1000 L water
+- Graphite anode (`electrode:graphite`): steam compressor, 4 graphite dust
+- **Hall–Héroult Cell** (multiblock `pot`): controller LV hull + electrolyzer + 3 basic circuits + 4 copper cables; 15 **Carbon-Lined Casings** (4 steel plates + 4 graphite dust + steel frame) + 1 **Cathode Block** (8 graphite dust + 2 steel plates + 2 steel rods; never a hatch); hatches as the EBF (energy ×2 + maintenance required). 4 alumina + anode + cryolite dust → 4 aluminium ingots + 1000 L CO₂, 120 W, 20 s
+- **MV Hull:** 8 aluminium plates + 2 copper cables (wrench / assembler)
+
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
 ---
@@ -528,7 +536,7 @@ Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power*
    - scanner
    - pollution & hazards
    - EBF + cupronickel coils
-4. **MV:**
+4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud)
    - Bayer
    - cryolite
    - Hall–Héroult

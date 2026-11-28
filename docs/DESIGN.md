@@ -87,6 +87,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - **Maintenance hatch** on multiblocks (random issues fixed with tools); **auto-maintenance hatch** later (consumes duct tape/lubricant).
   - **v1 (P4e):** multiblocks with `maint` (EBF) need a maintenance hatch and track 6 issues (loose bolts/wrench, loose screws/screwdriver, dented casing/hammer, burnt wiring/soldering iron, frayed cables/wire cutter, burred gears/file). A new one has all six; each open issue costs 10 % speed; a new one turns up with chance 1/1800 per working second. Fixed in the panel with the tool from the tool slots (wears it).
   - **Gate multiblock (P4e): Electric Blast Furnace.** Controller in front of a 3×3×4 stack: heat-proof casing floor + roof, two rings of cupronickel coils (2000 K; hatches never replace coils) around a hollow core. Hatches: LV energy (required), maintenance (required), input/output bus, input/output fluid hatch. Power only through **energy hatches**: each draws ≤ 64 W (2 A) from its own line *including loss*, so a tin cable per hatch holds; buffer = hatches × 64 J. Recipes above hatches × 64 W stop ("needs more energy hatches"), recipes hotter than the coils stop. 2 hatches = 128 W = MV-level power (gate rule §2). An overvolted energy hatch explodes, not the furnace. Smoke 2/s.
+  - **Gate multiblock (P5a): Hall–Héroult Cell.** Controller in front of a 3×3 pot: carbon-lined casing floor around a cathode block (never a hatch), one ring above around the open bath. Same hatch rules as the EBF (machine flag `ehatch`); 120 W recipe = two LV energy hatches. Alumina + graphite anode (consumed) + cryolite → aluminium + CO₂ (kept: output hatch or dump).
 
 ## 6. Power
 - **Real units:** V, A, W (= V×A), J. Display auto-scales (kJ, MJ, GJ).
@@ -148,6 +149,12 @@ Content details live in [CONTENT.md](CONTENT.md).
 | P4d | LV generators (combustion, selenium solar, wind, water turbine), electric tools (drill, chainsaw, scanner), scanner block, mining rig |
 | P4e | Gate: maintenance hatch, hazards, EBF (cupronickel coils, energy hatches → MV), assembler circuits — **done** |
 | P5 MV | EBF coils/heat, Bayer + Hall–Héroult, chemistry, scrubbers, acid rain, geothermal, planner, blueprints, statistics |
+| P5a | Aluminium (gate): Bayer (bauxite + NaOH → aluminate + red mud → Al(OH)₃ → calcine → alumina, NaOH back), red mud recovery (centrifuge: Fe, rutile, Ga), cryolite (fluorite + H₂SO₄ → HF; + NaOH + Al(OH)₃), graphite anodes, **Hall–Héroult Cell** multiblock (built at LV, 2 LV energy hatches, anode consumed, CO₂ out), aluminium → MV hull; MV quest chapter + MV crates |
+| P5b | MV electric: MV parts + machines (128 V, overclock: each tier above the recipe = 2× speed, 4× power), MV energy hatch, MV generators (steam turbine, combustion), MV battery |
+| P5c | Organic chemistry + Discrete circuit: Pyrolyse Oven multiblock (methanol, acetic acid), coal tar distillery (phenol, benzene, creosote), formaldehyde (silver catalyst), phenolic board, EBF silicon, transistor / diode / capacitor / resistor → discrete circuit; contact process (V₂O₅) |
+| P5d | Heat: chromium (soda ash via NaOH + CO₂, chromite roast, aluminothermic), Kanthal coils (2600 K), coil heat tiers |
+| P5e | Environment: plants die, acid rain (unroofed machines, bare cables), scrubber multiblock, trees absorb, wastewater treatment, geothermal (deep hotspots) |
+| P5f | Player tools: planner / ratio calculator, blueprints, statistics graphs |
 | P6 HV | AE network, petrochem/plastics, cleanroom, large turbines, auto-maintenance, vacuum freezer |
 | P7 EHV + Space | System view, probes, auto-miners, rockets, moon, nuclear |
 | Later | SV+, more planets, fusion, sound |
