@@ -8,6 +8,7 @@ import { apply } from './player';
 import type { FromSim, ToSim } from './protocol';
 import { TPS, type GameState } from './state';
 import { step } from './step';
+import { hist, resetStats } from './stats';
 
 const TICK_MS = 1000 / TPS;
 const post = (m: FromSim) => (self as unknown as DedicatedWorkerGlobalScope).postMessage(m);
@@ -50,7 +51,7 @@ self.onmessage = (e: MessageEvent<ToSim>) => {
   const m = e.data;
   try {
     switch (m.t) {
-      case 'load': state = m.state; gen = worldGen(state.seed, planet(state.planet)); loop = createLoop(performance.now()); break;
+      case 'load': resetStats(); state = m.state; gen = worldGen(state.seed, planet(state.planet)); loop = createLoop(performance.now()); break;
       case 'watch': watch = m.key; postWatch(); break;
       case 'pause': paused = true; break;
       case 'resume': paused = false; loop = createLoop(performance.now()); break;
@@ -61,6 +62,7 @@ self.onmessage = (e: MessageEvent<ToSim>) => {
         postWatch();
         break;
       }
+      case 'hist': post({ t: 'hist', h: hist }); break;
       case 'snapshot': if (state) post({ t: 'snapshot', id: m.id, state: structuredClone(state) }); break;
     }
   } catch (err) {

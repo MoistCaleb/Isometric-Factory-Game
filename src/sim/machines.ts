@@ -20,6 +20,7 @@ import { know, survey } from './veins';
 import { sunlight } from './weather';
 import { addPoll, smoggy } from './pollution';
 import { contaminate, ignite } from './hazards';
+import { countMade, countUsed } from './stats';
 
 export interface Mach {
   /** Selected recipe id. */
@@ -248,13 +249,13 @@ const CHEM_FLAGS = new Set(['brine', 'chlorine', 'hydrochloric_acid', 'sulfur_di
   'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide']);
 
 function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
-  for (const i of r.inputs) { m.inp[i.id] -= i.n; if (!m.inp[i.id]) delete m.inp[i.id]; }
-  for (const f of r.fluidsIn ?? []) addFl(m, f.id, -f.n);
-  if (r.wear) for (const k of r.keep ?? []) if (next(s) < r.wear) delete m.inp[k]; // catalysts wear (P5c)
-  for (const o of r.outputs) if (o.chance === undefined || next(s) < o.chance) m.out[o.id] = (m.out[o.id] ?? 0) + o.n;
+  for (const i of r.inputs) { m.inp[i.id] -= i.n; if (!m.inp[i.id]) delete m.inp[i.id]; countUsed(i.id, i.n); }
+  for (const f of r.fluidsIn ?? []) { addFl(m, f.id, -f.n); countUsed(f.id, f.n); }
+  if (r.wear) for (const k of r.keep ?? []) if (next(s) < r.wear) { delete m.inp[k]; countUsed(k, 1); } // catalysts wear (P5c)
+  for (const o of r.outputs) if (o.chance === undefined || next(s) < o.chance) { m.out[o.id] = (m.out[o.id] ?? 0) + o.n; countMade(o.id, o.n); }
   for (const f of r.fluidsOut ?? []) {
     if (vents(def, f.id)) continue; // vents (pollution later)
-    addFl(m, f.id, f.n);
+    addFl(m, f.id, f.n); countMade(f.id, f.n);
     if (CHEM_FLAGS.has(f.id)) s.flags[f.id] = (s.flags[f.id] ?? 0) + 1;
   }
   const fl = def.id === 'ebf' ? ['ebf', ...r.power > hatchW('LV') ? ['ebf_mv'] : [], ...(r.minHeatK ?? 0) > 2000 ? ['ebf_hot'] : []] : (def.base ?? def.id) === 'assembler' && r.outputs.some((o) => o.id === 'circuit:basic') ? ['acirc']

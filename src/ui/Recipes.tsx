@@ -11,7 +11,7 @@ import { TIERS } from '../data/tiers';
 import { bestTool, count, missing, type Inv } from '../sim/player';
 
 export type Look = { id: string; tab: 'recipes' | 'uses' };
-const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
+export const hex = (c: number) => `#${c.toString(16).padStart(6, '0')}`;
 const MACH = new Map(MACHINES.map((m) => [m.id, m]));
 const MAT = new Map(MATERIALS.map((m) => [m.id, m]));
 const MIN = new Map(MINERALS.map((m) => [m.id, m]));
@@ -84,9 +84,9 @@ function Card({ r, inv, onLook, onCraft }: { r: Recipe; inv: Inv; onLook: (l: Lo
   );
 }
 
-interface Props { inv: Inv; look: Look | null; onLook: (l: Look | null) => void; onCraft: (id: string, n: number) => void; onClose: () => void; onFlag?: (f: 'search' | 'bookmark') => void }
+interface Props { inv: Inv; look: Look | null; onLook: (l: Look | null) => void; onCraft: (id: string, n: number) => void; onClose: () => void; onFlag?: (f: 'search' | 'bookmark') => void; onPlan?: (id: string) => void }
 
-export function Recipes({ inv, look, onLook, onCraft, onClose, onFlag }: Props) {
+export function Recipes({ inv, look, onLook, onCraft, onClose, onFlag, onPlan }: Props) {
   const reg = registry();
   const [q, setQ] = useState('');
   const [craftable, setCraftable] = useState(true);
@@ -144,6 +144,7 @@ export function Recipes({ inv, look, onLook, onCraft, onClose, onFlag }: Props) 
             <span class="sw big" style={{ background: hex(item.color) }} />
             <b>{item.name}</b><span class="dim">{tierOf(item)} · have {count(inv, item.id)}</span>
             <span class="grow" />
+            {onPlan && reg.recipesFor(item.id).length > 0 && <button onClick={() => onPlan(item.id)} title="Plan a production line for this">📐</button>}
             <button class={marks.includes(item.id) ? 'on' : ''} onClick={() => toggleMark(item.id)} title="Bookmark">★</button>
           </div>
           <div class="row tabs">

@@ -570,7 +570,7 @@ Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power*
    - scanner
    - pollution & hazards
    - EBF + cupronickel coils
-4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact · P5d done: m_kanthal; chem m_chromium · P5e done: m_acid_rain, m_scrubber; power m_geothermal (counts as an MV generator for m_pyrolyse); chem m_wastewater)
+4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact · P5d done: m_kanthal; chem m_chromium · P5e done: m_acid_rain, m_scrubber; power m_geothermal (counts as an MV generator for m_pyrolyse); chem m_wastewater · P5f done: logistics m_blueprint (copy + paste), m_planner (open + sketch), m_stats)
    - Bayer
    - cryolite
    - Hall–Héroult

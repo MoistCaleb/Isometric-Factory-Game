@@ -1,9 +1,10 @@
 // Serializable game state. Everything the sim needs lives here; render reads snapshots.
 import { planet } from '../data/planets';
 import { worldGen } from '../world/gen';
+import type { Blueprint } from './blueprints';
 import type { Mach } from './machines';
 
-export const STATE_VERSION = 13;
+export const STATE_VERSION = 14;
 export const INV_SIZE = 27;
 export const TOOL_SLOTS = 9;
 export const TPS = 20;
@@ -70,6 +71,8 @@ export interface GameState {
   poll: Record<string, number>;
   /** Contaminated ground tiles `x,y` → 1 (P4e hazards): no building until neutralised. */
   haz: Record<string, number>;
+  /** Saved blueprints (P5f). */
+  bps: Blueprint[];
 }
 
 export const emptyInv = () => ({ inv: Array<Slot | null>(INV_SIZE).fill(null), tools: Array<Slot | null>(TOOL_SLOTS).fill(null) });
@@ -79,6 +82,6 @@ export const newWeather = (): Weather => ({ wind: 0.3, rain: 0, tWind: 0.3, tRai
 export function newGame(seed: number = (Math.random() * 2 ** 32) >>> 0): GameState {
   return {
     version: STATE_VERSION, seed, planet: 'earth', tick: 0, rng: seed, playSeconds: 0,
-    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {}, quests: {}, flags: {}, pipes: {}, poll: {}, haz: {},
+    spawn: worldGen(seed, planet('earth')).findSpawn(), weather: newWeather(), diffs: {}, ...emptyInv(), ents: {}, base: {}, veins: {}, mach: {}, quests: {}, flags: {}, pipes: {}, poll: {}, haz: {}, bps: [],
   };
 }

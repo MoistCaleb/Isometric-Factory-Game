@@ -9,7 +9,7 @@ import type { TierId } from './tiers';
  * mdump open claim mface cput tap thump lboiler powered cell corrode + chemistry outputs (brine chlorine hydrochloric_acid
  * sulfur_dioxide sulfuric_acid). UI-set (`UI_FLAGS`, via the `flag` command): the rest. */
 export const UI_FLAGS = ['pan', 'zoom', 'rotate', 'level_down', 'level_up', 'map', 'globe', 'pause', 'bag', 'search', 'uses',
-  'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts', 'power_overlay'] as const;
+  'bookmark', 'journal', 'overlay', 'machine', 'pipe_overlay', 'poll_overlay', 'alerts', 'power_overlay', 'planner', 'stats'] as const;
 
 export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 'stack', 'upper', 'base', 'demolish', 'prospect', 'mload',
   'mfuel', 'mtake', 'crank', 'mfill', 'mdump', 'open', 'qclaim', 'mface', 'cput', 'tap', 'thump', 'lboiler', 'powered',
@@ -19,7 +19,7 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium',
   'overclock', 'steam_turbine_mv', 'combustion_generator_mv',
   'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide', 'ebf_hot',
-  'roof', 'acid_rain', 'scrub', 'treat', 'hotspot', 'geothermal_generator'] as const;
+  'roof', 'acid_rain', 'scrub', 'treat', 'hotspot', 'geothermal_generator', 'bp_copy', 'bp_paste', 'bp_sketch'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -753,6 +753,24 @@ export const QUESTS: QuestDef[] = [
       'Wastewater is **toxic**: dumping it pollutes and poisons the ground. The **Water Treatment Plant** (MV) turns 1000 L wastewater into 900 L clean water at 64 W.',
     ],
     tasks: [build('water_treatment'), flag('treat', 'Treat wastewater')] },
+  // ---- P5f player tools (logistics) ----
+  { id: 'm_blueprint', chapter: 'logistics', tier: 'MV', title: 'Blueprints', req: ['m_hull'], reward: M1,
+    text: [
+      '**📋 Blueprint mode (Y).** **Copy:** tap two opposite corners — everything inside, from the viewed storey up, is saved with its rotation, channels, cut sides, recipes and side settings. Name it, and it stays in your save (up to 20).',
+      '**Paste:** pick a blueprint, rotate it with **F**, and tap where its first corner goes. Each block comes out of your inventory; anything missing or in the way is skipped and listed, so you can fill the gaps and paste again on the same spot.',
+    ],
+    tasks: [flag('bp_copy', 'Copy an area'), flag('bp_paste', 'Paste a blueprint')] },
+  { id: 'm_planner', chapter: 'logistics', tier: 'MV', title: 'Planner', req: ['m_hull'], reward: M1,
+    text: [
+      'The **📐 Planner** works out a production line: pick an item and a rate per minute and it expands the recipe tree — machines needed at base speed, power, raw inputs and byproducts. Tap a step to try another recipe or to treat it as a raw input. Open it from the top bar or the 📐 button on any item in the recipe browser.',
+      '**Sketch** turns the plan into a blueprint: a row of machines per step with their recipes already set. Paste it and pipe it up.',
+    ],
+    tasks: [flag('planner', 'Open the planner'), flag('bp_sketch', 'Sketch a blueprint')] },
+  { id: 'm_stats', chapter: 'logistics', tier: 'MV', title: 'Statistics', req: ['m_hull'], reward: M1,
+    text: [
+      '**📈 Statistics** shows what your factory did: power generated and used, total pollution, and every item and fluid made or used by machines per minute — over the last 10 minutes or the last hour. Tap an item for its graph. History starts fresh each time you load.',
+    ],
+    tasks: [flag('stats', 'Open statistics')] },
   { id: 'm_lithium', chapter: 'chem', tier: 'MV', title: 'Lithium', req: ['m_hull', 'l_acid'], reward: M1,
     text: [
       '**Spodumene** (pegmatite veins under desert and tundra) holds lithium. **Chemical reactor:** spodumene dust + 1000 L sulfuric acid → **lithium sulfate** solution, leaving quartz behind.',

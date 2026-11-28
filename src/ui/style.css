@@ -164,3 +164,27 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .chans button { min-width: 28px; padding: 4px; }
 .chans button.on { outline: 2px solid #e8a040; }
 .chans .sw { display: inline-block; width: 14px; height: 14px; border-radius: 3px; vertical-align: middle; }
+/* P5f: statistics + planner */
+.panel.stats, .panel.planner { width: min(420px, calc(100% - 24px)); }
+.panel .row h3 { margin: 0; }
+.chart svg { width: 100%; height: auto; display: block; touch-action: none; }
+.chart .grid { stroke: #2c333c; stroke-width: 1; }
+.chart .axis { stroke: var(--line); stroke-width: 1; }
+.chart .cross { stroke: var(--dim); stroke-width: 1; stroke-dasharray: 2 2; }
+.chart .tick { fill: var(--dim); font-size: 9px; }
+.legend { display: flex; gap: 10px; align-items: center; font-size: 12px; color: var(--fg); }
+.legend.inline { display: inline-flex; text-transform: none; letter-spacing: 0; margin-left: 6px; }
+.legend i { display: inline-block; width: 10px; height: 3px; border-radius: 2px; margin-right: 4px; vertical-align: middle; }
+.legend .grow { flex: 1; }
+.stab { width: 100%; border-collapse: collapse; font-size: 12px; }
+.stab tr { cursor: pointer; border-top: 1px solid #2a3038; }
+.stab tr:hover { background: #262c34; }
+.stab td { padding: 3px 2px; }
+.stab .num, .prow .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.spark { width: 60px; height: 18px; display: block; }
+.ptree { margin: 6px 0; }
+.prow { display: flex; gap: 6px; align-items: center; font-size: 12px; padding: 2px 0; }
+.prow .pname { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.prow .pmach { min-height: 24px; padding: 2px 6px; font-size: 11px; max-width: 48%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.planner input.rate { width: 70px; }
+.planner input[type=search] { flex: 1; }

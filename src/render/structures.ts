@@ -131,8 +131,15 @@ export function buildStructs(v: StructView): [THREE.BufferGeometry, THREE.Buffer
 }
 
 /** Ghost preview geometry for the build cursor. */
-export function ghostGeometry(g: { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string; side: string } | { kind: 'demolish' }): THREE.BufferGeometry {
+export function ghostGeometry(g: { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string; side: string } | { kind: 'demolish' }
+  | { kind: 'bp'; cells: [number, number, number, string, number][] } | { kind: 'area'; x0: number; y0: number; x1: number; y1: number }): THREE.BufferGeometry {
   const bx = new Boxes();
+  if (g.kind === 'bp') { for (const [dx, dy, db, id, r] of g.cells) bx.model(MODELS.get(id) ?? [[1, 0, 1, 15, 8, 15, 0xffffff]], dx, db, dy, r, 0xffffff); return bx.geometry(); }
+  if (g.kind === 'area') {
+    const T = 0.08, { x0, y0, x1, y1 } = g, c = 0x60c0ff;
+    bx.add(x0, 0, y0, x1, T, y0 + T, c); bx.add(x0, 0, y1 - T, x1, T, y1, c); bx.add(x0, 0, y0, x0 + T, T, y1, c); bx.add(x1 - T, 0, y0, x1, T, y1, c);
+    return bx.geometry();
+  }
   if (g.kind === 'struct') {
     bx.model(MODELS.get(g.id) ?? [[1, 0, 1, 15, 8, 15, 0xffffff]], 0, 0, 0, g.r, 0xffffff);
     // Multiblock controller: show the whole footprint as it will face (P3d rotation).

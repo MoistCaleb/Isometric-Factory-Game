@@ -17,6 +17,7 @@ import { know, pickSample, prospect } from './veins';
 import { KNOW, STOREY, type Ent, type GameState, type Slot } from './state';
 import { BATT, BATT_FULL, BATT_J } from '../data/machines';
 import { UI_FLAGS } from '../data/quests';
+import { bpCmd, type Blueprint, type BpCmd } from './blueprints';
 
 export const STACK = 64;
 /** Just the inventory part of the state (the UI checks craftability against its copy). */
@@ -40,7 +41,8 @@ export type Cmd =
   | { k: 'flag'; id: (typeof UI_FLAGS)[number] }
   /** Dev kit (Debug menu): structures, casings, a few P2d test materials. */
   | { k: 'devkit' }
-  | { k: 'devpoll'; x: number; y: number };
+  | { k: 'devpoll'; x: number; y: number }
+  | BpCmd;
 
 export interface ActResult {
   ok: boolean;
@@ -60,6 +62,8 @@ export interface ActResult {
   veins?: Record<string, number>;
   /** Quest state changes (id → QDONE/QCLAIMED). */
   quests?: Record<string, number>;
+  /** Saved blueprints after a change (P5f). */
+  bps?: Blueprint[];
 }
 
 // ---------- inventory ----------
@@ -352,6 +356,7 @@ function run(s: GameState, gen: WorldGen, c: Cmd): ActResult {
     case 'prospect': return prospect(s, gen, c.x, c.y);
     case 'mrec': case 'mload': case 'mfuel': case 'mtake': case 'munload': case 'mdump': case 'crank': case 'mfill': case 'mface': case 'cput': case 'mcell': case 'mbat': case 'mxf': case 'mfix': return machCmd(s, gen, c);
     case 'qclaim': case 'open': return questCmd(s, c);
+    case 'bpcopy': case 'bpsave': case 'bppaste': case 'bpdel': return bpCmd(s, gen, c);
     case 'flag': if ((UI_FLAGS as readonly string[]).includes(c.id)) s.flags[c.id] = (s.flags[c.id] ?? 0) + 1; return { ok: true };
     case 'devpoll': { const k = pollKey(c.x, c.y); s.poll[k] = (s.poll[k] ?? 0) + 2000; return { ok: true, msg: 'Dev: +2000 pollution here' }; }
     case 'devkit': {

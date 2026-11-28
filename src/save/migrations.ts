@@ -41,6 +41,8 @@ export const MIGRATIONS: Record<number, (s: Raw) => Raw> = {
   },
   // P4e: contaminated tiles.
   12: (s) => ({ ...s, version: 13, haz: {} }),
+  // P5f: blueprints.
+  13: (s) => ({ ...s, version: 14, bps: [] }),
 };
 
 export function migrate(raw: Raw): GameState {

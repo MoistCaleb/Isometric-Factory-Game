@@ -120,12 +120,15 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Gas leaks into air from broken pipes. Fluid cells/capsules as items.
 - **AE-like network at HV**: storage drives, channel-limited cables, buses, terminal, autocrafting patterns, **circuit swap card**, wireless access (also from global inventory).
 - Mobile placing: drag-lay lines/L-shapes. **Blueprints** (copy/paste/save; pulls from inventory, later network).
+  - v1 (P5f): **📋 Blueprint mode** (Y). **Copy**: tap two corners (≤ 32×32) at the viewed storey → every structure from that storey up plus base parts, with config (rotation, channel, cut sides, recipe, face modes, transformer step-up), named and kept in the save (≤ 20). **Paste**: pick one, rotate (F), ghost follows the pointer, tap = anchor (the copy's first corner). Floors first, then blocks bottom-up (several passes so bridges find support), then other base parts. Each block takes its item from the inventory; occupied/unsupported cells and missing items are skipped and reported. Multiblocks rotate as a whole.
 
 ## 8. UI & player systems
 - **Overseer** (no avatar, no enemies). Global inventory **27 slots + 9 tool slots**. Inventory is global across planets.
 - Click-gather in Mining mode; tools wear.
 - **Recipe browser**: search with `#tag $material @machine t:tier -exclude`; recipes/uses; long-press = recipes, double-tap = uses (R/U on desktop); bookmarks; history.
 - **Planner/ratio calculator** → can emit a blueprint sketch.
+  - v1 (P5f): pick an item (or 📐 in the recipe browser) + rate/min → recipe tree: per step the recipe (tap to cycle, or mark as raw), runs/min, machines needed = rate ÷ (output × runs/min at base speed), W; world items, ores and loops are raw. Totals: machines per recipe, power, raw inputs/min, byproducts. **Sketch** saves a blueprint: one row per step, that many machines (single blocks; multiblocks as the controller only) with the recipe set.
+- **Statistics** v1 (P5f, 📈): the sim counts items/fluids made and used by machine recipes, power generated and used, and total pollution; samples every 10 s (last 10 min) and every 1 min (last 1 h); not saved (reset on load). Panel: power + pollution charts, item table (made/used per min, sparkline), tap a row for its chart.
 - **Quest book chapters (GT-style):** **tier chapters** (Primitive, Steam, LV, …) are the main path — hulls, circuits, machines, gate multiblocks. **Topic chapters** hold the side lines, laid out in tier columns: **⚡ Power** (every generator family, grid: fuses, breakers, transformers, batteries), **⛏ Mining** (thumper, excavator, scanners, rig, electric tools), **⚗ Chemistry**, **🔧 Logistics** (item pipes, buffers, pumps), **🚀 Space Race** (opens at EHV). A requirement can be **any one of** a list (dashed edges): the tier path hooks to "any generator of this tier", so you pick one generator family, scale it up the tiers, and pick up others only if you want to. Each tier's power hook: LV **Live Wire** = basic circuit + any LV generator; MV+ follow the same rule. Quest ids never change when a quest moves chapter (saves key on them).
 - **Quest book** (visual tree per chapter, **L**) with **loot crate** rewards; it **is the tutorial**: every mechanic (controls, mining, inventory, recipe book, building modes, machines, fuel/heat, crank, multiblocks, storeys, veins, saves) is explained by the quest that first needs it. Tasks: hold items, build structures, or do an action once (action flags, tracked in the save). Quests unlock when their prerequisites are done; completion is checked every second and after each command; rewards are claimed by hand.
 - **Loot crates** per tier: open from the bag; 3 weighted rolls, 5% chance a roll uses the next tier's table; deterministic from the save RNG.
@@ -159,7 +162,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 | P5c | Organic chemistry + Discrete circuit: Pyrolyse Oven multiblock (methanol, acetic acid), coal tar distillery (phenol, benzene, creosote), formaldehyde (silver catalyst), phenolic board, EBF silicon, transistor / diode / capacitor / resistor → discrete circuit; contact process (V₂O₅); MV machines then cost 2 discrete circuits instead of 4 basic |
 | P5d | Heat: chromium (soda ash via NaOH + CO₂, chromite roast, aluminothermic), Kanthal coils (2600 K), coil heat tiers — **done** |
 | P5e ✅ | Environment: plants die, acid rain (unroofed machines, bare cables), scrubber multiblock, trees absorb, wastewater treatment, geothermal (deep hotspots) |
-| P5f | Player tools: planner / ratio calculator, blueprints, statistics graphs |
+| P5f ✅ | Player tools: planner / ratio calculator, blueprints, statistics graphs |
 | P6 HV | AE network, petrochem/plastics, cleanroom, large turbines, auto-maintenance, vacuum freezer |
 | P7 EHV + Space | System view, probes, auto-miners, rockets, moon, nuclear |
 | Later | SV+, more planets, fusion, sound |

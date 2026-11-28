@@ -19,9 +19,13 @@ import { BLIGHT, HAZE, POLL_CH, SMOG } from '../sim/pollution';
 
 export type Mode = 'iso' | 'map' | 'globe';
 /** Player action mode (DESIGN §3 Building). */
-export type Act = 'view' | 'build' | 'base' | 'demolish' | 'mine';
+export type Act = 'view' | 'build' | 'base' | 'demolish' | 'mine' | 'blueprint';
 /** Build cursor preview (set by the UI). */
-export type Ghost = { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string } | { kind: 'demolish' };
+export type Ghost = { kind: 'struct'; id: string; r: number } | { kind: 'base'; part: string } | { kind: 'demolish' }
+  /** Blueprint paste (P5f): cells [dx, dy, b above the storey base, structure, rotation]; `sig` identifies it. */
+  | { kind: 'bp'; cells: [number, number, number, string, number][]; sig: string }
+  /** Blueprint copy: rectangle from the anchor tile to the cursor. */
+  | { kind: 'area'; ax: number; ay: number };
 export interface View { mode: Mode; x: number; y: number; zoom: number; rot: number; level: number; xray: boolean; mapZoom: number; globeDist: number;
   /** Vein overlay on (iso + map). */
   veins: boolean;
@@ -353,18 +357,29 @@ export class Renderer {
 
   private updateGhost() {
     const v = this.view, c = this.cursor, g = this.ghost;
-    const on = !!(c && g && v.level >= 0 && (this.act === 'build' || this.act === 'base' || this.act === 'demolish'));
+    const on = !!(c && g && v.level >= 0 && (this.act === 'build' || this.act === 'base' || this.act === 'demolish' || this.act === 'blueprint'));
     this.ghostMesh.visible = on;
     if (!on) return;
     const side = g!.kind === 'base' ? nearSide(c!.fx, c!.fy) : '';
-    const sig = JSON.stringify(g) + side;
+    const near = (x: number) => v.x + mod(x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2;
+    if (g!.kind === 'area') {
+      const dx = mod(c!.x - g!.ax + this.p.w / 2, this.p.w) - this.p.w / 2, dy = c!.y - g!.ay;
+      const sig = `area${g!.ax},${g!.ay},${dx},${dy}`;
+      if (sig !== this.ghostSig) {
+        this.ghostSig = sig;
+        this.ghostMesh.geometry.dispose();
+        this.ghostMesh.geometry = ghostGeometry({ kind: 'area', x0: Math.min(0, dx), y0: Math.min(0, dy), x1: Math.max(0, dx) + 1, y1: Math.max(0, dy) + 1 });
+      }
+      this.ghostMesh.position.set(Math.floor(near(g!.ax)), Math.max(0, v.level) * STOREY + 0.02, g!.ay);
+      return;
+    }
+    const sig = g!.kind === 'bp' ? `bp${g!.sig}` : JSON.stringify(g) + side;
     if (sig !== this.ghostSig) {
       this.ghostSig = sig;
       this.ghostMesh.geometry.dispose();
       this.ghostMesh.geometry = ghostGeometry(g!.kind === 'base' ? { kind: 'base', part: g!.part, side } : g!);
     }
-    const wx = v.x + mod(c!.x - v.x + this.p.w / 2, this.p.w) - this.p.w / 2;
-    this.ghostMesh.position.set(Math.floor(wx), this.ghostY(c!.x, c!.y) + 0.01, c!.y);
+    this.ghostMesh.position.set(Math.floor(near(c!.x)), this.ghostY(c!.x, c!.y) + 0.01, c!.y);
   }
 
   private updateSelected(now: number) {

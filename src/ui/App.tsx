@@ -21,6 +21,10 @@ import { Veins } from './Veins';
 import { claimable, Quests } from './Quests';
 import { QUEST, type UI_FLAGS } from '../data/quests';
 import { QDONE } from '../sim/quests';
+import { rotateBp } from '../sim/blueprints';
+import { BlueprintBar, type BpTool } from './Blueprints';
+import { Planner } from './Planner';
+import { Stats } from './Stats';
 
 const ACTS: [Act, string, string, boolean][] = [
   ['view', '👁', 'View (V)', true],
@@ -28,6 +32,7 @@ const ACTS: [Act, string, string, boolean][] = [
   ['base', '🧱', 'Base Build (N)', true],
   ['demolish', '💥', 'Demolition (Z)', true],
   ['mine', '⛏', 'Mining (X)', true],
+  ['blueprint', '📋', 'Blueprints (Y)', true],
 ];
 
 interface Feed { id: number; text: string; err?: boolean }
@@ -37,6 +42,12 @@ let lastQ: Record<string, number> | null = null;
 /** Tutorial flags already sent this session. */
 const sentFlags = new Set<string>();
 let lastView: View | null = null, lastPaused: boolean | null = null;
+
+/** Paste preview of a blueprint at rotation r (P5f). */
+const bpGhost = (bp: import('../sim/blueprints').Blueprint, r: number) => {
+  const b = rotateBp(bp, r);
+  return { kind: 'bp' as const, cells: b.ents.map((e): [number, number, number, string, number] => [e.x, e.y, e.b, e.s, e.r]), sig: `${bp.name}:${bp.ents.length}:${r}` };
+};
 
 /** Alerts (DESIGN §8): machines stuck in a bad status for ALERT_MS, plus explosions. Tap one to fly there. */
 export interface Alert { key: string; st: number; msg: string; t: number; boom?: boolean }
@@ -76,9 +87,14 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const [booms, setBooms] = useState<Alert[]>([]);
   const [alertsOpen, setAlertsOpen] = useState(false);
   const [ovOpen, setOvOpen] = useState(false);
+  const [bpTool, setBpTool] = useState<BpTool>('copy');
+  const [bpAnchor, setBpAnchor] = useState<{ x: number; y: number } | null>(null);
+  /** Planner (item to start from, '' = empty) · statistics panel (P5f). */
+  const [planner, setPlanner] = useState<string | null>(null);
+  const [statsOpen, setStatsOpen] = useState(false);
   const openMach = (k: string | null) => {
     setMachKey(k); setMachView(null); game.sim.watch(k); renderer.setSelected(k);
-    if (k) { setJournal(false); setBook(false); setBag(false); setMenu(false); } else renderer.setGhosts({});
+    if (k) { setJournal(false); setBook(false); setBag(false); setMenu(false); setPlanner(null); setStatsOpen(false); } else renderer.setGhosts({});
   };
   const flag = (id: (typeof UI_FLAGS)[number]) => { if (!sentFlags.has(id)) { sentFlags.add(id); game.sim.cmd({ k: 'flag', id }); } };
   const openLook = (l: Look) => { setLook(l); setBook(true); setBag(false); setMenu(false); setSel(null); };
@@ -157,13 +173,16 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   const pickAct = (a: Act) => {
     renderer.act = a; setAct(a); setDig(null);
     // Mining works at the surface and below; building at the surface and above.
-    if ((a === 'mine' && renderer.view.level > 0) || ((a === 'build' || a === 'base' || a === 'demolish') && renderer.view.level < 0)) renderer.setLevel(0);
+    if ((a === 'mine' && renderer.view.level > 0) || ((a === 'build' || a === 'base' || a === 'demolish' || a === 'blueprint') && renderer.view.level < 0)) renderer.setLevel(0);
+    setBpAnchor(null);
   };
 
   // Tile clicks + ghost preview for the active mode.
   useEffect(() => {
     renderer.ghost = act === 'build' && buildId ? { kind: 'struct', id: buildId.replace('struct:', ''), r: rot }
-      : act === 'base' ? { kind: 'base', part: baseKind } : act === 'demolish' ? { kind: 'demolish' } : null;
+      : act === 'base' ? { kind: 'base', part: baseKind } : act === 'demolish' ? { kind: 'demolish' }
+      : act === 'blueprint' && bpTool === 'copy' && bpAnchor ? { kind: 'area', ax: bpAnchor.x, ay: bpAnchor.y }
+      : act === 'blueprint' && typeof bpTool === 'number' && game.sim.bps[bpTool] ? bpGhost(game.sim.bps[bpTool], rot) : null;
     renderer.onTile = (x, y, level, fx, fy, block) => {
       const say = (m: string) => push(m, true);
       if (act === 'view') {
@@ -182,6 +201,14 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (act === 'mine' && mineTool === 'prospect') return game.sim.cmd({ k: 'prospect', x, y });
       if (act === 'mine') return level > 0 ? say('Mining works at the surface and below') : game.sim.cmd({ k: 'mine', x, y, z: -level });
       if (level < 0) return say('Build at the surface or above');
+      if (act === 'blueprint') {
+        if (typeof bpTool === 'number') return game.sim.cmd({ k: 'bppaste', i: bpTool, x, y, f: level, r: rot });
+        if (!bpAnchor) return setBpAnchor({ x, y });
+        const name = prompt('Blueprint name', `Blueprint ${game.sim.bps.length + 1}`);
+        setBpAnchor(null);
+        if (name !== null) game.sim.cmd({ k: 'bpcopy', x0: bpAnchor.x, y0: bpAnchor.y, x1: x, y1: y, f: level, name });
+        return;
+      }
       if (act === 'build') return buildId ? game.sim.cmd({ k: 'place', id: buildId, x, y, f: level, r: rot, ch }) : say('Pick a structure to place');
       if (act === 'base') return game.sim.cmd({ k: 'base', kind: baseKind, x, y, f: level, side: nearSide(fx, fy) });
       if (act === 'demolish') {
@@ -189,7 +216,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         game.sim.cmd({ k: 'demolish', x, y, f: level, side: edge ? nearSide(fx, fy) : undefined });
       }
     };
-  }, [act, buildId, rot, baseKind, mineTool]);
+  }, [act, buildId, rot, baseKind, mineTool, bpTool, bpAnchor, inv]);
 
   useEffect(() => {
     const key = (e: KeyboardEvent) => {
@@ -204,6 +231,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       if (e.code === 'KeyB') pickAct('build');
       if (e.code === 'KeyN') pickAct('base');
       if (e.code === 'KeyZ') pickAct('demolish');
+      if (e.code === 'KeyY') pickAct('blueprint');
       if (e.code === 'KeyF') setRot((r) => (r + 1) % 4);
       if (e.code === 'KeyO') renderer.toggleVeins();
       if (e.code === 'KeyH') renderer.togglePipes();
@@ -221,6 +249,12 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
   useEffect(() => { if (journal) flag('journal'); }, [journal]);
   useEffect(() => { if (machKey) flag('machine'); }, [machKey]);
   useEffect(() => { if (alertsOpen) flag('alerts'); }, [alertsOpen]);
+  useEffect(() => { if (planner !== null) flag('planner'); }, [planner]);
+  useEffect(() => { if (statsOpen) flag('stats'); }, [statsOpen]);
+  const openPanel = (p: 'planner' | 'stats', on: boolean, id = '') => {
+    setPlanner(p === 'planner' && on ? id : null); setStatsOpen(p === 'stats' && on);
+    if (on) { setMenu(false); setJournal(false); setQbook(false); setBook(false); openMach(null); }
+  };
 
   const allAlerts = [...booms, ...alerts];
   const goAlert = (a: Alert) => {
@@ -259,6 +293,8 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <button class={view.mode === 'globe' ? 'on' : ''} onClick={() => renderer.setMode('globe')} title="G">Globe</button>
         <button class={qbook ? 'on' : ''} onClick={() => { setQbook(!qbook); setMenu(false); }} title="Quest book (L)">📜 Quests{claimable(stats.q) > 0 && <span class="badge">{claimable(stats.q)}</span>}</button>
         <button class={journal ? 'on' : ''} onClick={() => { setJournal(!journal); setMenu(false); }} title="Veins (J) · overlay O">◎ Veins</button>
+        <button class={planner !== null ? 'on' : ''} onClick={() => openPanel('planner', planner === null)} title="Planner / ratio calculator">📐</button>
+        <button class={statsOpen ? 'on' : ''} onClick={() => openPanel('stats', !statsOpen)} title="Statistics">📈</button>
         <span class="popwrap">
           <button class={ovOpen ? 'on' : ''} onClick={() => { setOvOpen(!ovOpen); setAlertsOpen(false); }} title="Overlays: veins O · pipes H · pollution K · power T">Overlays</button>
           {ovOpen && (
@@ -334,6 +370,12 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
           <span class="dim">{mineTool === 'prospect' ? (inv.tools.some((t) => t?.id.startsWith('tool:scanner')) ? 'Tap to scan veins within 32 tiles, to layer 16 (4 kJ; else the hammer)' : 'Tap to survey veins within 24 tiles, to layer 8') : 'Coloured rocks on the ground are ore samples — tap to pick up'}</span>
         </div>
       )}
+      {iso && !menu && !book && !bag && !qbook && act === 'blueprint' && (
+        <BlueprintBar bps={game.sim.bps} tool={bpTool} onTool={(t) => { setBpTool(t); setBpAnchor(null); }} anchor={!!bpAnchor} inv={inv.inv} rot={rot}
+          onRot={() => setRot((r) => (r + 1) % 4)} onDel={(i) => { game.sim.cmd({ k: 'bpdel', i }); setBpTool('copy'); }} />
+      )}
+      {planner !== null && !menu && !book && !qbook && <Planner key={planner} start={planner || null} onCmd={(c) => game.sim.cmd(c)} onClose={() => setPlanner(null)} />}
+      {statsOpen && !menu && !book && !qbook && <Stats sim={game.sim} onClose={() => setStatsOpen(false)} />}
       {journal && renderer.world && (
         <Veins gen={renderer.world} list={renderer.veinList} at={view} overlay={view.veins} onOverlay={() => renderer.toggleVeins()}
           onFly={(x, y) => { renderer.flyTo(x, y); setJournal(false); }} onClose={() => setJournal(false)} />
@@ -349,7 +391,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
       {conKey && !machKey && !book && !menu && !journal && !qbook && renderer.entities[conKey] && act === 'view' && (
         <Conduit k={conKey} ent={renderer.entities[conKey]} onCmd={(c) => game.sim.cmd(c)} onClose={() => setConKey(null)} />
       )}
-      {iso && !menu && !book && !journal && !qbook && !(machKey && renderer.entities[machKey]) && !(conKey && act === 'view' && renderer.entities[conKey]) && (
+      {iso && !menu && !book && !journal && !qbook && planner === null && !statsOpen && !(machKey && renderer.entities[machKey]) && !(conKey && act === 'view' && renderer.entities[conKey]) && (
         <div class="zbar">
           <span class="zlabel">{levelName(view.level)}</span>
           <button onClick={() => renderer.setLevel(view.level + 1)} title="] / PgUp">▲</button>
@@ -367,7 +409,7 @@ export function App({ game, renderer }: { game: Game; renderer: Renderer }) {
         <Quests quests={stats.q ?? {}} flags={stats.fl ?? {}} inv={inv} ents={renderer.entities} onClaim={(id) => game.sim.cmd({ k: 'qclaim', id })}
           onLook={(l) => { setQbook(false); openLook(l); }} onClose={() => setQbook(false)} />
       )}
-      {book && <Recipes inv={inv} look={look} onLook={setLook} onCraft={(recipe, n) => game.sim.cmd({ k: 'craft', recipe, n })} onClose={() => setBook(false)} onFlag={flag} />}
+      {book && <Recipes inv={inv} look={look} onLook={setLook} onPlan={(id) => openPanel('planner', true, id)} onCraft={(recipe, n) => game.sim.cmd({ k: 'craft', recipe, n })} onClose={() => setBook(false)} onFlag={flag} />}
       <div class="feed">
         {dig && <div class="dig">⛏ {dig}</div>}
         {feed.map((f) => <div key={f.id} class={f.err ? 'err' : ''}>{f.text}</div>)}

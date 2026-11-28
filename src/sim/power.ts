@@ -10,6 +10,7 @@ import { battN, controllerAt, genW, hatchOf, newMach, simEvents, type Mach } fro
 import { ignite } from './hazards';
 import { around, sideIndex, topoChanged, topoVersion } from './pipes';
 import { TPS, type GameState } from './state';
+import { countPower } from './stats';
 
 /** `hatch`: the energy hatch block a multiblock takes power through (P4e). */
 interface PLink { ctl: string; via: string; face: number; hatch?: string }
@@ -161,10 +162,11 @@ export function stepPower(s: GameState, gen: WorldGen) {
     const C = charge.reduce((a, r) => a + r.cost, 0);
     let ratio: number, cr = 0, fromB = 0;
     if (G >= D) { ratio = 1; cr = C > 0 ? Math.min(1, (G - D) / C) : 0; } else { fromB = Math.min(B, D - G); ratio = D > 0 ? (G + fromB) / D : 0; }
-    let got = 0;
+    let got = 0, useJ = 0, genJ = 0;
     for (const r of reqs) {
       const j = r.want * ratio;
       r.u.m.e = (r.u.m.e ?? 0) + j; got += j;
+      if (r.u.d.run !== 'xfmr') useJ += j;
       if (r.u.d.run !== 'xfmr') r.u.m.pw = (r.u.hatch ? r.u.m.pw ?? 0 : 0) + j * TPS;
     }
     for (const r of charge) { const j = r.want * cr; r.b.m.e = (r.b.m.e ?? 0) + j; r.b.m.pw = j * TPS; got += j; }
@@ -175,7 +177,7 @@ export function stepPower(s: GameState, gen: WorldGen) {
     const fromG = D * ratio + C * cr - fromB, share = G > 0 ? Math.min(1, fromG / G) : 0;
     for (const g of gens) {
       const j = g.g! * share;
-      g.m.pw = j * TPS;
+      g.m.pw = j * TPS; genJ += j;
       if (g.d.steam && g.d.gen) g.m.steam = Math.max(0, (g.m.steam ?? 0) - (j * TPS / g.d.gen) * g.d.steam);
       const tk = g.m.tank;
       if (g.d.burns && tk && j > 0) { tk.n -= j / g.d.burns[tk.id]; if (tk.n <= 1e-9) g.m.tank = undefined; }
@@ -187,6 +189,7 @@ export function stepPower(s: GameState, gen: WorldGen) {
       if (j > 0 && x.v !== LV) s.flags.xfmr_up = (s.flags.xfmr_up ?? 0) + 1;
       if (j > 0) s.flags.xfmr = (s.flags.xfmr ?? 0) + 1;
     }
+    countPower(genJ, useJ);
     const used = D * ratio + C * cr, a = (used * TPS) / v;
     // Overcurrent: the weakest block goes (fuses / breakers before cables, then the lowest rating).
     const rank = (k: string) => { const c = CABLES.get(s.ents[k].s)!; return c.a - (c.fuse || c.breaker ? 0.5 : 0); };
