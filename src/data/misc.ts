@@ -39,6 +39,17 @@ export const MISC_ITEMS: MiscItemDef[] = [
   { id: 'piston:mv', name: 'MV Piston', color: 0xb0c4d8 },
   { id: 'conveyor:mv', name: 'MV Conveyor Module', color: 0x404448 },
   { id: 'robot_arm:mv', name: 'MV Robot Arm', color: 0xb09a60 },
+  // P5c organic chemistry + discrete circuit.
+  { id: 'catalyst:silver', name: 'Silver Catalyst Mesh', color: 0xd8dce4 },
+  { id: 'catalyst:vanadium_pentoxide', name: 'Vanadium Pentoxide Catalyst', color: 0xd0a040 },
+  { id: 'paper', name: 'Paper', color: 0xf0ece0 },
+  { id: 'board:phenolic', name: 'Phenolic Board', color: 0x8a5020 },
+  { id: 'circuit_board:discrete', name: 'Discrete Circuit Board', color: 0x5a7a30 },
+  { id: 'case:phenolic', name: 'Phenolic Component Case', color: 0x6a3a18 },
+  { id: 'transistor', name: 'Transistor', color: 0x3a3a40 },
+  { id: 'diode', name: 'Diode', color: 0xd8d0c0 },
+  { id: 'capacitor', name: 'Capacitor', color: 0x4060a0 },
+  { id: 'circuit:discrete', name: 'Discrete Circuit', color: 0x3070c0 },
 ];
 
 /** Items obtainable from the world (gathering, mining, pumping). All `ore:*` are implicit. */

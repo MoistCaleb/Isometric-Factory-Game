@@ -104,15 +104,16 @@ describe('P5b MV electric', () => {
     expect(apply(s, gen, { k: 'mbat', key: k }).gained).toEqual([{ id: 'charged_battery:lithium', n: 1 }]);
   });
 
-  it('quests: overclocking needs any one MV generator', async () => {
+  it('quests: the pyrolyse oven (start of the MV spine) needs any one MV generator', async () => {
     const { QUEST } = await import('../src/data/quests');
     const { unlocked } = await import('../src/sim/quests');
-    const q = QUEST.get('m_overclock')!;
+    const q = QUEST.get('m_pyrolyse')!;
     expect(unlocked(q, { m_motor: 2 })).toBe(false);
     for (const g of ['m_turbine', 'm_combustion']) {
       expect(QUEST.get(g)!.chapter).toBe('power');
       expect(unlocked(q, { m_motor: 2, [g]: 2 })).toBe(true);
     }
+    expect(unlocked(QUEST.get('m_overclock')!, { m_discrete: 2 })).toBe(true);
     expect(unlocked(QUEST.get('m_ehatch')!, { m_overclock: 2 })).toBe(true);
   });
 });

@@ -400,11 +400,21 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 **MV electric (P5b)**
 - **Magnetic steel rod:** polarizer, steel rod (16 W).
 - **MV parts** (assembler only, 32 W): motor = 2 copper cable + 4 copper wire + 2 aluminium rod + magnetic steel rod · pump = motor + aluminium rotor + 2 rubber rings + small steel pipe + aluminium screw · piston = motor + 2 aluminium rod + aluminium gear + 2 aluminium plate · conveyor = 2 motors + 6 rubber plate + copper cable · robot arm = 2 motors + piston + 2 basic circuits + 2 copper cable + 2 aluminium rod. Sensor / emitter arrive with the first machine that needs them.
-- **MV machines** (`<id>_mv`, 19: every LV recipe machine): MV hull + 4 basic circuits (→ 2 discrete circuits in P5c) + 2 copper cables + the LV machine's parts one tier up (LV part → MV part, steel rotor → aluminium rotor). Same recipes, overclocked.
+- **MV machines** (`<id>_mv`, 19: every LV recipe machine): MV hull + 2 discrete circuits (P5c; 4 basic before) + 2 copper cables + the LV machine's parts one tier up (LV part → MV part, steel rotor → aluminium rotor). Same recipes, overclocked.
 - **MV Steam Turbine:** MV hull + 2 MV motors + 2 aluminium rotors + 2 steel pipes + 2 copper cables — 128 W, ≤ 64 L/t steam. **MV Combustion Generator:** MV hull + MV motor + 2 MV pistons + 2 steel pipes + 2 copper cables — 128 W, same fuels.
 - **MV Energy Hatch:** MV hull + 2 copper cables — 2 A × 128 V = 256 W.
 - **Lithium:** chemical reactor: spodumene dust + 1000 L H₂SO₄ → 1000 L lithium sulfate + quartz dust (30 W) · electrolyzer: 1000 L lithium sulfate → lithium dust + 1000 L H₂SO₄ + 500 L O₂ (30 W).
-- **Lithium battery** (144 kJ): case = 2 aluminium plates + 2 rubber sheets + copper cable (assembler) · canner: case + 2 lithium dust. **MV Battery Buffer:** MV hull + 4 basic circuits + chest + 4 copper cables; 4 lithium batteries, 128 W each.
+- **Lithium battery** (144 kJ): case = 2 aluminium plates + 2 rubber sheets + copper cable (assembler) · canner: case + 2 lithium dust. **MV Battery Buffer:** MV hull + 2 discrete circuits + chest + 4 copper cables; 4 lithium batteries, 128 W each.
+
+**Organic chemistry + discrete circuit (P5c)**
+- **Pyrolyse Oven** (multiblock `retort`: controller in front of a closed 3×3×3 — heat-proof casing floor + roof, 8 cupronickel coils around the hollow middle; hatches as the EBF, energy + maintenance required): MV hull + electric furnace + MV pump + 4 basic circuits + 4 copper cables. 96 W, 30 s: 16 logs → 12 charcoal + 1000 L methanol + 500 L acetic acid + 1000 L wood tar · 16 coal → 16 coke + 2000 L coal tar + 1000 L H₂.
+- **Coal Tar Distillery** (MV only): MV hull + 4 basic circuits + 2 MV pumps + 4 steel pipes + 2 glass panes + 2 copper cables. 1000 L coal tar → 250 phenol + 250 benzene + 150 toluene + 300 creosote, 64 W, 10 s.
+- **Formaldehyde:** chemical reactor, 1000 L methanol + 500 L O₂ → 1000 L formaldehyde + 1000 L water on a **silver catalyst mesh** (assembler: 8 fine silver wire; kept, 2 % wear). **Phenolic resin:** 1000 L phenol + 1000 L formaldehyde → 1000 L resin + 500 L water.
+- **Paper:** chemical bath, 2 wood pulp + 500 L water → 2 paper. **Phenolic board:** bath, 2 paper + 250 L resin. **Discrete circuit board:** assembler, phenolic board + 4 copper foil. **Component case:** fluid solidifier, 250 L resin → 4.
+- **Silicon:** EBF, quartz dust + 2 coal dust → silicon ingot + 1000 L CO₂, 2000 K, 120 W.
+- **Components** (assembler, 32 W): transistor ×2 = silicon plate + 2 fine gold wire + case · diode ×4 = silicon plate + 4 fine copper wire + glass tube · capacitor ×2 = 2 aluminium foil + paper + case · resistor = carbon resistor.
+- **Discrete circuit:** discrete board + 2 transistors + 2 diodes + 2 capacitors + 2 resistors + solder wire (20 s). Cheaper basic circuit: basic board + transistor + 2 resistors + solder → 3.
+- **Contact process:** roaster, vanadium dust + 1000 L O₂ → V₂O₅ catalyst · chemical reactor (**MV** recipe, 64 W): 1000 L SO₂ + 500 L O₂ → 1000 L SO₃ (kept catalyst, 1 % wear, 30 s) · 1000 L SO₃ + 1000 L water → 1000 L H₂SO₄ (5 s). 4× the uncatalysed rate.
 
 **Assembler circuits (P4e):** circuit sets → 2 basic circuits; resin board + 2 copper foil → circuit board (16 W).
 
@@ -545,7 +555,7 @@ Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power*
    - scanner
    - pollution & hazards
    - EBF + cupronickel coils
-4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium)
+4. **MV:** (P5a done: m_bayer, m_cryolite, m_hall, m_hull; chem m_red_mud · P5b done: m_motor, m_overclock, m_ehatch; power m_turbine, m_combustion, m_battery; chem m_lithium · P5c done: m_pyrolyse, m_distill, m_phenolic, m_silicon, m_components, m_discrete (m_overclock now after it); chem m_formaldehyde, m_contact)
    - Bayer
    - cryolite
    - Hall–Héroult

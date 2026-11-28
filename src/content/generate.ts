@@ -233,6 +233,7 @@ export function generate(): Generated {
   grid({ addItem, hand, mach, itemIds });
   aluminium(hand, mach);
   mvParts({ addItem, hand, mach, itemIds });
+  organic({ addItem, hand, mach, itemIds });
 
   // ---- ore processing (§4 yield ladder) ----
   for (const mn of MINERALS) generateOre(mn, { addItem, hand, mach, itemIds });
@@ -488,6 +489,39 @@ function mvParts(c: Ctx) {
   c.addItem({ id: B.full, name: 'Lithium Battery (charged)', kind: 'misc', color: 0xb8d0f0, hazards: ['flammable'] });
   mach('assembler', [s('plate:aluminium', 2), s('sheet:rubber', 2), s('cable:copper')], [s('battery_case:lithium')], { ticks: 100, power: 32 });
   mach('canner', [s('battery_case:lithium'), s('dust:lithium', 2)], [s(B.empty)], { ticks: 100, power: 16 });
+}
+
+/** Organic chemistry + discrete circuit (P5c, CONTENT §11d MV, §11e.1/4/6). */
+function organic(c: Ctx) {
+  const { mach } = c, MV = { tier: 'MV' as TierId };
+  // Pyrolyse oven: wood → charcoal + methanol + acetic acid + wood tar; coal → coke + coal tar.
+  mach('pyrolyse_oven', [s('log:wood', 16)], [s('lump:charcoal', 12)], { fluidsOut: [s('methanol', 1000), s('acetic_acid', 500), s('wood_tar', 1000)], ticks: 600, power: 96 });
+  mach('pyrolyse_oven', [s('lump:coal', 16)], [s('lump:coke', 16)], { fluidsOut: [s('coal_tar', 2000), s('hydrogen', 1000)], ticks: 600, power: 96 });
+  mach('distillery', [], [], { fluidsIn: [s('coal_tar', 1000)], fluidsOut: [s('phenol', 250), s('benzene', 250), s('toluene', 150), s('creosote', 300)], ticks: 200, power: 64 });
+  // Formaldehyde on a silver catalyst (kept, wears), then phenolic resin.
+  mach('assembler', [s('fine_wire:silver', 8)], [s('catalyst:silver')], { ticks: 200, power: 16 });
+  mach('chemical_reactor', [], [], { fluidsIn: [s('methanol', 1000), s('oxygen', 500)], fluidsOut: [s('formaldehyde', 1000), s('water', 1000)],
+    keep: ['catalyst:silver'], wear: 0.02, ticks: 200, power: 30 });
+  mach('chemical_reactor', [], [], { fluidsIn: [s('phenol', 1000), s('formaldehyde', 1000)], fluidsOut: [s('phenolic_resin', 1000), s('water', 500)], ticks: 300, power: 24 });
+  // Paper → phenolic board → discrete circuit board; moulded component cases.
+  mach('chemical_bath', [s('pulp:wood', 2)], [s('paper', 2)], { fluidsIn: [s('water', 500)], power: 8 });
+  mach('chemical_bath', [s('paper', 2)], [s('board:phenolic')], { fluidsIn: [s('phenolic_resin', 250)], ticks: 200, power: 16 });
+  mach('assembler', [s('board:phenolic'), s('foil:copper', 4)], [s('circuit_board:discrete')], { ticks: 200, power: 32 });
+  mach('fluid_solidifier', [], [s('case:phenolic', 4)], { fluidsIn: [s('phenolic_resin', 250)], power: 16 });
+  // Metallurgical silicon: SiO₂ + 2 C → Si + 2 CO (burnt to CO₂) at the cupronickel coils' limit.
+  mach('ebf', [s('mdust:quartz'), s('dust:coal', 2)], [s('ingot:silicon')], { fluidsOut: [s('carbon_dioxide', 1000)], minHeatK: 2000, ticks: 400, power: 120 });
+  // Components → discrete circuit; transistors also make basic circuits cheaper.
+  const asm = (inputs: Stack[], out: string, n: number, ticks = 200) => mach('assembler', inputs, [s(out, n)], { ticks, power: 32 });
+  asm([s('plate:silicon'), s('fine_wire:gold', 2), s('case:phenolic')], 'transistor', 2);
+  asm([s('plate:silicon'), s('fine_wire:copper', 4), s('tube:glass')], 'diode', 4);
+  asm([s('foil:aluminium', 2), s('paper'), s('case:phenolic')], 'capacitor', 2);
+  asm([s('circuit_board:discrete'), s('transistor', 2), s('diode', 2), s('capacitor', 2), s('resistor:carbon', 2), s('wire:solder')], 'circuit:discrete', 1, 400);
+  asm([s('circuit_board:basic'), s('transistor'), s('resistor:carbon', 2), s('wire:solder')], 'circuit:basic', 3);
+  // Contact process: SO₂ → SO₃ on vanadium pentoxide (MV reactor), then into water: 4× the uncatalysed rate.
+  mach('roaster', [s('dust:vanadium')], [s('catalyst:vanadium_pentoxide')], { fluidsIn: [s('oxygen', 1000)], ticks: 200, power: 24 });
+  mach('chemical_reactor', [], [], { fluidsIn: [s('sulfur_dioxide', 1000), s('oxygen', 500)], fluidsOut: [s('sulfur_trioxide', 1000)],
+    keep: ['catalyst:vanadium_pentoxide'], wear: 0.01, ticks: 600, power: 64, ...MV });
+  mach('chemical_reactor', [], [], { fluidsIn: [s('sulfur_trioxide', 1000), s('water', 1000)], fluidsOut: [s('sulfuric_acid', 1000)], ticks: 100, power: 16 });
 }
 
 /** Sulfide minerals the Roaster turns into calcine + SO₂ (CONTENT §11e.4), with the metal the calcine reduces to. */

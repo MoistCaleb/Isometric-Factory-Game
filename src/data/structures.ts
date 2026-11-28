@@ -67,6 +67,13 @@ export const PATTERNS = {
       .concat([0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, 1]))),
     hollow: [[0, -1, 1]],
   },
+  /** Pyrolyse oven (P5c): controller at the front of a closed 3×3×3 retort — casing floor and roof, a ring of coils (part 1)
+   * around the hollow middle. */
+  retort: {
+    cells: [0, 2].flatMap((b) => [0, -1, -2].flatMap((dy) => [-1, 0, 1].map((dx): Cell => [dx, dy, b]))).filter(([dx, dy, b]) => dx || dy || b)
+      .concat([0, -1, -2].flatMap((dy) => [-1, 0, 1].filter((dx) => dx || dy !== -1).map((dx): Cell => [dx, dy, 1, 1]))),
+    hollow: [[0, -1, 1]],
+  },
 } satisfies Record<string, Pattern>;
 export type PatternId = keyof typeof PATTERNS;
 /** Structures that belong to multiblocks (controllers + casings) — rendered full height whatever the view level. */
@@ -208,14 +215,14 @@ export const STRUCTURES: StructDef[] = [
     model: [[3, 0, 4, 13, 4, 12, STONE], [5, 4, 6, 11, 8, 10, STONE], [2, 8, 5, 14, 11, 11, 0x9a9a98]] },
 ];
 
-/** MV variants (P5b): MV hull + 4 basic circuits (discrete circuits from P5c) + 2 copper cables + the LV parts one tier up. */
+/** MV variants (P5b): MV hull + 2 discrete circuits (P5c; 4 basic before) + 2 copper cables + the LV parts one tier up. */
 function mvMachines(lv: StructDef[]): StructDef[] {
   const MV_PART: Record<string, string> = { 'motor:lv': 'motor:mv', 'pump:lv': 'pump:mv', 'piston:lv': 'piston:mv', 'conveyor:lv': 'conveyor:mv',
     'robot_arm:lv': 'robot_arm:mv', 'rotor:steel': 'rotor:aluminium', 'cable:tin': 'cable:copper' };
   return MV_BASE.map((b) => {
     const d = lv.find((x) => x.id === b)!;
     const parts = d.cost.filter(([id]) => !['hull:lv', 'circuit:basic'].includes(id)).map(([id, n]): [string, number] => [MV_PART[id] ?? id, n]);
-    const cost: [string, number][] = [['hull:mv', 1], ['circuit:basic', 4], ...parts];
+    const cost: [string, number][] = [['hull:mv', 1], ['circuit:discrete', 2], ...parts];
     return { ...d, id: `${b}_mv`, name: `MV ${d.name}`, machine: `${b}_mv`, color: MVC, cost,
       model: d.model.map((x): Box => (x[6] === LVC ? [...x.slice(0, 6), MVC] as Box : x)) };
   });
@@ -224,7 +231,7 @@ function mvMachines(lv: StructDef[]): StructDef[] {
 /** LV machines (P4a): hull box + a machine-specific top, a yellow power socket on the back. */
 function lvMachines(): StructDef[] {
   const lv = lvRows();
-  return [...lv, ...mvMachines(lv), ...mvGrid()];
+  return [...lv, ...mvMachines(lv), ...mvGrid(), ...organic()];
 }
 
 /** P5b: MV generators, battery buffer, energy hatch. */
@@ -237,11 +244,26 @@ function mvGrid(): StructDef[] {
       cost: [['hull:mv', 1], ['motor:mv', 1], ['piston:mv', 2], ['pipe:steel', 2], ['cable:copper', 2]],
       model: [[1, 0, 1, 15, 10, 15, MVC], [3, 10, 3, 13, 12, 13, SOOT], [11, 12, 4, 13, 16, 6, SOOT], [3, 12, 10, 5, 16, 12, SOOT], [4, 3, 15, 12, 8, 16, GLOW], [6, 3, 0, 10, 7, 1, VOLT]] },
     { id: 'battery_buffer_mv', name: 'MV Battery Buffer', color: MVC, machine: 'battery_buffer_mv', tools: ['wrench'],
-      cost: [['hull:mv', 1], ['circuit:basic', 4], ['struct:chest', 1], ['cable:copper', 4]],
+      cost: [['hull:mv', 1], ['circuit:discrete', 2], ['struct:chest', 1], ['cable:copper', 4]],
       model: [[1, 0, 1, 15, 11, 15, MVC], [1, 11, 1, 15, 12, 15, 0x5a5e64], [6, 3, 0, 10, 7, 1, VOLT],
         [3, 12, 3, 7, 15, 7, 0xd0d8e0], [9, 12, 3, 13, 15, 7, 0xd0d8e0], [3, 12, 9, 7, 15, 13, 0xd0d8e0], [9, 12, 9, 13, 15, 13, 0xd0d8e0]] },
     { id: 'energy_hatch_mv', name: 'MV Energy Hatch', color: VOLT, hatch: 'energy', tier: 'MV', cost: [['hull:mv', 1], ['cable:copper', 2]], tools: ['wrench'],
       model: [[0, 0, 0, 16, 16, 16, MVC], [3, 3, 0, 13, 13, 16, CABLE_CU], [5, 5, 0, 11, 11, 16, VOLT]] },
+  ];
+}
+
+/** P5c: organic chemistry machines. They make the discrete circuit, so they cost basic circuits. */
+function organic(): StructDef[] {
+  return [
+    { id: 'pyrolyse_oven', name: 'Pyrolyse Oven', color: HEAT, machine: 'pyrolyse_oven', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['struct:electric_furnace', 1], ['pump:mv', 1], ['circuit:basic', 4], ['cable:copper', 4]],
+      multi: { casing: 'heat_casing', pattern: 'retort', parts: ['cupronickel_coil'], solid: [1],
+        hatches: ['energy_hatch', 'energy_hatch_mv', 'maintenance_hatch', 'input_bus', 'output_bus', 'input_hatch', 'output_hatch'], need: ['energy_hatch', 'maintenance_hatch'] },
+      model: [[0, 0, 0, 16, 16, 16, HEAT], [2, 2, 15, 14, 12, 16, SOOT], [4, 4, 15, 12, 9, 16, GLOW], [2, 13, 15, 14, 15, 16, MVC], [6, 13, 15, 10, 15, 16, VOLT]] },
+    { id: 'distillery', name: 'Coal Tar Distillery', color: MVC, machine: 'distillery', tools: ['wrench'],
+      cost: [['hull:mv', 1], ['circuit:basic', 4], ['pump:mv', 2], ['pipe:steel', 4], ['pane:glass', 2], ['cable:copper', 2]],
+      model: [[1, 0, 1, 15, 8, 15, MVC], [6, 3, 0, 10, 7, 1, VOLT], [4, 8, 4, 12, 16, 12, STEEL], [3, 10, 3, 13, 11, 13, MVC], [3, 13, 3, 13, 14, 13, MVC],
+        [12, 9, 7, 15, 10, 9, STEEL], [12, 12, 7, 15, 13, 9, STEEL], [5, 2, 15, 11, 6, 16, GLASS]] },
   ];
 }
 

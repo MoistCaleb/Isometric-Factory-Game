@@ -7,7 +7,7 @@ import type { Recipe } from '../content/types';
 import { AMP_IN, BOIL_K, CELL_FLUIDS, BOILER_WATER, DIG_DEPTH, DIG_H, DIG_R, DIG_TICKS, FACE_NAMES, FUELS, MACHINE, SIDES, STEAM_BUF, STEAM_PER_POWER, THUMP_DEPTH, THUMP_R,
   THUMP_TICKS, OC_POWER, OC_SPEED, battOf, hatchW, XFMR_W, xfFront, WIND_FULL_B, LAKE_FLOW, MAINT, MAINT_LOSS } from '../data/machines';
 import { STRUCTURES } from '../data/structures';
-import { TIER_VOLTAGE } from '../data/tiers';
+import { TIER_VOLTAGE, tierIndex } from '../data/tiers';
 import { bufJ, inputW } from '../sim/power';
 import { fmtJ, fmtW } from './format';
 import type { MachView } from '../sim/client';
@@ -37,7 +37,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   const [sides, setSides] = useState(false);
   const m = view?.m, key = view?.key ?? '';
   const r = m?.rec ? reg.recipe(m.rec) : undefined;
-  const all = useMemo(() => reg.machineRecipes(def.base ?? def.id), [def.id]);
+  const all = useMemo(() => reg.machineRecipes(def.base ?? def.id).filter((x) => def.ehatch || tierIndex(x.tier) <= tierIndex(def.tier)), [def.id]);
   const list = useMemo(() => {
     const n = q.trim().toLowerCase();
     return all.filter((x) => !n || [...x.inputs, ...x.outputs, ...(x.fluidsOut ?? []), ...(x.fluidsIn ?? [])]
@@ -51,7 +51,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
   const need = boiler ? BOIL_K : r ? r.minHeatK ?? def.heatK ?? 0 : def.heatK ?? 0;
   const cmd = (c: DistOmit<MachCmd, 'key'>) => onCmd({ ...c, key } as Cmd);
   const pct = r ? Math.min(100, (m.prog / r.ticks) * 100) : 0;
-  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow, MS.coils, MS.hatchW].includes(m.st as 2);
+  const bad = [MS.full, MS.incomplete, MS.noWater, MS.dry, MS.minedOut].includes(m.st as 3), warn = [MS.noInput, MS.cold, MS.noFuel, MS.noSteam, MS.noWaterIn, MS.noSun, MS.noPower, MS.noWind, MS.noFlow, MS.coils, MS.hatchW, MS.tier].includes(m.st as 2);
   const meter = (label: string, n: number, cap: number, col: string) => (
     <><div class="bar"><div style={{ width: `${Math.min(100, (n / cap) * 100)}%`, background: col }} /></div>
       <div class="dim">{label}: {Math.round(n)} / {cap} L</div></>
@@ -242,7 +242,7 @@ export function Machine({ ent, view, inv, poll = 0, onCmd, onLook, onClose }: Pr
             {r.outputs.map((s) => <Chip key={s.id} st={s} onLook={onLook} />)}
             {r.fluidsOut?.map((s) => <Chip key={s.id} st={s} fluid />)}
           </div>
-          <div class="dim">{r.ticks / 20} s{r.minHeatK ? ` · ${r.minHeatK} K` : ''}{r.keep ? ' · mold is kept' : ''}</div>
+          <div class="dim">{r.ticks / 20} s{r.minHeatK ? ` · ${r.minHeatK} K` : ''}{r.keep ? (r.wear ? ` · catalyst kept, wears out ${Math.round(r.wear * 100)} % per run` : ' · mold is kept') : ''}</div>
         </div>
       )}
       {!pick && all.length > 0 && <div class="row"><button onClick={() => setPick(true)}>{r ? 'Change recipe' : 'Pick recipe'} ({all.length})</button></div>}

@@ -39,6 +39,8 @@ export interface Recipe {
   fluidsOut?: Stack[];
   /** Not consumed (molds, catalysts). */
   keep?: string[];
+  /** Chance per run that each kept item is used up (P5c catalysts wear). */
+  wear?: number;
   /** Tools used (worn by 1 per craft). */
   tools?: ToolType[];
   /** Programmed circuit number. */

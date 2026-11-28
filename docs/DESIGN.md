@@ -80,6 +80,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 - Programmed circuit slot for recipe selection.
 - Overclock: per tier above recipe → **2× speed, 4× power** (some machines "perfect": 4×/4×).
   - **v1 (P5b):** every LV recipe machine has an MV variant (`MachineDef.base` = the LV id it takes recipes from). Overclocks = tiers the machine is above the recipe, limited to while power × 4ⁿ ≤ its input (128 W at MV: recipes ≤ 32 W overclock once). A hatch multiblock uses its **lowest** energy hatch tier and total hatch W (MV energy hatch = 2 A × 128 V = 256 W; a need for `energy_hatch` is met by any tier).
+  - **Recipe tier (P5c):** a recipe may be above its machine's tier (e.g. the 64 W contact step on the chemical reactor is MV): single-block machines below it don't list it and won't run it; hatch multiblocks are limited by hatch W only. **Catalysts** are `keep` items like molds, with `wear` = chance per run they are used up (silver 2 %, V₂O₅ 1 %).
 - Status icons over machines (working, idle, no power, output full, missing input, too cold, incomplete).
 - Machine **parts** per tier: motor, pump, piston, conveyor module, robot arm, (MV+) sensor/emitter, (HV+) field generator.
 - **Multiblocks:** pattern of casings + hatches; controller shows ghost; player chooses **auto-fill or manual placing**.

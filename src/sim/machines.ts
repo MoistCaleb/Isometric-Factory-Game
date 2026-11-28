@@ -53,11 +53,11 @@ export interface Mach {
 }
 
 /** Machine status (DESIGN §5 status icons). */
-export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19, coils: 20, hatchW: 21 } as const;
+export const MS = { idle: 0, working: 1, noInput: 2, full: 3, cold: 4, incomplete: 5, noWater: 6, crank: 7, noFuel: 8, noSteam: 9, dry: 10, noWaterIn: 11, surveyed: 12, minedOut: 13, noSun: 14, noPower: 15, noLoad: 16, noBatt: 17, noWind: 18, noFlow: 19, coils: 20, hatchW: 21, tier: 22 } as const;
 export const MS_TEXT = ['Idle — pick a recipe', 'Working', 'Missing input', 'Output full', 'Heating up', 'Incomplete multiblock',
   'Needs water next to it', 'Ready — crank it', 'Needs fuel', 'No steam', 'DRY! Let it cool before water returns', 'No water — pipe it in',
   'Survey done — move it to survey elsewhere', 'No ore left in reach — move it', 'Waiting for sunshine', 'No power — connect a cable to a generator', 'No load — nothing on its cables needs power', 'No batteries — insert some', 'No wind', 'Needs a river or lake next to it',
-  'Coils not hot enough for this recipe', 'Needs more energy hatches for this recipe'];
+  'Coils not hot enough for this recipe', 'Needs more energy hatches for this recipe', 'Recipe needs a higher-tier machine'];
 
 /** Things the sim did on its own (explosions): the worker forwards them like command results. */
 export const simEvents: ActResult[] = [];
@@ -223,6 +223,7 @@ function blocker(s: GameState, gen: WorldGen, key: string, m: Mach, def: Machine
   if (incomplete(mc)) return MS.incomplete;
   if (def.coilK && (r.minHeatK ?? 0) > def.coilK) return MS.coils;
   if (def.ehatch && r.power > (m.ehw ?? 0)) return MS.hatchW;
+  if (!def.ehatch && tierIndex(r.tier) > tierIndex(def.tier)) return MS.tier;
   if (def.water && !nearWater(gen, key)) return MS.noWater;
   if (!hasInputs(m, r)) return MS.noInput;
   if (!hasRoom(m, r, def)) return MS.full;
@@ -236,11 +237,13 @@ export function addFl(m: Mach, id: string, n: number) {
   else if (m.fl) { delete m.fl[id]; if (!Object.keys(m.fl).length) delete m.fl; }
 }
 /** Chemistry outputs that set a quest flag when first made (P4b). */
-const CHEM_FLAGS = new Set(['brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid', 'sodium_aluminate', 'hydrofluoric_acid']);
+const CHEM_FLAGS = new Set(['brine', 'chlorine', 'hydrochloric_acid', 'sulfur_dioxide', 'sulfuric_acid', 'sodium_aluminate', 'hydrofluoric_acid',
+  'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide']);
 
 function finish(s: GameState, m: Mach, r: Recipe, def: MachineDef) {
   for (const i of r.inputs) { m.inp[i.id] -= i.n; if (!m.inp[i.id]) delete m.inp[i.id]; }
   for (const f of r.fluidsIn ?? []) addFl(m, f.id, -f.n);
+  if (r.wear) for (const k of r.keep ?? []) if (next(s) < r.wear) delete m.inp[k]; // catalysts wear (P5c)
   for (const o of r.outputs) if (o.chance === undefined || next(s) < o.chance) m.out[o.id] = (m.out[o.id] ?? 0) + o.n;
   for (const f of r.fluidsOut ?? []) {
     if (vents(def, f.id)) continue; // vents (pollution later)

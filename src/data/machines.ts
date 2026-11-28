@@ -122,6 +122,9 @@ const ROWS: Row[] = [
   ['steam_turbine_mv', 'MV Steam Turbine', 'MV', undefined, { run: 'gen', gen: 128, steam: 64 }],
   ['combustion_generator_mv', 'MV Combustion Generator', 'MV', undefined, { run: 'gen', gen: 128, tank: 16000, burns: LIQUID_FUELS, smoke: 2 }],
   ['battery_buffer_mv', 'MV Battery Buffer', 'MV', undefined, { run: 'batt', slots: 4 }],
+  // P5c: organic chemistry (MV only, no LV version).
+  ['pyrolyse_oven', 'Pyrolyse Oven', 'MV', undefined, { run: 'elec', maint: true, ehatch: true, tank: 32000, smoke: 3 }],
+  ['distillery', 'Coal Tar Distillery', 'MV', undefined, { run: 'elec', tank: 32000 }],
   ['vacuum_freezer', 'Vacuum Freezer', 'HV'],
 ];
 /** LV recipe machines with an MV variant `<id>_mv` (P5b): 128 V, same recipes, overclocked (DESIGN §5). */
@@ -187,4 +190,4 @@ export const xfFront = (r: number) => [2, 1, 3, 0][r & 3];
 export const CELL_L = 1000, CORRODE_P = 0.01, LEAK_POLL = 100, DUMP_POLL = 0.05;
 /** Fluids that come in cells (P4b). */
 export const CELL_FLUIDS = ['water', 'brine', 'sodium_hydroxide', 'chlorine', 'hydrogen', 'oxygen', 'hydrochloric_acid', 'sulfur_dioxide',
-  'sulfuric_acid', 'mercury', 'creosote', 'wood_tar', 'hydrofluoric_acid'];
+  'sulfuric_acid', 'mercury', 'creosote', 'wood_tar', 'hydrofluoric_acid', 'methanol', 'coal_tar', 'phenol'];

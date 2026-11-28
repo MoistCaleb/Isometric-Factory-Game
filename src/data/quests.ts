@@ -17,7 +17,8 @@ export const SIM_FLAGS = ['mine', 'chop', 'sample', 'craft', 'move', 'place', 's
   'discharge', 'xfmr', 'xfmr_up', 'overvolt', 'trip', 'breaker', 'battery',
   'combustion_generator', 'solar_panel', 'wind_turbine', 'water_turbine', 'etool', 'escan', 'scan', 'rig',
   'acirc', 'ebf', 'ebf_mv', 'maint', 'clean', 'fire', 'sodium_aluminate', 'hydrofluoric_acid', 'aluminium',
-  'overclock', 'steam_turbine_mv', 'combustion_generator_mv'] as const;
+  'overclock', 'steam_turbine_mv', 'combustion_generator_mv',
+  'methanol', 'coal_tar', 'phenol', 'formaldehyde', 'phenolic_resin', 'sulfur_trioxide'] as const;
 
 export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
@@ -667,9 +668,49 @@ export const QUESTS: QuestDef[] = [
       'The **MV Combustion Generator** burns the same liquid fuels as the LV one, four times as fast, for **128 W at 128 V**. Copper cable only.',
     ],
     tasks: [build('combustion_generator_mv'), flag('combustion_generator_mv', 'Feed power at 128 V')] },
-  { id: 'm_overclock', chapter: 'MV', title: 'Overclocking', req: ['m_motor', ['m_turbine', 'm_combustion']], reward: M2,
+  // ---- MV (P5c): organic chemistry → discrete circuit ----
+  { id: 'm_pyrolyse', chapter: 'MV', title: 'Pyrolyse Oven', req: ['m_motor', ['m_turbine', 'm_combustion']], reward: M2,
     text: [
-      'Every LV machine has an **MV version** (MV hull + 4 basic circuits + 2 copper cables + the MV parts). It runs all the LV recipes, and **overclocks** them: one tier above the recipe means **2× speed for 4× power** — a 16 W recipe runs twice as fast at 64 W.',
+      'The **Pyrolyse Oven** bakes wood and coal without air. Its controller stands in front of a closed 3×3×3 retort: **heat-proof casing** floor and roof, a ring of **cupronickel coils** around the hollow middle. Hatches as the EBF.',
+      'It needs **96 W**: two LV energy hatches, or one MV hatch. 16 logs → 12 charcoal + **methanol**, acetic acid and wood tar. 16 coal → 16 coke + **coal tar** and hydrogen.',
+    ],
+    tasks: [build('pyrolyse_oven'), flag('methanol', 'Make methanol'), flag('coal_tar', 'Make coal tar')] },
+  { id: 'm_distill', chapter: 'MV', title: 'Coal Tar Distillery', req: ['m_pyrolyse'], reward: M1,
+    text: [
+      'The **Coal Tar Distillery** is an MV machine with no LV version: it needs **128 V** — copper cable from an MV generator, or a transformer stepping up.',
+      'Coal tar → **phenol**, benzene, toluene and creosote. Benzene and toluene keep for HV; creosote burns in a combustion generator.',
+    ],
+    tasks: [build('distillery'), flag('phenol', 'Distil phenol')] },
+  { id: 'm_formaldehyde', chapter: 'chem', tier: 'MV', title: 'Formaldehyde', req: ['m_pyrolyse'], reward: M1,
+    text: [
+      'Methanol + oxygen over hot **silver** → **formaldehyde**. The **Silver Catalyst Mesh** (assembler: 8 fine silver wire) sits in the chemical reactor like a mold and is **not used up** — but each run has a 2 % chance to wear it out.',
+    ],
+    tasks: [have('catalyst:silver'), flag('formaldehyde', 'Make formaldehyde')] },
+  { id: 'm_phenolic', chapter: 'MV', title: 'Phenolic Board', req: ['m_distill', 'm_formaldehyde'], reward: M2,
+    text: [
+      'Phenol + formaldehyde → **phenolic resin** (chemical reactor) — the first plastic.',
+      'Wood pulp soaked in a **chemical bath** of water → **paper**. Paper soaked in resin → the **phenolic board**; the assembler lays 4 copper foil on it for a **discrete circuit board**. The fluid solidifier moulds resin into **component cases**.',
+    ],
+    tasks: [flag('phenolic_resin', 'Make phenolic resin'), have('board:phenolic', 2), have('case:phenolic', 4)] },
+  { id: 'm_silicon', chapter: 'MV', title: 'Metallurgical Silicon', req: ['m_hull'], reward: M1,
+    text: [
+      'Quartz dust + 2 coal dust in the **EBF** at 2000 K — the limit of cupronickel coils → a **silicon ingot** (the carbon leaves as CO₂). Bend it into plates for semiconductors.',
+    ],
+    tasks: [have('ingot:silicon', 2)] },
+  { id: 'm_components', chapter: 'MV', title: 'Transistors', req: ['m_phenolic', 'm_silicon'], reward: M2,
+    text: [
+      'Assembler: silicon plate + 2 fine gold wire + case → 2 **transistors** · silicon plate + 4 fine copper wire + glass tube → 4 **diodes** · 2 aluminium foil + paper + case → 2 **capacitors**. Resistors stay carbon.',
+      'Transistors also make **basic circuits cheaper**: basic board + transistor + 2 resistors + solder → 3.',
+    ],
+    tasks: [have('transistor', 2), have('diode', 2), have('capacitor', 2)] },
+  { id: 'm_discrete', chapter: 'MV', title: 'Discrete Circuit', req: ['m_components'], reward: M2,
+    text: [
+      'Discrete board + 2 transistors + 2 diodes + 2 capacitors + 2 resistors + solder → the **Discrete Circuit**, the MV circuit. Every MV machine and the MV battery buffer need two.',
+    ],
+    tasks: [have('circuit:discrete', 2)] },
+  { id: 'm_overclock', chapter: 'MV', title: 'Overclocking', req: ['m_discrete'], reward: M2,
+    text: [
+      'Every LV machine has an **MV version** (MV hull + 2 discrete circuits + 2 copper cables + the MV parts). It runs all the LV recipes, and **overclocks** them: one tier above the recipe means **2× speed for 4× power** — a 16 W recipe runs twice as fast at 64 W.',
       'It only overclocks while 4× still fits its 128 W input: recipes above 32 W run at normal speed. Faster, but each item costs twice the energy.',
     ],
     tasks: [flag('overclock', 'Run an overclocked recipe')] },
@@ -685,12 +726,18 @@ export const QUESTS: QuestDef[] = [
       '**Electrolyzer:** the solution → **lithium dust**, with the sulfuric acid back and some oxygen.',
     ],
     tasks: [have('dust:lithium', 2)] },
-  { id: 'm_battery', chapter: 'power', tier: 'MV', title: 'Lithium Battery', req: ['m_lithium', 'l_battery_buffer'], reward: M2,
+  { id: 'm_battery', chapter: 'power', tier: 'MV', title: 'Lithium Battery', req: ['m_lithium', 'l_battery_buffer', 'm_discrete'], reward: M2,
     text: [
       'An aluminium **battery case** (assembler) canned with 2 lithium dust is a **Lithium Battery**: 144 kJ, four lead-acid batteries\' worth.',
       'The **MV Battery Buffer** holds 4 of them and moves 128 W per battery at 128 V. It takes lithium batteries only.',
     ],
     tasks: [have('battery:lithium'), build('battery_buffer_mv')] },
+  { id: 'm_contact', chapter: 'chem', tier: 'MV', title: 'Contact Process', req: ['m_overclock', 'l_acid'], reward: M2,
+    text: [
+      'Roast vanadium dust in oxygen → a **vanadium pentoxide catalyst**. In an **MV chemical reactor** (the step needs 64 W) it turns SO₂ + O₂ into **SO₃**; SO₃ into water → sulfuric acid.',
+      'Four times the acid per minute of the uncatalysed reactor. The catalyst is kept and wears out 1 % per run.',
+    ],
+    tasks: [have('catalyst:vanadium_pentoxide'), flag('sulfur_trioxide', 'Make SO₃')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));
 /** Every quest id a quest's requirements mention (any-of groups flattened). */
