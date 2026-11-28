@@ -283,7 +283,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 | Small Bronze Boiler | bronze hull + 8 bricks + clay furnace | burns fuel items; 12 L/tick steam at 500 K |
 | Solar Boiler | bronze hull + 4 glass + 2 silver plates | ≤6 L/tick by daylight (450 K), less in rain, none at night; no fuel |
 | High-Pressure Steel Boiler | steel hull + 8 fire bricks + 2 bronze pipes | 600 K, 30 L/tick (2.5×), fuel 2× as fast |
-| Large Boiler (multiblock) | controller: steel hull + 8 fire bricks + 4 bronze pipes; 3×3×3 behind it: 8 steel firebox casings (2 steel plates + 4 fire bricks), 16 bronze plated bricks (4 bronze plates + 4 bricks) around 2 bronze pipe casings; input + output hatch required, input bus optional | Steam gate multiblock: 800 K, 120 L/tick, fuel 8× as fast |
+| Large Boiler (multiblock) | controller: steel hull + 8 fire bricks + 4 bronze pipes; 3×3×3 behind it: 8 steel firebox casings (2 steel plates + 4 fire bricks), 16 bronze plated bricks (4 bronze plates + 4 bricks) around 2 bronze pipe casings; input + output hatch required, input bus optional | Optional steam power scaling (⚡ Power chapter): 800 K, 120 L/tick, fuel 8× as fast |
 
 **Steam machines:**
 
@@ -482,7 +482,7 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 
 ## 11f. Quest book outline (chapters → key milestones)
 
-Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power** — s_solar; LV generators l_turbine / l_combustion / l_solar / l_wind / l_water_turbine (any one unlocks LV **Live Wire**), grid l_fuse / l_breaker / l_transformer / l_battery / l_battery_buffer · **⛏ Mining** — s_thumper, s_excavator, l_etools, l_scanner, l_scanner_block, l_mining_rig · **⚗ Chemistry** — l_cells … l_acid, l_hazards · **🔧 Logistics** — s_items, s_barrel, s_pump · **🚀 Space Race** — later.
+Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power** — s_solar, s_large_boiler; LV generators l_turbine / l_combustion / l_solar / l_wind / l_water_turbine (any one unlocks LV **Live Wire**), grid l_fuse / l_breaker / l_transformer / l_battery / l_battery_buffer · **⛏ Mining** — s_thumper, s_excavator, l_etools, l_scanner, l_scanner_block, l_mining_rig · **⚗ Chemistry** — l_cells … l_acid, l_hazards · **🔧 Logistics** — s_items, s_barrel, s_pump · **🚀 Space Race** — later.
 1. **Primitive** (implemented, `src/data/quests.ts`, 34 quests). Tutorial branch first: overseer (pan/zoom) → loot crates, camera (rotate, levels), maps, time/pause/saves; then hands (gather, pockets, recipe book), then:
    - gather flint/sticks/fiber
    - flint tools

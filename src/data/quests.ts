@@ -402,7 +402,7 @@ export const QUESTS: QuestDef[] = [
       'It still boils water, so it still explodes if water hits it while it is dry and hot.',
     ],
     tasks: [build('solar_boiler')] },
-  { id: 's_large_boiler', chapter: 'S', title: 'Large Boiler', req: ['s_hp_boiler', 's_items'], reward: S2,
+  { id: 's_large_boiler', chapter: 'power', tier: 'S', title: 'Large Boiler', req: ['s_hp_boiler', 's_items'], reward: S2,
     text: [
       'The **Large Boiler** is the steam age\'s great machine: **120 L/tick** of steam at 800 K, burning fuel 8× as fast as a small boiler. Its controller (steel hull + 8 fire bricks + 4 bronze pipes) sits at the **front** of a 3×3×3 block: a floor of 8 **Steel Firebox Casings**, then two layers of **Bronze Plated Bricks** around a **Bronze Pipe Casing** core.',
       '**Rotation:** press **F** (or ↻ in the build bar) before placing — the ghost shows the whole footprint and which way the front faces. The structure is built **behind** the controller.',

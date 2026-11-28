@@ -17,7 +17,7 @@ Content details live in [CONTENT.md](CONTENT.md).
 | Tier | Voltage | Gate material | Gate circuit | Gate multiblock |
 |---|---|---|---|---|
 | Primitive | none (hand crank) | Bronze | — | Bloomery, Coke Oven, Primitive Blast Furnace |
-| Steam | steam | Steel (PBF) | — | Large Boiler |
+| Steam | steam | Steel (PBF) | — | — (Large Boiler = optional power scaling, ⚡ Power chapter) |
 | LV | 32 V | Steel | Basic (vacuum tube) | EBF (built at LV, runs on 2× LV hatches) |
 | MV | 128 V | Aluminium | Discrete (transistor) | Hall–Héroult Cell, Pyrolyse Oven |
 | HV | 512 V | Stainless Steel | Integrated | Cleanroom, Distillation Tower |
