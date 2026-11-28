@@ -22,11 +22,18 @@ export type QuestTask =
   | { k: 'have'; ids: string[]; n: number; label?: string }
   | { k: 'build'; id: string; n: number }
   | { k: 'flag'; id: string; label: string };
+/** Topic chapters (GT-style side books) next to the tier chapters: a topic quest still has a tier (layout, rewards). */
+export const TOPICS = [['power', '⚡ Power'], ['mining', '⛏ Mining'], ['chem', '⚗ Chemistry'], ['logistics', '🔧 Logistics'], ['space', '🚀 Space Race']] as const;
+export type TopicId = (typeof TOPICS)[number][0];
+export type ChapterId = TierId | TopicId;
 export interface QuestDef {
-  id: string; chapter: TierId; title: string;
+  id: string; chapter: ChapterId; title: string;
+  /** Tier of a topic-chapter quest (tier chapters: the chapter itself). */
+  tier?: TierId;
   /** Paragraphs; **bold** marks controls and key terms. */
   text: string[];
-  req: string[];
+  /** All must be done; an inner list needs any one of its quests (e.g. any generator of a tier, DESIGN §8). */
+  req: (string | string[])[];
   tasks: QuestTask[];
   /** Loot crates by tier + direct items. */
   reward: { crates?: [TierId, number][]; items?: [string, number][] };
@@ -318,7 +325,7 @@ export const QUESTS: QuestDef[] = [
     ],
     tasks: [build('steam_ore_washer'), any(ores('purified_ore'), 8, 'Any purified ore')] },
   // ---- P3b logistics ----
-  { id: 's_items', chapter: 'S', title: 'Item Pipes', req: ['s_furnace'], reward: S2,
+  { id: 's_items', chapter: 'logistics', tier: 'S', title: 'Item Pipes', req: ['s_furnace'], reward: S2,
     text: [
       '**Tin Item Pipes** (3 tin plates + a tin ring) move items between machines. Like fluid pipes they join on all 6 sides; item and fluid pipes never join each other.',
       'Twice a second every machine on the network sends what it has made (up to 4 items each time) to the **nearest** machine that wants it: a recipe input, fuel for a furnace or boiler, or a **chest**. No more collecting by hand — chain a macerator into a furnace into a chest.',
@@ -326,7 +333,7 @@ export const QUESTS: QuestDef[] = [
       'Every machine has **6 sides** (east, west, south, north, up, down). Open **Sides** in its panel and tap a side to cycle it: **Auto** (takes what it needs, sends what it makes), **In**, **Out** or **Off**. Chests only take items on Auto; set a chest side to **Out** to empty it down a pipe. Sides also apply to fluid pipes.',
     ],
     tasks: [build('tin_item_pipe', 4), build('chest'), flag('mface', 'Set a machine side')] },
-  { id: 's_barrel', chapter: 'S', title: 'Buffers', req: ['s_boiler'], reward: S1,
+  { id: 's_barrel', chapter: 'logistics', tier: 'S', title: 'Buffers', req: ['s_boiler'], reward: S1,
     text: [
       'A **Wooden Barrel** holds 16000 L of one fluid. On a network it soaks up whatever nobody needs and gives it back when a machine runs short — a reservoir for your pump, or for creosote. Wood can\'t hold steam or molten metal.',
       '**Lead Fluid Pipes** carry less (80 L per tick) but resist acids, which the chemistry of later ages needs. Different pipe kinds never join, so you can run a lead line right beside a bronze one.',
@@ -358,18 +365,18 @@ export const QUESTS: QuestDef[] = [
       'The **Steam Extractor** (hull + piston + glass) squeezes each sticky resin into a **raw rubber**. The alloy smelter vulcanises 2 raw rubber + a small pile of sulfur into 2 sheets: **three times** the clay furnace\'s yield.',
     ],
     tasks: [build('steam_extractor'), have('raw:rubber', 8)] },
-  { id: 's_pump', chapter: 'S', title: 'Steam Pump', req: ['s_boiler'], reward: S1,
+  { id: 's_pump', chapter: 'logistics', tier: 'S', title: 'Steam Pump', req: ['s_boiler'], reward: S1,
     text: [
       'The **Steam Pump** draws 40 L of water per tick, four times the water pump, for 4 L of steam per tick. Like the water pump it must stand next to water. Connect a steam pipe and a water pipe to different sides.',
     ],
     tasks: [build('steam_pump')] },
-  { id: 's_thumper', chapter: 'S', title: 'Deep Survey', req: ['s_boiler'], reward: S2,
+  { id: 's_thumper', chapter: 'mining', tier: 'S', title: 'Deep Survey', req: ['s_boiler'], reward: S2,
     text: [
       'The prospector\'s hammer only hears veins down to layer 8. The **Steam Thumper** (hull + 2 pistons + steel rod) pounds the ground for 20 seconds on 16 L of steam per tick, then surveys every vein within **48 tiles** down to **layer 16** — the deep slot.',
       'It surveys once. Demolish it and build it somewhere else to survey there.',
     ],
     tasks: [build('steam_thumper'), flag('thump', 'Finish a thumper survey')] },
-  { id: 's_excavator', chapter: 'S', title: 'Steam Excavator', req: ['s_thumper', 's_items'], reward: S2,
+  { id: 's_excavator', chapter: 'mining', tier: 'S', title: 'Steam Excavator', req: ['s_thumper', 's_items'], reward: S2,
     text: [
       'The **Steam Excavator** (hull + steel drill head + 2 bronze gears) mines **ore** in the 9×9 square below it, layer by layer from layer 1 down to layer 16. It takes only the ore and leaves the rock, which exposes any vein it reaches.',
       'It mines hardness ≤ 1 (2 s per block, 4 s for hardness 1) on 16 L of steam per tick, but nothing under water. Ore collects inside it: connect an item pipe to carry it away. When nothing is left in reach, move it.',
@@ -389,7 +396,7 @@ export const QUESTS: QuestDef[] = [
       'Everything else is the same: water in, steam out, and never let it run dry while hot.',
     ],
     tasks: [build('hp_boiler')] },
-  { id: 's_solar', chapter: 'S', title: 'Sunshine', req: ['s_boiler'], reward: S1,
+  { id: 's_solar', chapter: 'power', tier: 'S', title: 'Sunshine', req: ['s_boiler'], reward: S1,
     text: [
       'The **Solar Boiler** (bronze hull + 4 glass panes + 2 silver plates) burns nothing: sunlight heats it. It is weak (6 L/tick at most), makes nothing at night and less in rain, but it never needs feeding.',
       'It still boils water, so it still explodes if water hits it while it is dry and hot.',
@@ -415,11 +422,10 @@ export const QUESTS: QuestDef[] = [
       '**Wire** is cut from a plate with a **wire cutter**; cut a wire again for **fine wire**. A **cable** is a wire wrapped in a rubber sheet — insulation.',
     ],
     tasks: [have('motor:lv')] },
-  { id: 'l_turbine', chapter: 'LV', title: 'Spinning Up', req: ['l_motor', 's_boiler'], reward: L2,
+  { id: 'l_turbine', chapter: 'power', tier: 'LV', title: 'Spinning Up', req: ['l_motor', 's_boiler'], reward: L2,
     text: [
-      'Real units: **voltage** (V) pushes, **current** (A) flows, **power** (W = V × A) is energy per second, energy is counted in **joules** (J). LV is **32 V**.',
       'The **Steam Turbine** (LV hull + 2 motors + 2 steel rotors + 2 bronze pipes + 2 tin cables) turns steam from a pipe into up to **32 W** (1 A at 32 V), using 16 L/tick at full output. It only spins as fast as the cables draw, so idle machines cost no steam.',
-      'An **LV Hull** is 8 steel plates + 2 tin cables (wrench).',
+      'An **LV Hull** is 8 steel plates + 2 tin cables (wrench). Cable it up: see **Live Wire** (LV).',
     ],
     tasks: [have('hull:lv'), build('steam_turbine')] },
   { id: 'l_circuit', chapter: 'LV', title: 'Basic Circuit', req: ['l_motor'], reward: L2,
@@ -430,14 +436,15 @@ export const QUESTS: QuestDef[] = [
       'Circuit = board + 2 tubes + 2 resistors + 1 solder wire. The **Assembler** makes two at once.',
     ],
     tasks: [have('circuit:basic', 2)] },
-  { id: 'l_cables', chapter: 'LV', title: 'Live Wire', req: ['l_turbine', 'l_circuit'], reward: L2,
+  { id: 'l_cables', chapter: 'LV', title: 'Live Wire', req: ['l_circuit', ['l_turbine', 'l_combustion', 'l_solar', 'l_wind', 'l_water_turbine']], reward: L2,
     text: [
+      'Real units: **voltage** (V) pushes, **current** (A) flows, **power** (W = V × A) is energy per second, energy is counted in **joules** (J). LV is **32 V**. Any **one** generator from the **⚡ Power** chapter opens this quest — steam turbine, combustion, solar, wind or water: pick the one that suits your base and scale it.',
       'LV machines follow a template: **LV hull + 2 basic circuits + 2 tin cables** + their own parts. Each has a small **energy buffer** (1 s of input, 32 W max at LV) and draws its recipe\'s power every tick — "No power" when the buffer runs dry.',
       '**Cables** join every cable they touch on all 6 sides, any material, into one network; machines and generators touching it connect (set a side **Off** in the machine\'s Sides to cut it). Bare **wire** works too but loses twice as much.',
       '**Loss:** every tile of cable between a machine and the nearest generator costs a little (tin cable 0.4 V per tile of 32 V). Keep generators close. The machine panel shows the network: volts, watts, amps and loss. The pipe overlay (**H**) shows cables in yellow. Channels and cut sides work for cables exactly like pipes.',
     ],
     tasks: [build('tin_cable', 4), flag('powered', 'Power an LV machine')] },
-  { id: 'l_fuse', chapter: 'LV', title: 'Blow a Fuse', req: ['l_cables'], reward: L1,
+  { id: 'l_fuse', chapter: 'power', tier: 'LV', title: 'Blow a Fuse', req: ['l_cables'], reward: L1,
     text: [
       '**Current** on a network = watts delivered ÷ volts. **Tin** cable carries **2 A** (64 W at LV), **copper** 4 A. More than that and the weakest block **burns out** — two turbines are the most one tin line can take.',
       'A **Fuse** (tin wire in a glass tube) is a 2 A cable block that always burns first: a cheap, deliberate weak spot. When it blows, the line is cut until you place a new one.',
@@ -470,62 +477,62 @@ export const QUESTS: QuestDef[] = [
     tasks: [build(id)],
   })),
   // ---- LV (P4b): chemistry I ----
-  { id: 'l_cells', chapter: 'LV', title: 'Fluid Cells', req: ['l_cables'], reward: L1,
+  { id: 'l_cells', chapter: 'chem', tier: 'LV', title: 'Fluid Cells', req: ['l_cables'], reward: L1,
     text: [
       'A **Tin Cell** (2 tin plates + a rubber ring, hammer) carries **1000 L** of one fluid as an item. In a machine panel, **Fill** turns what a machine holds into full cells; **Pour** empties your cells into a machine that wants that fluid (a recipe input, a barrel, a boiler\'s water).',
       'Cells are the quick way to move chemicals before your pipes are laid. The **Canner** does it by recipe.',
     ],
     tasks: [have('cell:empty', 4), flag('cell', 'Fill or pour a cell')] },
-  { id: 'l_brine', chapter: 'LV', title: 'Brine', req: ['l_mixer'], reward: L1,
+  { id: 'l_brine', chapter: 'chem', tier: 'LV', title: 'Brine', req: ['l_mixer'], reward: L1,
     text: [
       'Chemistry runs on fluids. LV machines hold **several fluids at once**: the ones their recipe uses are **inputs** (pipes fill them), everything else is **output** (pipes take it away). Gases stay inside electric machines — unlike kilns, they don\'t vent — so a full gas tank stops the machine.',
       'Mix **salt** (rock salt dust) with water into **brine**. Pipe water in, or pour water cells.',
     ],
     tasks: [flag('brine', 'Make brine in the Mixer')] },
-  { id: 'l_chloralkali', chapter: 'LV', title: 'Chlor-Alkali', req: ['l_brine', 'l_electrolyzer'], reward: L2,
+  { id: 'l_chloralkali', chapter: 'chem', tier: 'LV', title: 'Chlor-Alkali', req: ['l_brine', 'l_electrolyzer'], reward: L2,
     text: [
       'Electrolysis of brine: 2000 L brine → **1000 L sodium hydroxide + 1000 L chlorine + 1000 L hydrogen**. Three outputs — and a pipe network holds **one fluid**. A fresh network takes whichever output the machine holds most of and keeps it, so run a separate line from a different side for each, keeping them apart with **channels** or **cut sides**. Or fill cells.',
       '**Dump** in the panel pours a fluid away; toxic fluids and gases (chlorine!) add pollution where you dump them.',
     ],
     tasks: [flag('chlorine', 'Electrolyse brine')] },
-  { id: 'l_hcl', chapter: 'LV', title: 'Hydrochloric Acid', req: ['l_chloralkali', 'l_chemical_reactor'], reward: L2,
+  { id: 'l_hcl', chapter: 'chem', tier: 'LV', title: 'Hydrochloric Acid', req: ['l_chloralkali', 'l_chemical_reactor'], reward: L2,
     text: [
       'Burn hydrogen in chlorine: **H₂ + Cl₂ → HCl**. The Chemical Reactor takes both gases (two input lines, or cells) and makes **hydrochloric acid**.',
       '**Acids are corrosive.** In a bronze pipe they eat through: every second each non-acid-proof pipe block holding acid has a small chance to **burst** — the pipe and its acid are lost and the spill pollutes. **Lead pipes are acid-proof.** NaOH + HCl neutralise back to brine if you make too much.',
     ],
     tasks: [flag('hydrochloric_acid', 'Make hydrochloric acid'), build('lead_pipe', 4)] },
-  { id: 'l_roast', chapter: 'LV', title: 'Roasting', req: ['l_roaster'], reward: L1,
+  { id: 'l_roast', chapter: 'chem', tier: 'LV', title: 'Roasting', req: ['l_roaster'], reward: L1,
     text: [
       'Sulfide ores don\'t smelt directly. The **Roaster** burns their sulfur off in air: 2 ZnS + 3 O₂ → 2 ZnO + 2 SO₂. You get **calcine** (the oxide) and **sulfur dioxide**.',
       'The electric furnace reduces calcine with **coal dust** into metal: galena → lead, sphalerite → zinc, pentlandite → nickel (one ingot per dust, twice the matte route). SO₂ is toxic — dumping it pollutes. Capture it instead.',
     ],
     tasks: [flag('sulfur_dioxide', 'Roast a sulfide')] },
-  { id: 'l_acid', chapter: 'LV', title: 'Sulfuric Acid', req: ['l_roast', 'l_chemical_reactor'], reward: L2,
+  { id: 'l_acid', chapter: 'chem', tier: 'LV', title: 'Sulfuric Acid', req: ['l_roast', 'l_chemical_reactor'], reward: L2,
     text: [
       'The king of chemicals: **SO₂ + O₂ + H₂O → H₂SO₄**. Without a catalyst it is slow (a minute per batch) and wasteful — the MV contact process will fix that. Oxygen comes from splitting water in the electrolyzer; burning plain sulfur dust in the roaster gives SO₂ too.',
       'Sulfuric acid feeds the **Chemical Bath** (acid leaching frees specific byproducts) and, soon, lead-acid batteries. Keep it in lead pipes.',
     ],
     tasks: [flag('sulfuric_acid', 'Make sulfuric acid')] },
   // ---- LV (P4c): grid ----
-  { id: 'l_battery', chapter: 'LV', title: 'Lead-Acid Battery', req: ['l_acid', 'l_canner'], reward: L2,
+  { id: 'l_battery', chapter: 'power', tier: 'LV', title: 'Lead-Acid Battery', req: ['l_acid', 'l_canner'], reward: L2,
     text: [
       '**Lead-antimony** (4 lead + 1 antimony in the alloy smelter or mixer; antimony from roasted stibnite) makes stiff battery plates. Two plates, rubber sheets and a tin cable make a **battery case**.',
       'The **Canner** fills the case with 1000 L of sulfuric acid: a **Lead-Acid Battery** holding 36 kJ.',
     ],
     tasks: [have('battery:lead_acid')] },
-  { id: 'l_battery_buffer', chapter: 'LV', title: 'Battery Buffer', req: ['l_battery'], reward: L2,
+  { id: 'l_battery_buffer', chapter: 'power', tier: 'LV', title: 'Battery Buffer', req: ['l_battery'], reward: L2,
     text: [
       'A **Battery Buffer** holds 4 batteries. It charges from whatever its generators make beyond what the machines use, and supplies the network when they fall short (32 W per battery) — a turbine\'s spare steam becomes power for later.',
       'Take a battery out once a full one\'s worth is stored and it comes out **charged** — electric tools will run on those.',
     ],
     tasks: [build('battery_buffer'), flag('discharge', 'Run machines from batteries')] },
-  { id: 'l_breaker', chapter: 'LV', title: 'Breakers', req: ['l_fuse'], reward: L1,
+  { id: 'l_breaker', chapter: 'power', tier: 'LV', title: 'Breakers', req: ['l_fuse'], reward: L1,
     text: [
       'A **Breaker** (4 A) trips open on overcurrent instead of burning: open its panel and **Reset** it. It is also a switch — open it to cut a line by hand.',
       'The **Power load** overlay (T) colours every cable by its network\'s load: green is easy, orange near the limit, red over it, grey has no source. Tripped breakers glow magenta.',
     ],
     tasks: [build('breaker'), flag('breaker', 'Switch or reset a breaker'), flag('power_overlay', 'Open the power load overlay (T)')] },
-  { id: 'l_transformer', chapter: 'LV', title: 'Transformers', req: ['l_breaker'], reward: L2,
+  { id: 'l_transformer', chapter: 'power', tier: 'LV', title: 'Transformers', req: ['l_breaker'], reward: L2,
     text: [
       'A **Transformer** links two voltages. Its **front** (the way you placed it) is the 128 V side; every other face is 32 V. Step-down: 128 V in at the front, 32 V out of the sides. Step-up: the reverse.',
       'Careful: 128 V on a network **melts tin cable** and **explodes** any 32 V machine on it. Run copper cable on the high side. A transformer passes 128 W — 4 A on its low side, more than a tin cable carries.',
@@ -533,45 +540,45 @@ export const QUESTS: QuestDef[] = [
     ],
     tasks: [build('transformer'), flag('xfmr', 'Pass power through a transformer')] },
   // ---- P4d: generators, electric tools, scanning, the mining rig ----
-  { id: 'l_combustion', chapter: 'LV', title: 'Combustion Generator', req: ['l_cables'], reward: L2,
+  { id: 'l_combustion', chapter: 'power', tier: 'LV', title: 'Combustion Generator', req: ['l_motor'], reward: L2,
     text: [
       'The **Combustion Generator** (LV hull + motor + 2 pistons + steel pipe + 2 tin cables) burns liquid fuel for up to **32 W**: **creosote** from the coke oven (8 J/L — 4 L/s at full output) or **wood tar** from the charcoal pile (6 J/L). Pipe it in, or pour cells.',
       'Like the turbine it only burns what the cables draw. It smokes a little while running.',
     ],
-    tasks: [build('combustion_generator'), flag('combustion_generator', 'Make power from creosote')] },
-  { id: 'l_solar', chapter: 'LV', title: 'Selenium Sun', req: ['l_cables'], reward: L1,
+    tasks: [build('combustion_generator')] },
+  { id: 'l_solar', chapter: 'power', tier: 'LV', title: 'Selenium Sun', req: ['s_steel_hull'], reward: L1,
     text: [
       'Selenium was the first photovoltaic material: weak, but free. A **Selenium Solar Panel** (2 selenium ingots + 2 glass panes + 2 steel plates + tin cable) gives up to **8 W** in full sun, less in rain, nothing at night.',
       'Selenium comes as a byproduct of **chalcopyrite** ore processing.',
     ],
-    tasks: [build('solar_panel'), flag('solar_panel', 'Power a cable from the sun')] },
-  { id: 'l_wind', chapter: 'LV', title: 'Wind Turbine', req: ['l_cables'], reward: L1,
+    tasks: [build('solar_panel')] },
+  { id: 'l_wind', chapter: 'power', tier: 'LV', title: 'Wind Turbine', req: ['l_motor'], reward: L1,
     text: [
       'The **Wind Turbine** (LV hull + motor + 2 steel rotors + 4 steel rods) follows the weather: up to **32 W** in a gale. Height matters — on the ground it gets 30 %, and it reaches full strength **12 blocks up** (storey 4). Build a tower.',
     ],
-    tasks: [build('wind_turbine'), flag('wind_turbine', 'Catch the wind')] },
-  { id: 'l_water_turbine', chapter: 'LV', title: 'Water Turbine', req: ['l_cables'], reward: L1,
+    tasks: [build('wind_turbine')] },
+  { id: 'l_water_turbine', chapter: 'power', tier: 'LV', title: 'Water Turbine', req: ['l_motor'], reward: L1,
     text: [
       'The **Water Turbine** (LV hull + motor + 2 steel rotors) sits beside moving water: next to a **river** it makes 24 W (more in rain), next to a **lake** about a third of that. The sea doesn\'t turn it.',
     ],
-    tasks: [build('water_turbine'), flag('water_turbine', 'Turn a river into power')] },
-  { id: 'l_etools', chapter: 'LV', title: 'Electric Tools', req: ['l_battery_buffer'], reward: L2,
+    tasks: [build('water_turbine')] },
+  { id: 'l_etools', chapter: 'mining', tier: 'LV', title: 'Electric Tools', req: ['l_battery_buffer'], reward: L2,
     text: [
       'The **Electric Drill** (steel drill head) digs rock and soil, the **Electric Chainsaw** (steel saw blade) fells trees — twice as fast as steel hand tools, 200 J per block. Each is a motor, a basic circuit, 2 steel plates and an empty battery (screwdriver, wrench).',
       'When its battery runs flat it swaps in a **charged battery** from your bag and hands back the empty one. Charge batteries in a battery buffer, take them out charged. A flat tool with no charged battery to swap is skipped for your hand tools.',
     ],
     tasks: [any(['tool:drill:steel', 'tool:chainsaw:steel'], 1, 'An electric drill or chainsaw'), flag('etool', 'Use an electric tool')] },
-  { id: 'l_scanner', chapter: 'LV', title: 'Handheld Scanner', req: ['l_etools'], reward: L2,
+  { id: 'l_scanner', chapter: 'mining', tier: 'LV', title: 'Handheld Scanner', req: ['l_etools'], reward: L2,
     text: [
       'The **Handheld Scanner** (copper coil, glass lens, 2 basic circuits) replaces the prospector\'s hammer in **🔍 prospect** mode: it surveys every vein within **32 tiles** down to **layer 16**, for 4 kJ of battery each time.',
     ],
     tasks: [have('tool:scanner:steel'), flag('escan', 'Scan for veins')] },
-  { id: 'l_scanner_block', chapter: 'LV', title: 'Scanner', req: ['l_scanner'], reward: L2,
+  { id: 'l_scanner_block', chapter: 'mining', tier: 'LV', title: 'Scanner', req: ['l_scanner'], reward: L2,
     text: [
       'The **Scanner** block (LV machine template + 8 copper wire + glass lens) listens for 30 s on 32 W, then surveys every vein within **64 tiles**, at **every depth** — the abyssal slot and the seabed included. Once per spot, like the thumper.',
     ],
     tasks: [build('scanner'), flag('scan', 'Finish a scanner survey')] },
-  { id: 'l_mining_rig', chapter: 'LV', title: 'Mining Rig', req: ['l_scanner_block', 's_excavator'], reward: L2,
+  { id: 'l_mining_rig', chapter: 'mining', tier: 'LV', title: 'Mining Rig', req: ['l_scanner_block', 's_excavator'], reward: L2,
     text: [
       'The **Mining Rig** (LV machine template + 2 motors + steel drill head + steel pipe) is the electric excavator: ore in the **13×13** square below it, from layer 1 down to **layer 24**, hardness ≤ **2**, 1 s per block × (1 + hardness), on 32 W. Nothing under water.',
     ],
@@ -583,14 +590,14 @@ export const QUESTS: QuestDef[] = [
       'The EBF alone needs 3 circuits, and every LV machine 2 more. Pipe the parts in and let it run.',
     ],
     tasks: [flag('acirc', 'Assemble basic circuits'), have('circuit:basic', 8)] },
-  { id: 'l_hazards', chapter: 'LV', title: 'Contamination', req: ['l_acid'], reward: L1,
+  { id: 'l_hazards', chapter: 'chem', tier: 'LV', title: 'Contamination', req: ['l_acid'], reward: L1,
     text: [
       'Chemistry leaves a mark. A corroded pipe, or **dumping** 100 L or more of a toxic or corrosive fluid, **contaminates** the ground under it (sickly green): nothing can be built there until it is neutralised.',
       'In **💥 Demolition** mode, tap a bare contaminated tile with **quicklime dust** in your bag (lime kiln: calcite) — 1 dust per tile.',
       '**Fire:** an explosion or a burned-out cable ignites flammable fluid next to it — hydrogen, creosote, wood tar — and every pipe and tank of it in reach burns too. Keep fuel lines away from boilers and cables.',
     ],
     tasks: [flag('clean', 'Neutralise a contaminated tile')] },
-  { id: 'l_ebf', chapter: 'LV', title: 'Electric Blast Furnace', req: ['l_assembly', 'l_transformer'], reward: L2,
+  { id: 'l_ebf', chapter: 'LV', title: 'Electric Blast Furnace', req: ['l_assembly'], reward: L2,
     text: [
       'The **gate to MV.** The **Electric Blast Furnace** controller (LV hull + 2 electric furnaces + 3 circuits) stands at the front of a 3×3, 4-block stack: a floor and roof of **Heat-Proof Casing** (6 steel plates + steel frame) around two rings of **Cupronickel Coils** (8 cupronickel wire + foil) — 2000 K.',
       'It takes power only through **LV Energy Hatches** (LV hull + 2 tin cables) and needs a **Maintenance Hatch**; buses and fluid hatches carry items and fluids. Hatches replace casings on the floor or roof, never coils.',
@@ -610,3 +617,7 @@ export const QUESTS: QuestDef[] = [
     tasks: [flag('ebf', 'Smelt in the EBF'), flag('ebf_mv', 'Run a 128 W recipe on two energy hatches')] },
 ];
 export const QUEST = new Map(QUESTS.map((q) => [q.id, q]));
+/** Every quest id a quest's requirements mention (any-of groups flattened). */
+export const reqIds = (q: QuestDef) => q.req.flat();
+/** A quest's tier: topic quests carry one, tier chapters are their tier. */
+export const tierOf = (q: QuestDef): TierId => q.tier ?? (q.chapter as TierId);

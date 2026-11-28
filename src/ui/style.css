@@ -127,6 +127,10 @@ button.on { border-color: var(--acc); color: var(--acc); }
 .qnode.done { border-color: var(--acc); box-shadow: 0 0 8px var(--acc); }
 .qnode.claimed { border-color: #40a050; background: #23302a; }
 .qnode.sel { outline: 2px solid #fff; }
+.qedge.any { stroke-dasharray: 4 3; }
+.qband { position: absolute; top: 2px; font-size: 11px; color: var(--acc); text-transform: uppercase; letter-spacing: 0.05em; }
+.quests .tabs { flex-wrap: wrap; }
+.quests .tabsep { width: 1px; align-self: stretch; background: var(--line); margin: 0 4px; }
 .qinfo { overflow: auto; flex: 1 1 45%; padding: 8px 12px; }
 .qinfo h3 { margin: 8px 0 4px; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--dim); }
 .qtask { gap: 8px; margin: 2px 0; }

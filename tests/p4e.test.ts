@@ -171,3 +171,18 @@ describe('P4e gate', () => {
     expect(m.haz).toEqual({});
   });
 });
+
+describe('Quest book chapters', () => {
+  it('the tier path needs any one generator; topic chapters hold the alternatives', async () => {
+    const { QUEST } = await import('../src/data/quests');
+    const { unlocked } = await import('../src/sim/quests');
+    const wire = QUEST.get('l_cables')!;
+    expect(unlocked(wire, { l_circuit: 2 })).toBe(false);
+    for (const g of ['l_turbine', 'l_combustion', 'l_solar', 'l_wind', 'l_water_turbine']) {
+      expect(QUEST.get(g)!.chapter).toBe('power');
+      expect(unlocked(wire, { l_circuit: 2, [g]: 2 })).toBe(true);
+    }
+    expect(QUEST.get('l_ebf')!.chapter).toBe('LV');
+    expect(QUEST.get('s_thumper')!.tier).toBe('S');
+  });
+});

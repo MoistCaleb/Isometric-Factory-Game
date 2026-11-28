@@ -481,6 +481,8 @@ Placeable items are `struct:<id>` (table + voxel models + hand-craft costs in `s
 ---
 
 ## 11f. Quest book outline (chapters → key milestones)
+
+Tier chapters below are the main path. Topic chapters (DESIGN §8): **⚡ Power** — s_solar; LV generators l_turbine / l_combustion / l_solar / l_wind / l_water_turbine (any one unlocks LV **Live Wire**), grid l_fuse / l_breaker / l_transformer / l_battery / l_battery_buffer · **⛏ Mining** — s_thumper, s_excavator, l_etools, l_scanner, l_scanner_block, l_mining_rig · **⚗ Chemistry** — l_cells … l_acid, l_hazards · **🔧 Logistics** — s_items, s_barrel, s_pump · **🚀 Space Race** — later.
 1. **Primitive** (implemented, `src/data/quests.ts`, 34 quests). Tutorial branch first: overseer (pan/zoom) → loot crates, camera (rotate, levels), maps, time/pause/saves; then hands (gather, pockets, recipe book), then:
    - gather flint/sticks/fiber
    - flint tools

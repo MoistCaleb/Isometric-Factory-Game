@@ -7,7 +7,7 @@ import { MATERIALS } from '../data/materials';
 import { MINERALS } from '../data/minerals';
 import { WORLD_FLUIDS, WORLD_ITEMS } from '../data/misc';
 import { CRATE_TIERS, crateId, LOOT } from '../data/loot';
-import { QUEST, QUESTS, SIM_FLAGS, UI_FLAGS } from '../data/quests';
+import { QUEST, QUESTS, SIM_FLAGS, UI_FLAGS, reqIds } from '../data/quests';
 import { STRUCTURES } from '../data/structures';
 import { TIERS } from '../data/tiers';
 import { BIOMES, VEINS } from '../data/veins';
@@ -101,7 +101,9 @@ export function validate(reg: Registry): Report {
   const structs = new Set(STRUCTURES.map((x) => x.id));
   dupes('quest', QUESTS.map((q) => q.id));
   for (const q of QUESTS) {
-    for (const r of q.req) if (!QUEST.has(r)) err(`quest ${q.id}: unknown req ${r}`);
+    for (const r of reqIds(q)) if (!QUEST.has(r)) err(`quest ${q.id}: unknown req ${r}`);
+    for (const r of q.req) if (Array.isArray(r) && r.length < 2) err(`quest ${q.id}: any-of group needs 2+ quests`);
+    if (!q.tier !== TIERS.includes(q.chapter as never)) err(`quest ${q.id}: topic quests need a tier, tier quests none`);
     for (const t of q.tasks) {
       if (t.k === 'build') { if (!structs.has(t.id)) err(`quest ${q.id}: unknown structure ${t.id}`); else if (!reach.has(`struct:${t.id}`)) err(`quest ${q.id}: struct:${t.id} unobtainable`); }
       else if (t.k === 'flag') { if (![...UI_FLAGS, ...SIM_FLAGS].includes(t.id as never)) err(`quest ${q.id}: unknown flag ${t.id}`); }
@@ -115,7 +117,7 @@ export function validate(reg: Registry): Report {
     if (depth.has(id)) return depth.get(id)!;
     if (seen.has(id)) { err(`quest cycle at ${id}`); return 0; }
     seen.add(id);
-    const v = 1 + Math.max(-1, ...(QUEST.get(id)?.req ?? []).map(d));
+    const v = 1 + Math.max(-1, ...(QUEST.has(id) ? reqIds(QUEST.get(id)!) : []).map(d));
     depth.set(id, v);
     return v;
   };

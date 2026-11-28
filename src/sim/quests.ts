@@ -28,7 +28,7 @@ export type QView = Inv & { flags: Record<string, number> };
 export const taskProgress = (t: QuestTask, s: QView, built: Record<string, number>): [number, number] =>
   t.k === 'flag' ? [s.flags[t.id] ? 1 : 0, 1] : [t.k === 'build' ? built[t.id] ?? 0 : t.ids.reduce((a, id) => a + held(s, id), 0), t.n];
 
-export const unlocked = (q: QuestDef, done: Record<string, number>) => q.req.every((r) => !!done[r]);
+export const unlocked = (q: QuestDef, done: Record<string, number>) => q.req.every((r) => (typeof r === 'string' ? !!done[r] : r.some((x) => !!done[x])));
 const complete = (q: QuestDef, inv: QView, built: Record<string, number>) => q.tasks.every((t) => { const [a, b] = taskProgress(t, inv, built); return a >= b; });
 
 /** Marks newly completed quests; returns their ids. Chains resolve in one pass (order = definition order). */
